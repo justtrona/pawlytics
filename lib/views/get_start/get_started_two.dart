@@ -1,0 +1,93 @@
+import 'package:flutter/material.dart';
+import 'package:pawlytics/widgets/buildImageCard.dart'; // Import the separate file
+
+class GetStartedPageTwo extends StatelessWidget {
+  const GetStartedPageTwo({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        centerTitle: true,
+        title: SizedBox(
+          height: 60,
+          width: 60,
+          child: Image.asset(
+            'assets/images/small_logo.png',
+            fit: BoxFit.contain,
+          ),
+        ),
+      ),
+      backgroundColor: Colors.white,
+      body: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              height: 400,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Padding(
+                  padding: const EdgeInsets.only(left: 10),
+                  child: Row(
+                    children: const [
+                      ImageCard(path: 'assets/images/dogs/dog5.jpg'),
+                      ImageCard(path: 'assets/images/dogs/dog2.jpg'),
+                      ImageCard(path: 'assets/images/dogs/pic1.jpg'),
+                      ImageCard(path: 'assets/images/dogs/dog3.jpg'),
+                      ImageCard(path: 'assets/images/dogs/dog2.jpg'),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
+            spacing(),
+            Container(
+              width: 350,
+              padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 20),
+              decoration: BoxDecoration(
+                color: const Color(0xff27374d).withOpacity(0.05),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  Text(
+                    'Hope begins with you.',
+                    style: TextStyle(
+                      fontSize: 26,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black,
+                    ),
+                  ),
+                  SizedBox(height: 10),
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Through your donations, neglected animals receive care, compassion, and the chance to be adopted.',
+                          style: TextStyle(fontSize: 18, color: Colors.black),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Icon(
+                        Icons.arrow_circle_right_outlined,
+                        color: Color(0xff27374d),
+                        size: 50,
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  SizedBox spacing() => const SizedBox(height: 20);
+}

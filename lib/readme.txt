@@ -1,0 +1,3 @@
+-- add paging for every get started, do add function like "dot()"
+-- color text -- color: Colors.blueGrey[900]
+-- add error handling
