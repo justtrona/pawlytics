@@ -1,6 +1,6 @@
 # pawlytics
 
-A new Flutter project.
+For My Capstone
 
 ## Getting Started
 
