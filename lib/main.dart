@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/get_start/get_started.dart';
 
-import 'package:pawlytics/views/get_start/sign_up.dart';
-
 void main() {
   runApp(const MyApp());
 }
