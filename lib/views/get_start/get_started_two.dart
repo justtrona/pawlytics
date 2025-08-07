@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pawlytics/widgets/buildImageCard.dart'; // Import the separate file
+import 'package:pawlytics/widgets/buildImageCard.dart';
+import 'package:pawlytics/views/get_start/login_page.dart';
 
 class GetStartedPageTwo extends StatelessWidget {
   const GetStartedPageTwo({super.key});
@@ -18,6 +19,27 @@ class GetStartedPageTwo extends StatelessWidget {
             fit: BoxFit.contain,
           ),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: TextButton(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const LoginPage()),
+                );
+              },
+              child: const Text(
+                'Login',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xff27374d), // or Colors.black
+                ),
+              ),
+            ),
+          ),
+        ],
       ),
       backgroundColor: Colors.white,
       body: Center(
