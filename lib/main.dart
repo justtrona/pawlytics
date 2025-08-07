@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:pawlytics/views/get_start/get_started.dart';
+import 'package:pawlytics/views/get_start/login_page.dart';
 
 void main() {
   runApp(const MyApp());
@@ -13,7 +13,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pawlytics',
       debugShowCheckedModeBanner: false,
-      home: const GetStartedPage(),
+      home: const LoginPage(),
     );
   }
 }
