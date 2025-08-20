@@ -22,9 +22,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Pawlytics',
       debugShowCheckedModeBanner: false,
-      home: const LoginPage(),
       onGenerateRoute: route.controller,
-      initialRoute: route.landing,
+      initialRoute: route.signup,
     );
   }
 }

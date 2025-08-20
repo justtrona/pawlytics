@@ -1,7 +1,24 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/auth/auth_service.dart';
+import 'package:pawlytics/controller/registration-controller.dart';
 
-class SignUp extends StatelessWidget {
+class SignUp extends StatefulWidget {
   const SignUp({super.key});
+
+  @override
+  State<SignUp> createState() => _SignUpState();
+}
+
+class _SignUpState extends State<SignUp> {
+  final RegistrationCcontroller registrationCcontroller =
+      RegistrationCcontroller();
+  final AuthService authService = AuthService();
+
+  @override
+  void dispose() {
+    registrationCcontroller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +68,8 @@ class SignUp extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      TextField(
+                      TextFormField(
+                        controller: registrationCcontroller.fullNameController,
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.person),
                           labelText: 'Full Name',
@@ -61,7 +79,9 @@ class SignUp extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      TextField(
+                      TextFormField(
+                        controller:
+                            registrationCcontroller.phoneNumberController,
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.phone),
                           labelText: 'Phone Number',
@@ -71,7 +91,8 @@ class SignUp extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      TextField(
+                      TextFormField(
+                        controller: registrationCcontroller.emailController,
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.email),
                           labelText: 'Email Address',
@@ -81,7 +102,8 @@ class SignUp extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      TextField(
+                      TextFormField(
+                        controller: registrationCcontroller.passwordController,
                         obscureText: true,
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.lock),
@@ -96,7 +118,9 @@ class SignUp extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 20),
-                      TextField(
+                      TextFormField(
+                        controller:
+                            registrationCcontroller.confirmpasswordController,
                         obscureText: true,
                         decoration: InputDecoration(
                           suffixIcon: IconButton(

@@ -5,8 +5,8 @@ import 'package:pawlytics/route/route.dart' as route;
 
 class RegistrationCcontroller {
   final formKey = GlobalKey<FormState>();
-  final firstnameController = TextEditingController();
-  final lastnameController = TextEditingController();
+  final fullNameController = TextEditingController();
+  final phoneNumberController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmpasswordController = TextEditingController();
@@ -18,8 +18,7 @@ class RegistrationCcontroller {
   Future<void> performRegistration(BuildContext context) async {
     if (formKey.currentState!.validate()) {
       try {
-        final fullName =
-            "${firstnameController.text.trim()} ${lastnameController.text.trim()}";
+        final fullName = "${fullNameController.text.trim()}";
 
         final AuthResponse respone = await authService
             .signUpWithEmailAndPassword(
@@ -60,6 +59,21 @@ class RegistrationCcontroller {
     return null;
   }
 
+  String? validatePhoneNumber(String? value) {
+    if (value == null || value.isEmpty) {
+      return 'Phone Number is required.';
+    }
+    if (value.length > 13) {
+      return 'Phone Number must be less than 13';
+    }
+    if (!RegExp(
+      r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+    ).hasMatch(value)) {
+      return 'Enter a valid email address.';
+    }
+    return null;
+  }
+
   String? validatePassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Password is required.';
@@ -81,8 +95,8 @@ class RegistrationCcontroller {
   }
 
   void dispose() {
-    firstnameController.dispose();
-    lastnameController.dispose();
+    // firstnameController.dispose();
+    // lastnameController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmpasswordController.dispose();
