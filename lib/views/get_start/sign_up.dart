@@ -27,6 +27,7 @@ class SignUp extends StatelessWidget {
 
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
+        padding: const EdgeInsets.all(50),
         child: Column(
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
