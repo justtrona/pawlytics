@@ -49,9 +49,7 @@ class LoginPage extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(
-                        height: 20,
-                      ), // spacing between email and password field
+                      const SizedBox(height: 20),
                       TextField(
                         obscureText: true,
                         decoration: InputDecoration(
@@ -80,9 +78,7 @@ class LoginPage extends StatelessWidget {
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
                   ),
-                  minimumSize: const Size.fromHeight(
-                    50,
-                  ), // full width with fixed height
+                  minimumSize: const Size.fromHeight(50),
                 ),
                 child: const Text(
                   'SIGN IN',

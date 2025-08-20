@@ -34,7 +34,7 @@ class GetStartedPage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
-                  color: Color(0xff27374d), // or Colors.black
+                  color: Color(0xff27374d), // Colors.black
                 ),
               ),
             ),

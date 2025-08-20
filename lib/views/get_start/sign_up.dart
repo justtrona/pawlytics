@@ -12,7 +12,7 @@ class SignUp extends StatelessWidget {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context); // Navigates back
+            Navigator.pop(context);
           },
         ),
         title: SizedBox(
@@ -59,7 +59,7 @@ class SignUp extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20), // spacing
+                      const SizedBox(height: 20),
                       TextField(
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.phone),
@@ -69,7 +69,7 @@ class SignUp extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20), // spacing
+                      const SizedBox(height: 20),
                       TextField(
                         decoration: InputDecoration(
                           prefixIcon: Icon(Icons.email),
@@ -79,9 +79,7 @@ class SignUp extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(
-                        height: 20,
-                      ), // spacing between email and password field
+                      const SizedBox(height: 20),
                       TextField(
                         obscureText: true,
                         decoration: InputDecoration(
@@ -96,9 +94,7 @@ class SignUp extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(
-                        height: 20,
-                      ), // spacing between email and password field
+                      const SizedBox(height: 20),
                       TextField(
                         obscureText: true,
                         decoration: InputDecoration(
@@ -128,9 +124,7 @@ class SignUp extends StatelessWidget {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(20),
                       ),
-                      minimumSize: const Size.fromHeight(
-                        50,
-                      ), // full width with fixed height
+                      minimumSize: const Size.fromHeight(50),
                     ),
                     child: const Text(
                       'SIGN UP',

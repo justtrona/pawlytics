@@ -9,7 +9,7 @@ class ColoredContainer extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       height: 200, // Height of the colored container
-      width: 200, // Add this
+      width: 200,
       margin: const EdgeInsets.only(left: 16),
       decoration: BoxDecoration(
         color: color,
