@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,6 +23,8 @@ class MyApp extends StatelessWidget {
       title: 'Pawlytics',
       debugShowCheckedModeBanner: false,
       home: const LoginPage(),
+      onGenerateRoute: route.controller,
+      initialRoute: route.landing,
     );
   }
 }
