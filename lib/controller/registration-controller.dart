@@ -15,6 +15,10 @@ class RegistrationCcontroller {
 
   final authService = AuthService();
 
+  void togglePasswordVisibility(VoidCallback updateState) {
+    updateState();
+  }
+
   Future<void> performRegistration(BuildContext context) async {
     if (formKey.currentState!.validate()) {
       try {
@@ -66,11 +70,6 @@ class RegistrationCcontroller {
     if (value.length > 13) {
       return 'Phone Number must be less than 13';
     }
-    if (!RegExp(
-      r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
-    ).hasMatch(value)) {
-      return 'Enter a valid email address.';
-    }
     return null;
   }
 
@@ -84,7 +83,7 @@ class RegistrationCcontroller {
     return null;
   }
 
-  String? validatedConfirmPasswor(String? value) {
+  String? validatedConfirmPassword(String? value) {
     if (value == null || value.isEmpty) {
       return 'Confirm Password is required.';
     }
@@ -97,6 +96,7 @@ class RegistrationCcontroller {
   void dispose() {
     // firstnameController.dispose();
     // lastnameController.dispose();
+    phoneNumberController.dispose();
     emailController.dispose();
     passwordController.dispose();
     confirmpasswordController.dispose();
