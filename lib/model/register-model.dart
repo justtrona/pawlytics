@@ -3,7 +3,7 @@ class RegisterModel {
   final String fullName;
   final String email;
   final String password;
-  final int phoneNumber;
+  final String phoneNumber;
   final DateTime createdAt;
 
   RegisterModel({
@@ -18,7 +18,7 @@ class RegisterModel {
   factory RegisterModel.fromMap(Map<String, dynamic> map) {
     return RegisterModel(
       id: map['id'],
-      fullName: map['fullName'],
+      fullName: map['fullName'], // <-- fix here
       email: map['email'],
       password: map['password'],
       phoneNumber: map['phone_number'],

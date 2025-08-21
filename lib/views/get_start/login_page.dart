@@ -1,7 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/controller/login-controller.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  State<LoginPage> createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final LoginController _controller = LoginController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -35,32 +50,54 @@ class LoginPage extends StatelessWidget {
                   'Welcome back, hero of hope.',
                   style: TextStyle(fontSize: 16, color: Colors.blueGrey[700]),
                 ),
+
+                // 🔹 Form starts here
                 Padding(
                   padding: const EdgeInsets.all(35.0),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      TextField(
-                        decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.email),
-                          labelText: 'Email',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(20)),
+                  child: Form(
+                    key: _controller.formKey,
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextFormField(
+                          controller: _controller.emailController,
+                          keyboardType: TextInputType.emailAddress,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.email),
+                            labelText: 'Email',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
                           ),
+                          validator: _controller.validateEmail,
                         ),
-                      ),
-                      const SizedBox(height: 20),
-                      TextField(
-                        obscureText: true,
-                        decoration: InputDecoration(
-                          prefixIcon: Icon(Icons.lock),
-                          labelText: 'Password',
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.all(Radius.circular(20)),
+                        const SizedBox(height: 20),
+                        TextFormField(
+                          controller: _controller.passwordController,
+                          obscureText: _controller.isHidden,
+                          decoration: InputDecoration(
+                            prefixIcon: const Icon(Icons.lock),
+                            labelText: 'Password',
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            suffixIcon: IconButton(
+                              icon: Icon(
+                                _controller.isHidden
+                                    ? Icons.visibility_off
+                                    : Icons.visibility,
+                              ),
+                              onPressed: () {
+                                setState(() {
+                                  _controller.isHidden = !_controller.isHidden;
+                                });
+                              },
+                            ),
                           ),
+                          validator: _controller.validatePassword,
                         ),
-                      ),
-                    ],
+                      ],
+                    ),
                   ),
                 ),
               ],
@@ -69,9 +106,7 @@ class LoginPage extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 35.0),
               child: ElevatedButton(
-                onPressed: () {
-                  // Add logic here
-                },
+                onPressed: () => _controller.performLogin(context),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xff27374d),
                   padding: const EdgeInsets.symmetric(vertical: 14),
@@ -90,17 +125,13 @@ class LoginPage extends StatelessWidget {
                 ),
               ),
             ),
-            SizedBox(height: 12),
+            const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
+              children: const [
                 Text(
                   'Don\'t have an account?',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black,
-                    fontWeight: FontWeight.normal,
-                  ),
+                  style: TextStyle(fontSize: 15, color: Colors.black),
                 ),
                 Text(
                   ' Sign Up',
@@ -118,5 +149,5 @@ class LoginPage extends StatelessWidget {
     );
   }
 
-  SizedBox spacing() => SizedBox(height: 5);
+  SizedBox spacing() => const SizedBox(height: 5);
 }

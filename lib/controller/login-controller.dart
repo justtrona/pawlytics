@@ -1,47 +1,31 @@
-import 'package:pawlytics/auth/auth_service.dart';
-import 'package:pawlytics/model/register-model.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:pawlytics/auth/auth_service.dart';
 import 'package:pawlytics/route/route.dart' as route;
 
-class RegistrationCcontroller {
+class LoginController {
   final formKey = GlobalKey<FormState>();
 
-  final fullNameController = TextEditingController();
-  final phoneNumberController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
-  final confirmpasswordController = TextEditingController();
 
-  bool isHidden = true;
-  bool isHiddenConfirm = true;
-
+  bool isHidden = true; // for password visibility toggle
   final authService = AuthService();
 
   void togglePasswordVisibility(VoidCallback updateState) {
     updateState();
   }
 
-  Future<void> performRegistration(BuildContext context) async {
+  Future<void> performLogin(BuildContext context) async {
     if (!formKey.currentState!.validate()) return;
 
     try {
-      final fullName = fullNameController.text.trim();
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
-      final phoneNumber = phoneNumberController.text.trim();
 
-      // ✅ Create model
-      final registerModel = RegisterModel(
-        fullName: fullName,
-        email: email,
-        password: password,
-        phoneNumber: phoneNumber,
-      );
-
-      // ✅ Call AuthService with model
+      // ✅ Call AuthService
       final AuthResponse response = await authService
-          .signUpWithEmailAndPassword(registerModel);
+          .signInWithEmailAndPassword(email, password);
 
       if (response.user != null) {
         final user = response.user!;
@@ -50,27 +34,26 @@ class RegistrationCcontroller {
           // ✅ Case 1: Email not yet confirmed
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text(
-                "Account created! Please check your email to confirm before logging in.",
-              ),
+              content: Text("Please confirm your email before logging in."),
               backgroundColor: Colors.orange,
             ),
           );
         } else {
-          // ✅ Case 2: Email already confirmed
+          // ✅ Case 2: Email confirmed
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text("Account confirmed! You can now log in."),
+              content: Text("Login successful!"),
               backgroundColor: Colors.green,
             ),
           );
 
-          Navigator.pushReplacementNamed(context, route.login);
+          // 🔹 Example: Navigate to Admin Dashboard
+          Navigator.pushReplacementNamed(context, route.adminDashboard);
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text("Signup failed. Please try again."),
+            content: Text("Login failed. Please check your credentials."),
             backgroundColor: Colors.red,
           ),
         );
@@ -84,13 +67,6 @@ class RegistrationCcontroller {
 
   // ================= VALIDATORS =================
 
-  String? validateField(String? value, String fieldName) {
-    if (value == null || value.isEmpty) {
-      return '$fieldName is required.';
-    }
-    return null;
-  }
-
   String? validateEmail(String? value) {
     if (value == null || value.isEmpty) {
       return 'Email Address is required.';
@@ -99,16 +75,6 @@ class RegistrationCcontroller {
       r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
     ).hasMatch(value)) {
       return 'Enter a valid email address.';
-    }
-    return null;
-  }
-
-  String? validatePhoneNumber(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Phone Number is required.';
-    }
-    if (value.length > 13) {
-      return 'Phone Number must be less than 13 digits';
     }
     return null;
   }
@@ -123,22 +89,9 @@ class RegistrationCcontroller {
     return null;
   }
 
-  String? validatedConfirmPassword(String? value) {
-    if (value == null || value.isEmpty) {
-      return 'Confirm Password is required.';
-    }
-    if (value != passwordController.text) {
-      return 'Passwords do not match.';
-    }
-    return null;
-  }
-
   // ================= CLEANUP =================
   void dispose() {
-    fullNameController.dispose();
-    phoneNumberController.dispose();
     emailController.dispose();
     passwordController.dispose();
-    confirmpasswordController.dispose();
   }
 }
