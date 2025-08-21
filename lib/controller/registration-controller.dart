@@ -5,11 +5,13 @@ import 'package:pawlytics/route/route.dart' as route;
 
 class RegistrationCcontroller {
   final formKey = GlobalKey<FormState>();
+
   final fullNameController = TextEditingController();
   final phoneNumberController = TextEditingController();
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
   final confirmpasswordController = TextEditingController();
+
   bool isHidden = true;
   bool isHiddenConfirm = true;
 
@@ -20,33 +22,56 @@ class RegistrationCcontroller {
   }
 
   Future<void> performRegistration(BuildContext context) async {
-    if (formKey.currentState!.validate()) {
-      try {
-        final fullName = "${fullNameController.text.trim()}";
+    if (!formKey.currentState!.validate()) return;
 
-        final AuthResponse respone = await authService
-            .signUpWithEmailAndPassword(
-              emailController.text.trim(),
-              passwordController.text.trim(),
-              fullName,
-            );
+    try {
+      final fullName = fullNameController.text.trim();
+      final email = emailController.text.trim();
+      final password = passwordController.text.trim();
 
-        if (respone.user != null) {
-          Navigator.pushNamed(context, route.login);
+      final AuthResponse response = await authService
+          .signUpWithEmailAndPassword(email, password, fullName);
+
+      if (response.user != null) {
+        if (response.session != null) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text(
+                "Account created successfully! You can now log in.",
+              ),
+              backgroundColor: Colors.green,
+            ),
+          );
+
+          Navigator.pushReplacementNamed(context, route.login);
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text("Check your email to confirm your account."),
+              backgroundColor: Colors.orange,
+            ),
+          );
         }
-      } catch (error) {
+      } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Registration failed. Try Again!')),
+          const SnackBar(
+            content: Text("Signup failed. Please try again."),
+            backgroundColor: Colors.red,
+          ),
         );
       }
+    } catch (error) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $error"), backgroundColor: Colors.red),
+      );
     }
   }
 
-  // validators
+  // ================= VALIDATORS =================
 
   String? validateField(String? value, String fieldName) {
     if (value == null || value.isEmpty) {
-      return '$fieldName is required. ';
+      return '$fieldName is required.';
     }
     return null;
   }
@@ -56,7 +81,7 @@ class RegistrationCcontroller {
       return 'Email Address is required.';
     }
     if (!RegExp(
-      r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}",
+      r"^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$",
     ).hasMatch(value)) {
       return 'Enter a valid email address.';
     }
@@ -68,7 +93,7 @@ class RegistrationCcontroller {
       return 'Phone Number is required.';
     }
     if (value.length > 13) {
-      return 'Phone Number must be less than 13';
+      return 'Phone Number must be less than 13 digits';
     }
     return null;
   }
@@ -88,14 +113,14 @@ class RegistrationCcontroller {
       return 'Confirm Password is required.';
     }
     if (value != passwordController.text) {
-      return 'Password do not match.';
+      return 'Passwords do not match.';
     }
     return null;
   }
 
+  // ================= CLEANUP =================
   void dispose() {
-    // firstnameController.dispose();
-    // lastnameController.dispose();
+    fullNameController.dispose();
     phoneNumberController.dispose();
     emailController.dispose();
     passwordController.dispose();
