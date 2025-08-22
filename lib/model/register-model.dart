@@ -18,7 +18,7 @@ class RegisterModel {
   factory RegisterModel.fromMap(Map<String, dynamic> map) {
     return RegisterModel(
       id: map['id'],
-      fullName: map['fullName'], // <-- fix here
+      fullName: map['fullName'], 
       email: map['email'],
       password: map['password'],
       phoneNumber: map['phone_number'],
