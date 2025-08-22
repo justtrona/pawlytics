@@ -4,7 +4,7 @@ import 'package:pawlytics/model/register-model.dart';
 class AuthService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  /// 🔹 Sign in existing user
+
   Future<AuthResponse> signInWithEmailAndPassword(
     String email,
     String password,
@@ -15,7 +15,6 @@ class AuthService {
     );
   }
 
-  /// 🔹 Sign up new user + store in `users` table
   Future<AuthResponse> signUpWithEmailAndPassword(
     RegisterModel userModel,
   ) async {
@@ -33,7 +32,6 @@ class AuthService {
       throw Exception("Signup failed: User not created.");
     }
 
-    // Insert into your custom `users` table
     await _supabase.from('registration').insert({
       'id': user.id, // same as Supabase Auth user ID
       'fullName': userModel.fullName,
@@ -45,12 +43,10 @@ class AuthService {
     return response;
   }
 
-  /// 🔹 Sign out
   Future<void> signOut() async {
     return await _supabase.auth.signOut();
   }
 
-  /// 🔹 Update user metadata (in `auth.users` + optional in custom table)
   Future<void> updateUserName(String fullName) async {
     await _supabase.auth.updateUser(
       UserAttributes(data: {'fullName': fullName}),
@@ -65,7 +61,6 @@ class AuthService {
     }
   }
 
-  /// 🔹 Get full user info from `users` table
   Future<RegisterModel?> getUserProfile(String userId) async {
     final data = await _supabase
         .from('registration')
@@ -76,7 +71,6 @@ class AuthService {
     if (data == null) return null;
     return RegisterModel.fromMap(data);
   }
-
-  /// 🔹 Get current logged-in user
+  
   User? get currentUser => _supabase.auth.currentUser;
 }
