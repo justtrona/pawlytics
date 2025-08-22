@@ -9,7 +9,7 @@ class LoginController {
   final emailController = TextEditingController();
   final passwordController = TextEditingController();
 
-  bool isHidden = true; // for password visibility toggle
+  bool isHidden = true; 
   final authService = AuthService();
 
   void togglePasswordVisibility(VoidCallback updateState) {
@@ -23,7 +23,6 @@ class LoginController {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
 
-      // ✅ Call AuthService
       final AuthResponse response = await authService
           .signInWithEmailAndPassword(email, password);
 
@@ -31,7 +30,7 @@ class LoginController {
         final user = response.user!;
 
         if (user.emailConfirmedAt == null) {
-          // ✅ Case 1: Email not yet confirmed
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Please confirm your email before logging in."),
@@ -39,7 +38,7 @@ class LoginController {
             ),
           );
         } else {
-          // ✅ Case 2: Email confirmed
+        
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Login successful!"),
@@ -47,7 +46,7 @@ class LoginController {
             ),
           );
 
-          // 🔹 Example: Navigate to Admin Dashboard
+        
           Navigator.pushReplacementNamed(context, route.adminDashboard);
         }
       } else {
