@@ -30,8 +30,7 @@ class RegistrationCcontroller {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
       final phoneNumber = phoneNumberController.text.trim();
-
-      // ✅ Create model
+      
       final registerModel = RegisterModel(
         fullName: fullName,
         email: email,
@@ -39,7 +38,6 @@ class RegistrationCcontroller {
         phoneNumber: phoneNumber,
       );
 
-      // ✅ Call AuthService with model
       final AuthResponse response = await authService
           .signUpWithEmailAndPassword(registerModel);
 
@@ -47,7 +45,6 @@ class RegistrationCcontroller {
         final user = response.user!;
 
         if (user.emailConfirmedAt == null) {
-          // ✅ Case 1: Email not yet confirmed
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text(
@@ -57,7 +54,6 @@ class RegistrationCcontroller {
             ),
           );
         } else {
-          // ✅ Case 2: Email already confirmed
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text("Account confirmed! You can now log in."),
