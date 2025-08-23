@@ -51,7 +51,6 @@ class _LoginPageState extends State<LoginPage> {
                   style: TextStyle(fontSize: 16, color: Colors.blueGrey[700]),
                 ),
 
-                // 🔹 Form starts here
                 Padding(
                   padding: const EdgeInsets.all(35.0),
                   child: Form(
