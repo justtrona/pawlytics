@@ -11,9 +11,11 @@ class AdminDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.only(bottom: 100),
+          // give extra bottom space so content doesn’t hide behind the nav bar
+          padding: const EdgeInsets.only(bottom: 90),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -23,8 +25,8 @@ class AdminDashboard extends StatelessWidget {
                 decoration: const BoxDecoration(
                   color: brandColor,
                   borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(40),
-                    bottomRight: Radius.circular(40),
+                    bottomLeft: Radius.circular(50),
+                    bottomRight: Radius.circular(50),
                   ),
                 ),
                 child: Column(
@@ -68,41 +70,59 @@ class AdminDashboard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 20),
-                    const Text(
-                      "Remaining Funds",
-                      style: TextStyle(fontSize: 14, color: Colors.white70),
-                    ),
-                    const Text(
-                      "PHP 1,500.00",
-                      style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                    const Center(
+                      child: Text(
+                        "Remaining Funds",
+                        style: TextStyle(fontSize: 14, color: Colors.white70),
                       ),
                     ),
-                    const SizedBox(height: 15),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: const [
-                        _KeyValueSmall(title: "Today", value: "PHP 100.00"),
-                        _KeyValueSmall(
-                          title: "This Month",
-                          value: "PHP 12,500.00",
+                    const Center(
+                      child: Text(
+                        "PHP 1,500.00",
+                        style: TextStyle(
+                          fontSize: 40,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                      ],
+                      ),
                     ),
-                    const SizedBox(height: 15),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.all(15.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: const [
+                          _KeyValueSmall(title: "Today", value: "PHP 100.00"),
+                          _KeyValueSmall(
+                            title: "This Month",
+                            value: "PHP 12,500.00",
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
                     Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: brandColor,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(20),
+                      child: SizedBox(
+                        width: 200,
+                        height: 50,
+                        child: ElevatedButton(
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Color(0xff27374d),
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                          ),
+                          onPressed: () {},
+                          child: const Text(
+                            "Manage Donations",
+                            style: TextStyle(
+                              fontSize: 17,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w600,
+                            ),
                           ),
                         ),
-                        onPressed: () {},
-                        child: const Text("Manage Donations"),
                       ),
                     ),
                   ],
@@ -202,51 +222,33 @@ class AdminDashboard extends StatelessWidget {
           ),
         ),
       ),
-
-      // 🔹 Bottom Navigation
-      bottomNavigationBar: BottomNavigationBar(
-        type: BottomNavigationBarType.fixed,
-        backgroundColor: brandColor,
-        selectedItemColor: Colors.white,
-        unselectedItemColor: Colors.white70,
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.dashboard),
-            label: "Dashboard",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.pets),
-            label: "Pet Profiles",
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.notifications),
-            label: "Notifications",
-          ),
-          BottomNavigationBarItem(icon: Icon(Icons.menu), label: "Menu"),
-        ],
-      ),
     );
   }
 }
 
-class _KeyValueSmall extends StatelessWidget {
+class _KeyValueSmall extends StatefulWidget {
   final String title;
   final String value;
   const _KeyValueSmall({required this.title, required this.value});
 
+  @override
+  State<_KeyValueSmall> createState() => _KeyValueSmallState();
+}
+
+class _KeyValueSmallState extends State<_KeyValueSmall> {
   @override
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          title,
-          style: const TextStyle(fontSize: 12, color: Colors.white70),
+          widget.title,
+          style: const TextStyle(fontSize: 15, color: Colors.white70),
         ),
         Text(
-          value,
+          widget.value,
           style: const TextStyle(
-            fontSize: 14,
+            fontSize: 15,
             fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
@@ -256,14 +258,12 @@ class _KeyValueSmall extends StatelessWidget {
   }
 }
 
-/// Item model for the list rows (left text + right value)
 class _Item {
   final String left;
   final String right;
   const _Item(this.left, this.right);
 }
 
-/// One card that contains a grey title header and a vertical list with dividers
 class _CardListSection extends StatelessWidget {
   final String title;
   final List<_Item> items;
@@ -281,13 +281,12 @@ class _CardListSection extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 6,
-            offset: const Offset(0, 3),
+            offset: Offset(0, 3),
           ),
         ],
       ),
       child: Column(
         children: [
-          // header inside the card
           Container(
             width: double.infinity,
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -305,7 +304,6 @@ class _CardListSection extends StatelessWidget {
               ),
             ),
           ),
-          // rows
           ...List.generate(items.length, (index) {
             final item = items[index];
             final isLast = index == items.length - 1;
