@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-// ===== Top-level constants (visible to all widgets in this file) =====
 const brand = Color(0xFF27374D);
 const sectionBg = Color(0xFFCFD6DE); // soft grey like the mock
 const itemBg = Color(0xFF8F9AA7); // darker grey buttons
@@ -38,7 +37,6 @@ class _menuBarState extends State<menuBar> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header (avatar + role + paw logo)
                   Padding(
                     padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
                     child: Row(
@@ -55,12 +53,12 @@ class _menuBarState extends State<menuBar> {
                           style: TextStyle(
                             color: textGrey,
                             fontWeight: FontWeight.w700,
-                            fontSize: 16, // was 18
+                            fontSize: 16,
                           ),
                         ),
                         const Spacer(),
                         Image.asset(
-                          'assets/images/small_logo.png', // paw icon in your assets
+                          'assets/images/small_logo.png',
                           width: 32, // was 36
                           height: 32,
                         ),
@@ -212,7 +210,7 @@ class _SectionTitle extends StatelessWidget {
       child: Text(
         text,
         style: const TextStyle(
-          fontSize: 12, // was 13
+          fontSize: 12,
           fontWeight: FontWeight.w700,
           color: Color(0xFF6D7884),
         ),
@@ -221,7 +219,6 @@ class _SectionTitle extends StatelessWidget {
   }
 }
 
-/// Grey rounded container that holds multiple menu items (responsive columns)
 class _SectionCard extends StatelessWidget {
   final List<_MenuItem> children;
   const _SectionCard({required this.children});
@@ -247,15 +244,13 @@ class _SectionCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: sectionBg,
+        color: Color(0xFF6D7884),
         borderRadius: BorderRadius.circular(14),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           final cols = _colsForWidth(constraints.maxWidth);
           const spacing = 10.0;
-
-          // Compute a precise childAspectRatio so each cell hits our target height
           final colWidth = (constraints.maxWidth - (cols - 1) * spacing) / cols;
           final itemHeight = _targetItemHeight(constraints.maxWidth);
           final ratio = colWidth / itemHeight; // width / height
@@ -275,7 +270,6 @@ class _SectionCard extends StatelessWidget {
   }
 }
 
-/// Individual rounded button (icon + label) used inside each section card
 class _MenuItem extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -296,7 +290,7 @@ class _MenuItem extends StatelessWidget {
     final s = _scale(w);
 
     return Material(
-      color: itemBg,
+      color: Color(0xFF6D7884),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),

@@ -27,6 +27,7 @@ class StatsGrid extends StatelessWidget {
   }
 }
 
+// methods napud below
 class _StatCard extends StatelessWidget {
   final IconData icon;
   final String title;

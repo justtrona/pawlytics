@@ -14,12 +14,10 @@ class AdminDashboard extends StatelessWidget {
 
       body: SafeArea(
         child: SingleChildScrollView(
-          // give extra bottom space so content doesn’t hide behind the nav bar
           padding: const EdgeInsets.only(bottom: 90),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              // 🔹 Top Balance Card
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
@@ -131,7 +129,6 @@ class AdminDashboard extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // 🔹 Chart Section
               Container(
                 height: 200,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -186,12 +183,10 @@ class AdminDashboard extends StatelessWidget {
 
               const SizedBox(height: 20),
 
-              // 🔹 Small stats cards
               const StatsGrid(),
 
               const SizedBox(height: 12),
 
-              // 🔹 Latest Donations (ONE card)
               _CardListSection(
                 title: "Latest Donations",
                 items: const [
@@ -225,6 +220,8 @@ class AdminDashboard extends StatelessWidget {
     );
   }
 }
+
+// methods below
 
 class _KeyValueSmall extends StatefulWidget {
   final String title;

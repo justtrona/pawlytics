@@ -36,6 +36,8 @@ dependencies:
   cupertino_icons: ^1.0.8
   list_wheel_scroll_view_nls: ^0.0.3
   fl_chart: ^1.0.0
+  animations: ^2.0.11
+  dog: ^1.4.0
 
 dev_dependencies:
   flutter_test:
