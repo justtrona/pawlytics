@@ -127,17 +127,21 @@ class _LoginPageState extends State<LoginPage> {
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
+              children: [
                 Text(
                   'Don\'t have an account?',
                   style: TextStyle(fontSize: 15, color: Colors.black),
                 ),
-                Text(
-                  ' Sign Up',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
+                InkWell(
+                  // Navigator.pop(context); use if humana ui sa users
+                  onTap: () => Navigator.pushNamed(context, route.signup),
+                  child: const Text(
+                    'Register',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],

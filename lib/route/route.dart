@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/admin-dashboard.dart';
 import 'package:pawlytics/views/get_start/get_started.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
-import 'package:pawlytics/views/get_start/get_started_main.dart';
 import 'package:pawlytics/views/get_start/sign_up.dart';
 
 // route navigation list
