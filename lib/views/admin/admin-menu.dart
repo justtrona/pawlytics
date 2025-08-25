@@ -103,20 +103,25 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.campaign_rounded,
                         label: 'Campaigns',
-                        onTap: () => Navigator.pushNamed(
-                          context,
-                          route.campaignSettings,
-                        ),
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.createCampaign),
                       ),
                       _MenuItem(
                         icon: Icons.pets_rounded,
                         label: 'Pet Profiles',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.petProfiles),
                       ),
+                      // _MenuItem(
+                      //   icon: Icons.flag_rounded,
+                      //   label: 'Goals Settings',
+                      // ),
                       _MenuItem(
-                        icon: Icons.flag_rounded,
-                        label: 'Goals Settings',
+                        icon: Icons.power_rounded,
+                        label: 'Utilities',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.utilitiesMain),
                       ),
-                      _MenuItem(icon: Icons.power_rounded, label: 'Utilities'),
                       _MenuItem(
                         icon: Icons.location_on_rounded,
                         label: 'Location',
