@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/admin-dashboard.dart';
 import 'package:pawlytics/views/admin/admin_widgets/navigation-buttons.dart';
 import 'package:pawlytics/views/admin/campaigns/create-campaign.dart';
+import 'package:pawlytics/views/admin/donation/history-donation.dart';
+import 'package:pawlytics/views/admin/donation/report-donation.dart';
+import 'package:pawlytics/views/admin/donation/usage-donation.dart';
 import 'package:pawlytics/views/admin/dropoff-location/create-dropoff.dart';
 import 'package:pawlytics/views/admin/dropoff-location/dropoff-location.dart';
 import 'package:pawlytics/views/admin/pet-profiles/add-petprofile.dart';
@@ -28,6 +31,9 @@ const String dropoffLocation = 'dropoff-location';
 const String createDropoff = 'create-dropoff';
 const String addPetProfile = 'add-pet-profile';
 const String addUtilities = 'add-utilities';
+const String donationHistory = 'donation-history';
+const String usageDonation = 'usage-donation';
+const String donationReports = 'donation-reports';
 
 Route<dynamic> controller(RouteSettings settings) {
   switch (settings.name) {
@@ -57,6 +63,12 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => AddPetProfile());
     case addUtilities:
       return MaterialPageRoute(builder: (context) => Addutilities());
+    case donationHistory:
+      return MaterialPageRoute(builder: (context) => DonationHistory());
+    case usageDonation:
+      return MaterialPageRoute(builder: (context) => DonationUsage());
+    case donationReports:
+      return MaterialPageRoute(builder: (context) => DonationReports());
 
     default:
       return MaterialPageRoute(builder: (_) => const NavigationButtonAdmin());

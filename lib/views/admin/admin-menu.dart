@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:pawlytics/route/route.dart' as route;
 
 const brand = Color(0xFF27374D);
-const sectionBg = Color(0xFFCFD6DE); // soft grey like the mock
-const itemBg = Color(0xFF8F9AA7); // darker grey buttons
+const sectionBg = Color(0xFFCFD6DE);
+const itemBg = Color(0xFF8F9AA7);
 const textGrey = Color(0xFF5F6B78);
 
 class menuBar extends StatefulWidget {
@@ -19,7 +19,7 @@ class _menuBarState extends State<menuBar> {
     if (w >= 1100) return 840;
     if (w >= 800) return 720;
     if (w >= 520) return 520;
-    return w; // phones use full width
+    return w;
   }
 
   @override
@@ -81,18 +81,22 @@ class _menuBarState extends State<menuBar> {
 
                   const _SectionTitle('Manage Donations'),
                   _SectionCard(
-                    children: const [
+                    children: [
                       _MenuItem(
                         icon: Icons.history_rounded,
                         label: 'Donation History',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.donationHistory),
                       ),
-                      _MenuItem(
-                        icon: Icons.savings_rounded,
-                        label: 'Donation Sources',
-                      ),
+                      // _MenuItem(
+                      //   icon: Icons.savings_rounded,
+                      //   label: 'Donation Sources',
+                      // ),
                       _MenuItem(
                         icon: Icons.receipt_long_rounded,
                         label: 'Donation Usage',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.usageDonation),
                       ),
                     ],
                   ),
@@ -130,27 +134,29 @@ class _menuBarState extends State<menuBar> {
 
                   const _SectionTitle('Reports and Analytics'),
                   _SectionCard(
-                    children: const [
+                    children: [
                       _MenuItem(
                         icon: Icons.local_atm_rounded,
                         label: 'Donation Reports',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.donationReports),
                       ),
                       _MenuItem(
                         icon: Icons.bar_chart_rounded,
                         label: 'Campaigns Reports',
                       ),
-                      _MenuItem(
-                        icon: Icons.track_changes_rounded,
-                        label: 'Goal Performance Reports',
-                      ),
+                      // _MenuItem(
+                      //   icon: Icons.track_changes_rounded,
+                      //   label: 'Goal Performance Reports',
+                      // ),
                       _MenuItem(
                         icon: Icons.receipt_rounded,
                         label: 'Expense Reports',
                       ),
-                      _MenuItem(
-                        icon: Icons.feedback_rounded,
-                        label: 'Feedbacks',
-                      ),
+                      // _MenuItem(
+                      //   icon: Icons.feedback_rounded,
+                      //   label: 'Feedbacks',
+                      // ),
                       _MenuItem(
                         icon: Icons.analytics_rounded,
                         label: 'Donors Behavior Analytics',
@@ -182,6 +188,10 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.rule_folder_rounded,
                         label: 'Audit Log',
+                      ),
+                      _MenuItem(
+                        icon: Icons.feedback_rounded,
+                        label: 'Feedbacks',
                       ),
                       _MenuItem(
                         icon: Icons.admin_panel_settings_rounded,
