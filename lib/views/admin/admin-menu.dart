@@ -112,10 +112,7 @@ class _menuBarState extends State<menuBar> {
                         onTap: () =>
                             Navigator.pushNamed(context, route.petProfiles),
                       ),
-                      // _MenuItem(
-                      //   icon: Icons.flag_rounded,
-                      //   label: 'Goals Settings',
-                      // ),
+
                       _MenuItem(
                         icon: Icons.power_rounded,
                         label: 'Utilities',
@@ -125,6 +122,8 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.location_on_rounded,
                         label: 'Location',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.dropoffLocation),
                       ),
                     ],
                   ),

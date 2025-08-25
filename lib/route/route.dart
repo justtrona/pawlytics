@@ -2,6 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/admin-dashboard.dart';
 import 'package:pawlytics/views/admin/admin_widgets/navigation-buttons.dart';
 import 'package:pawlytics/views/admin/campaigns/create-campaign.dart';
+import 'package:pawlytics/views/admin/dropoff-location/create-dropoff.dart';
+import 'package:pawlytics/views/admin/dropoff-location/dropoff-location.dart';
+import 'package:pawlytics/views/admin/pet-profiles/add-petprofile.dart';
+import 'package:pawlytics/views/admin/utilities/addUtilities.dart';
 import 'package:pawlytics/views/admin/utilities/utilities-main.dart';
 import 'package:pawlytics/views/get_start/get_started.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
@@ -20,6 +24,10 @@ const String campaignSettings = 'campaigns-settings';
 const String petProfiles = 'pet-profiles';
 const String utilitiesMain = 'utilities-main';
 const String createCampaign = 'create-campaign';
+const String dropoffLocation = 'dropoff-location';
+const String createDropoff = 'create-dropoff';
+const String addPetProfile = 'add-pet-profile';
+const String addUtilities = 'add-utilities';
 
 Route<dynamic> controller(RouteSettings settings) {
   switch (settings.name) {
@@ -41,6 +49,14 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => UtilitiesMain());
     case createCampaign:
       return MaterialPageRoute(builder: (context) => CreateCampaign());
+    case dropoffLocation:
+      return MaterialPageRoute(builder: (context) => DropoffLocation());
+    case createDropoff:
+      return MaterialPageRoute(builder: (context) => CreateDropoff());
+    case addPetProfile:
+      return MaterialPageRoute(builder: (context) => AddPetProfile());
+    case addUtilities:
+      return MaterialPageRoute(builder: (context) => Addutilities());
 
     default:
       return MaterialPageRoute(builder: (_) => const NavigationButtonAdmin());

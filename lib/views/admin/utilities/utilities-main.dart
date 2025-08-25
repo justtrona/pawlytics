@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 class UtilitiesMain extends StatefulWidget {
   const UtilitiesMain({super.key});
@@ -137,7 +138,8 @@ class _UtilitiesMainState extends State<UtilitiesMain> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  onPressed: () {},
+                  onPressed: () =>
+                      Navigator.pushNamed(context, route.addUtilities),
                   child: const Text('MANAGE'),
                 ),
               ),

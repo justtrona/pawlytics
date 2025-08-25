@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 class PetProfiles extends StatefulWidget {
   const PetProfiles({super.key});
@@ -136,7 +137,8 @@ class _PetProfilesState extends State<PetProfiles> {
                   child: ElevatedButton.icon(
                     icon: const Icon(Icons.add_rounded),
                     label: const Text('Add Pet'),
-                    onPressed: () {},
+                    onPressed: () =>
+                        Navigator.pushNamed(context, route.addPetProfile),
                     style: ElevatedButton.styleFrom(
                       elevation: 0,
                       backgroundColor: _brand,
