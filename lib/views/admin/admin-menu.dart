@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 const brand = Color(0xFF27374D);
 const sectionBg = Color(0xFFCFD6DE); // soft grey like the mock
@@ -98,10 +99,14 @@ class _menuBarState extends State<menuBar> {
 
                   const _SectionTitle('Fundraising Tools'),
                   _SectionCard(
-                    children: const [
+                    children: [
                       _MenuItem(
                         icon: Icons.campaign_rounded,
                         label: 'Campaigns',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          route.campaignSettings,
+                        ),
                       ),
                       _MenuItem(
                         icon: Icons.pets_rounded,

@@ -4,6 +4,7 @@ import 'package:pawlytics/views/admin/admin_widgets/navigation-buttons.dart';
 import 'package:pawlytics/views/get_start/get_started.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
 import 'package:pawlytics/views/get_start/sign_up.dart';
+import 'package:pawlytics/views/admin/campaigns-settings.dart';
 
 // route navigation list
 
@@ -12,6 +13,7 @@ const String login = 'login';
 const String signup = 'signup';
 const String adminDashboard = 'admin-dashboard';
 const String navigationButtonAdmin = 'navigation-button-admin';
+const String campaignSettings = 'campaigns-settings';
 
 Route<dynamic> controller(RouteSettings settings) {
   switch (settings.name) {
@@ -25,6 +27,8 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => AdminDashboard());
     case navigationButtonAdmin:
       return MaterialPageRoute(builder: (context) => NavigationButtonAdmin());
+    case campaignSettings:
+      return MaterialPageRoute(builder: (context) => CampaignSettingsScreen());
 
     default:
       return MaterialPageRoute(builder: (_) => const NavigationButtonAdmin());
