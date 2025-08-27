@@ -144,6 +144,8 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.bar_chart_rounded,
                         label: 'Campaigns Reports',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.campaignreports),
                       ),
                       // _MenuItem(
                       //   icon: Icons.track_changes_rounded,
@@ -152,6 +154,8 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.receipt_rounded,
                         label: 'Expense Reports',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.expensereports),
                       ),
                       // _MenuItem(
                       //   icon: Icons.feedback_rounded,
