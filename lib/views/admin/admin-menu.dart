@@ -179,10 +179,10 @@ class _menuBarState extends State<menuBar> {
                         icon: Icons.tune_rounded,
                         label: 'Payment Configurations',
                       ),
-                      _MenuItem(
-                        icon: Icons.hub_rounded,
-                        label: 'Gateway Configurations',
-                      ),
+                      // _MenuItem(
+                      //   icon: Icons.hub_rounded,
+                      //   label: 'Gateway Configurations',
+                      // ),
                     ],
                   ),
 
