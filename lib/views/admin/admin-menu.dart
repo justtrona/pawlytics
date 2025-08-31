@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/route/route.dart' as route;
+import 'package:supabase_flutter/supabase_flutter.dart'; // <- add this
 
 const brand = Color(0xFF27374D);
 const sectionBg = Color(0xFFCFD6DE);
@@ -20,6 +21,51 @@ class _menuBarState extends State<menuBar> {
     if (w >= 800) return 720;
     if (w >= 520) return 520;
     return w;
+  }
+
+  Future<void> _confirmAndLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      await Supabase.instance.client.auth.signOut(); // <-- sign out
+
+      // Optional: notify
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Signed out successfully')));
+
+      // Go to login and clear history
+      Navigator.of(context).pushNamedAndRemoveUntil(
+        route.login, // you already have const String login = 'login';
+        (r) => false,
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+    }
   }
 
   @override
@@ -164,20 +210,30 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.analytics_rounded,
                         label: 'Donors Behavior Analytics',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.donorsAnalytics),
                       ),
                       _MenuItem(
                         icon: Icons.emoji_events_rounded,
                         label: 'Rewards & Certifications',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          route.rewardsCertification,
+                        ),
                       ),
                     ],
                   ),
 
                   const _SectionTitle('Payment Integration'),
                   _SectionCard(
-                    children: const [
+                    children: [
                       _MenuItem(
                         icon: Icons.tune_rounded,
                         label: 'Payment Configurations',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          route.paymentConfiguration,
+                        ),
                       ),
                       // _MenuItem(
                       //   icon: Icons.hub_rounded,
@@ -188,27 +244,42 @@ class _menuBarState extends State<menuBar> {
 
                   const _SectionTitle('Settings'),
                   _SectionCard(
-                    children: const [
+                    children: [
                       _MenuItem(
                         icon: Icons.rule_folder_rounded,
                         label: 'Audit Log',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.auditLog),
                       ),
                       _MenuItem(
                         icon: Icons.feedback_rounded,
                         label: 'Feedbacks',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.feedback),
                       ),
                       _MenuItem(
                         icon: Icons.admin_panel_settings_rounded,
                         label: 'Admin Settings',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.adminSettings),
                       ),
                     ],
                   ),
 
                   const _SectionTitle('User'),
                   _SectionCard(
-                    children: const [
-                      _MenuItem(icon: Icons.person_rounded, label: 'Profile'),
-                      _MenuItem(icon: Icons.logout_rounded, label: 'Logout'),
+                    children: [
+                      _MenuItem(
+                        icon: Icons.person_rounded,
+                        label: 'Profile',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.adminProfile),
+                      ),
+                      _MenuItem(
+                        icon: Icons.logout_rounded,
+                        label: 'Logout',
+                        onTap: _confirmAndLogout, // <- call the helper
+                      ),
                     ],
                   ),
                 ],
@@ -246,48 +317,26 @@ class _SectionCard extends StatelessWidget {
   final List<_MenuItem> children;
   const _SectionCard({required this.children});
 
-  int _colsForWidth(double w) {
-    if (w >= 1100) return 4; // large screens
-    if (w >= 800) return 3; // tablets / small desktop
-    if (w >= 520) return 2; // big phones
-    return 1; // small phones
-  }
-
-  double _targetItemHeight(double w) {
-    // Compact heights per breakpoint (in px)
-    if (w >= 1100) return 48;
-    if (w >= 800) return 46;
-    if (w >= 520) return 44;
-    return 42;
-  }
-
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: Color(0xFF6D7884),
+        color: const Color(0xFF6D7884),
         borderRadius: BorderRadius.circular(14),
       ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final cols = _colsForWidth(constraints.maxWidth);
-          const spacing = 10.0;
-          final colWidth = (constraints.maxWidth - (cols - 1) * spacing) / cols;
-          final itemHeight = _targetItemHeight(constraints.maxWidth);
-          final ratio = colWidth / itemHeight; // width / height
-
-          return GridView.count(
-            crossAxisCount: cols,
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            mainAxisSpacing: spacing,
-            crossAxisSpacing: spacing,
-            childAspectRatio: ratio,
-            children: children,
-          );
-        },
+      child: Column(
+        children: [
+          for (int i = 0; i < children.length; i++) ...[
+            // each item takes full width (top -> bottom)
+            ConstrainedBox(
+              constraints: const BoxConstraints(minHeight: 46),
+              child: children[i],
+            ),
+            if (i != children.length - 1) const SizedBox(height: 10),
+          ],
+        ],
       ),
     );
   }
@@ -299,44 +348,42 @@ class _MenuItem extends StatelessWidget {
   final VoidCallback? onTap;
   const _MenuItem({required this.icon, required this.label, this.onTap});
 
-  double _scale(double w) {
-    // Slight scale-down for compact UI
-    if (w >= 1100) return 1.0;
-    if (w >= 800) return 0.95;
-    if (w >= 520) return 0.92;
-    return 0.90;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    final s = _scale(w);
-
     return Material(
-      color: Color(0xFF6D7884),
+      color: const Color(0xFF6D7884),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
         onTap: onTap ?? () {},
-        child: Padding(
-          padding: EdgeInsets.symmetric(horizontal: 12 * s, vertical: 10 * s),
-          child: Row(
-            children: [
-              Icon(icon, color: Colors.white, size: 20 * s), // was 22
-              SizedBox(width: 8 * s),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontWeight: FontWeight.w600,
-                    fontSize: 13 * s, // was 13.5
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(
+            minHeight: 48,
+          ), // ensures nice tappable size
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            child: Row(
+              children: [
+                const Icon(
+                  Icons.circle,
+                  size: 0,
+                ), // placeholder to keep import happy if needed
+                Icon(icon, color: Colors.white, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
