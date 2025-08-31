@@ -292,7 +292,6 @@ class _menuBarState extends State<menuBar> {
   }
 }
 
-/// Title like "Manage Donations"
 class _SectionTitle extends StatelessWidget {
   final String text;
   const _SectionTitle(this.text);
