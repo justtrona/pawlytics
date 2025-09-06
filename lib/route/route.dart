@@ -25,6 +25,9 @@ import 'package:pawlytics/views/admin/campaigns/campaigns-settings.dart';
 import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
 
+//donors
+import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
+
 // route navigation list
 
 const String landing = '/';
@@ -52,6 +55,9 @@ const String auditLog = 'audit-log';
 const String feedback = 'feedback';
 const String adminSettings = 'admin-settings';
 const String adminProfile = 'admin-profile';
+
+// donors
+const String homepage = 'homepage';
 
 Route<dynamic> controller(RouteSettings settings) {
   switch (settings.name) {
@@ -107,6 +113,12 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => AdminSettingsScreen());
     case adminProfile:
       return MaterialPageRoute(builder: (context) => AdminProfile());
+
+    // donors
+    case homepage:
+      return MaterialPageRoute(
+        builder: (context) => HomePage(title: 'Pawlytics'),
+      );
 
     default:
       return MaterialPageRoute(builder: (_) => const NavigationButtonAdmin());

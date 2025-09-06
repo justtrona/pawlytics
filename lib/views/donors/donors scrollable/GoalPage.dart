@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-class PetPage extends StatelessWidget {
-  const PetPage({super.key});
+class GoalPage extends StatelessWidget {
+  const GoalPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -11,7 +11,7 @@ class PetPage extends StatelessWidget {
         elevation: 0,
         foregroundColor: Colors.black,
         title: const Text(
-          "Pet",
+          "Goal",
           style: TextStyle(
             fontSize: 20,
             fontWeight: FontWeight.bold,
