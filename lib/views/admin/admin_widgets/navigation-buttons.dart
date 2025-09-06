@@ -15,10 +15,10 @@ class _NavigationButtonAdminState extends State<NavigationButtonAdmin> {
   int _currentIndex = 0;
 
   final _pages = const <Widget>[
-    AdminDashboard(), // Dashboard
+    AdminDashboard(),
     _Stub(title: 'Pet Profiles'),
     _Stub(title: 'Notifications'),
-    menuBar(), // Menu
+    menuBar(),
   ];
 
   @override

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/route/route.dart' as route;
-import 'package:supabase_flutter/supabase_flutter.dart'; // <- add this
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 const brand = Color(0xFF27374D);
 const sectionBg = Color(0xFFCFD6DE);
@@ -23,6 +23,7 @@ class _menuBarState extends State<menuBar> {
     return w;
   }
 
+  //confirm first before succesfully logout
   Future<void> _confirmAndLogout() async {
     final confirm = await showDialog<bool>(
       context: context,
@@ -48,8 +49,9 @@ class _menuBarState extends State<menuBar> {
 
     if (confirm != true) return;
 
+    // logout logic sa admin menu
     try {
-      await Supabase.instance.client.auth.signOut(); // <-- sign out
+      await Supabase.instance.client.auth.signOut();
 
       // Optional: notify
       ScaffoldMessenger.of(
@@ -57,10 +59,7 @@ class _menuBarState extends State<menuBar> {
       ).showSnackBar(const SnackBar(content: Text('Signed out successfully')));
 
       // Go to login and clear history
-      Navigator.of(context).pushNamedAndRemoveUntil(
-        route.login, // you already have const String login = 'login';
-        (r) => false,
-      );
+      Navigator.of(context).pushNamedAndRemoveUntil(route.login, (r) => false);
     } catch (e) {
       ScaffoldMessenger.of(
         context,
@@ -106,14 +105,13 @@ class _menuBarState extends State<menuBar> {
                         const Spacer(),
                         Image.asset(
                           'assets/images/small_logo.png',
-                          width: 32, // was 36
+                          width: 32,
                           height: 32,
                         ),
                       ],
                     ),
                   ),
 
-                  // Sections
                   const _SectionTitle('Home'),
                   _SectionCard(
                     children: [
@@ -278,7 +276,7 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.logout_rounded,
                         label: 'Logout',
-                        onTap: _confirmAndLogout, // <- call the helper
+                        onTap: _confirmAndLogout,
                       ),
                     ],
                   ),
@@ -356,17 +354,12 @@ class _MenuItem extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
         onTap: onTap ?? () {},
         child: ConstrainedBox(
-          constraints: const BoxConstraints(
-            minHeight: 48,
-          ), // ensures nice tappable size
+          constraints: const BoxConstraints(minHeight: 48),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(
               children: [
-                const Icon(
-                  Icons.circle,
-                  size: 0,
-                ), // placeholder to keep import happy if needed
+                const Icon(Icons.circle, size: 0),
                 Icon(icon, color: Colors.white, size: 20),
                 const SizedBox(width: 8),
                 Expanded(
