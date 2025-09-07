@@ -214,7 +214,7 @@ class _HomePageState extends State<HomePage> {
                         bottomLeft: Radius.circular(15),
                       ),
                       child: Image.asset(
-                        "assets/map1.png",
+                        "assets/images/donors/map1.png",
                         width: 120,
                         height: 150,
                         fit: BoxFit.cover,
@@ -296,7 +296,7 @@ class _HomePageState extends State<HomePage> {
                         bottomLeft: Radius.circular(15),
                       ),
                       child: Image.asset(
-                        "assets/donate2.png",
+                        "assets/images/donors/donate2.png",
                         width: 120,
                         height: 160,
                         fit: BoxFit.cover,
@@ -421,7 +421,7 @@ class _HomePageState extends State<HomePage> {
                         bottomLeft: Radius.circular(15),
                       ),
                       child: Image.asset(
-                        "assets/dog3.png",
+                        "assets/images/donors/dog3.png",
                         width: 120,
                         height: 140,
                         fit: BoxFit.cover,
