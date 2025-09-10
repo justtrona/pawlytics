@@ -30,7 +30,7 @@ class RegistrationCcontroller {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
       final phoneNumber = phoneNumberController.text.trim();
-      
+
       final registerModel = RegisterModel(
         fullName: fullName,
         email: email,
@@ -78,7 +78,7 @@ class RegistrationCcontroller {
     }
   }
 
-  // ================= VALIDATORS =================
+  //VALIDATORS
 
   String? validateField(String? value, String fieldName) {
     if (value == null || value.isEmpty) {
@@ -129,7 +129,7 @@ class RegistrationCcontroller {
     return null;
   }
 
-  // ================= CLEANUP =================
+  // CLEANUP
   void dispose() {
     fullNameController.dispose();
     phoneNumberController.dispose();

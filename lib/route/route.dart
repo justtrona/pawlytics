@@ -18,12 +18,16 @@ import 'package:pawlytics/views/admin/payment-config/payment-configuration.dart'
 import 'package:pawlytics/views/admin/pet-profiles/add-petprofile.dart';
 import 'package:pawlytics/views/admin/utilities/addUtilities.dart';
 import 'package:pawlytics/views/admin/utilities/utilities-main.dart';
+import 'package:pawlytics/views/donors/donor%20navigation%20func/RoutePage.dart';
 import 'package:pawlytics/views/get_start/get_started.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
 import 'package:pawlytics/views/get_start/sign_up.dart';
 import 'package:pawlytics/views/admin/campaigns/campaigns-settings.dart';
 import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
+
+//donors imports
+import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
 
 // route navigation list
 
@@ -52,6 +56,9 @@ const String auditLog = 'audit-log';
 const String feedback = 'feedback';
 const String adminSettings = 'admin-settings';
 const String adminProfile = 'admin-profile';
+
+// donors
+const String routePage = 'routePage';
 
 Route<dynamic> controller(RouteSettings settings) {
   switch (settings.name) {
@@ -107,6 +114,10 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => AdminSettingsScreen());
     case adminProfile:
       return MaterialPageRoute(builder: (context) => AdminProfile());
+
+    // donors
+    case routePage:
+      return MaterialPageRoute(builder: (context) => RoutePage());
 
     default:
       return MaterialPageRoute(builder: (_) => const NavigationButtonAdmin());

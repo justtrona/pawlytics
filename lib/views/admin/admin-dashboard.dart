@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 import 'package:pawlytics/views/admin/admin_widgets/stats-grid.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 class AdminDashboard extends StatelessWidget {
   const AdminDashboard({super.key});
@@ -11,7 +12,6 @@ class AdminDashboard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
-
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 90),
@@ -32,10 +32,20 @@ class AdminDashboard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
-                        const CircleAvatar(
-                          radius: 25,
-                          backgroundImage: AssetImage(
-                            "assets/images/avatar.png",
+                        ElevatedButton(
+                          onPressed: () =>
+                              Navigator.pushNamed(context, route.adminProfile),
+                          style: ElevatedButton.styleFrom(
+                            shape: const CircleBorder(),
+                            padding: EdgeInsets.zero,
+                            backgroundColor: Colors.transparent,
+                            elevation: 0,
+                          ),
+                          child: const CircleAvatar(
+                            radius: 25,
+                            backgroundImage: AssetImage(
+                              "assets/images/avatar.png",
+                            ),
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -51,7 +61,7 @@ class AdminDashboard extends StatelessWidget {
                               ),
                             ),
                             Text(
-                              "Welcome back!",
+                              "Staff - Admin",
                               style: TextStyle(
                                 fontSize: 12,
                                 color: Colors.white70,
@@ -111,7 +121,10 @@ class AdminDashboard extends StatelessWidget {
                               borderRadius: BorderRadius.circular(20),
                             ),
                           ),
-                          onPressed: () {},
+                          onPressed: () => Navigator.pushNamed(
+                            context,
+                            route.donationReports,
+                          ),
                           child: const Text(
                             "Manage Donations",
                             style: TextStyle(
@@ -126,9 +139,7 @@ class AdminDashboard extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(height: 20),
-
               Container(
                 height: 200,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -180,13 +191,9 @@ class AdminDashboard extends StatelessWidget {
                   ),
                 ),
               ),
-
               const SizedBox(height: 20),
-
               const StatsGrid(),
-
               const SizedBox(height: 12),
-
               _CardListSection(
                 title: "Latest Donations",
                 items: const [
@@ -198,10 +205,7 @@ class AdminDashboard extends StatelessWidget {
                   _Item("Maine Q.", "PHP 50.00"),
                 ],
               ),
-
               const SizedBox(height: 12),
-
-              // 🔹 Top Campaigns (ONE card)
               _CardListSection(
                 title: "Top Campaigns",
                 items: const [
