@@ -25,7 +25,7 @@ import 'package:pawlytics/views/admin/campaigns/campaigns-settings.dart';
 import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
 
-//donors
+//donors imports
 import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
 
 // route navigation list

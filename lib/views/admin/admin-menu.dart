@@ -118,7 +118,8 @@ class _menuBarState extends State<menuBar> {
                       _MenuItem(
                         icon: Icons.dashboard_rounded,
                         label: 'Dashboard',
-                        onTap: () {},
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.adminDashboard),
                       ),
                     ],
                   ),

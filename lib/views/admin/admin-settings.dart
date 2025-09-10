@@ -40,11 +40,11 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
   // --- Notifications
   bool emailNotif = true;
   bool pushNotif = true;
-  String digest = 'Weekly'; // Off / Daily / Weekly / Monthly
+  String digest = 'Weekly';
 
   // --- Appearance
   ThemeMode themeMode = ThemeMode.light;
-  String density = 'Comfortable'; // Compact / Comfortable
+  String density = 'Comfortable'; // Compact
 
   // --- Permissions (summary only)
   final List<String> roles = const ['Owner', 'Admin', 'Editor'];
@@ -105,7 +105,6 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
       'team_count': staff.length,
     };
 
-    // TODO: Persist to your backend/Firestore.
     ScaffoldMessenger.of(
       context,
     ).showSnackBar(const SnackBar(content: Text('Settings saved')));
@@ -162,7 +161,7 @@ class _AdminSettingsScreenState extends State<AdminSettingsScreen> {
                 );
                 return;
               }
-              // TODO: call backend to change password
+
               Navigator.pop(context);
               ScaffoldMessenger.of(
                 context,
