@@ -41,7 +41,11 @@ class _HomePageState extends State<HomePage> {
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Icon(Icons.pets, color: Colors.white, size: 50),
+                        Image.asset(
+                          "assets/images/small_logo.png",
+                          width: 50,
+                          height: 50,
+                        ),
                         const SizedBox(width: 8),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
