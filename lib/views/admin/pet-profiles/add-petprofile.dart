@@ -1,4 +1,9 @@
+// lib/screens/add_pet_profile.dart
+
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/admin/controllers/add-pet-controller.dart';
+import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/needs_grid.dart';
+import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/pill.dart';
 
 class AddPetProfile extends StatefulWidget {
   const AddPetProfile({super.key});
@@ -8,29 +13,14 @@ class AddPetProfile extends StatefulWidget {
 }
 
 class _AddPetProfileState extends State<AddPetProfile> {
-  // Theme
   static const brand = Color(0xFF27374D);
   static const softGrey = Color(0xFFE9EEF3);
 
-  final _nameCtrl = TextEditingController(text: 'Peter');
-
-  String _species = 'Dog'; // Dog | Cat
-  String _ageGroup = 'Senior'; // Puppy/Kitten | Senior
-  String _status = 'For Adoption';
-
-  final Map<String, bool> _needs = {
-    'Surgery': true,
-    'Deworming': false,
-    'Dental Care': true,
-    'Skin Treatment': false,
-    'Vaccination': true,
-    'Spay/Neuter': true,
-    'Injury Treatment': false,
-  };
+  final controller = PetProfileController();
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
+    controller.dispose();
     super.dispose();
   }
 
@@ -50,6 +40,8 @@ class _AddPetProfileState extends State<AddPetProfile> {
 
   @override
   Widget build(BuildContext context) {
+    final pet = controller.petProfile;
+
     return GestureDetector(
       onTap: () => FocusScope.of(context).unfocus(),
       child: Scaffold(
@@ -78,7 +70,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
                   ),
                 ),
                 onPressed: () {
-                  // TODO: Save logic
+                  controller.updateName();
                   ScaffoldMessenger.of(
                     context,
                   ).showSnackBar(const SnackBar(content: Text('Pet saved')));
@@ -92,7 +84,6 @@ class _AddPetProfileState extends State<AddPetProfile> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
-              // Photo placeholder
               Center(
                 child: Container(
                   width: 100,
@@ -102,9 +93,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     shape: BoxShape.circle,
                   ),
                   child: IconButton(
-                    onPressed: () {
-                      // TODO: pick image
-                    },
+                    onPressed: () {},
                     icon: const Icon(
                       Icons.photo_camera_outlined,
                       size: 36,
@@ -115,85 +104,88 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 16),
 
-              // Pet name
               const Text(
                 'Pet Name',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               TextField(
-                controller: _nameCtrl,
+                controller: controller.nameController,
                 decoration: _input(hint: 'Peter'),
                 textInputAction: TextInputAction.next,
               ),
               const SizedBox(height: 14),
 
-              // Species pills
+              // Species
               Row(
                 children: [
                   Expanded(
-                    child: _Pill(
+                    child: Pill(
                       label: 'Dog',
-                      selected: _species == 'Dog',
-                      onTap: () => setState(() => _species = 'Dog'),
+                      selected: pet.species == 'Dog',
+                      onTap: () =>
+                          setState(() => controller.updateSpecies('Dog')),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _Pill(
+                    child: Pill(
                       label: 'Cat',
-                      selected: _species == 'Cat',
+                      selected: pet.species == 'Cat',
                       outlineOnly: true,
-                      onTap: () => setState(() => _species = 'Cat'),
+                      onTap: () =>
+                          setState(() => controller.updateSpecies('Cat')),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 10),
 
-              // Age pills
+              // Age Group
               Row(
                 children: [
                   Expanded(
-                    child: _Pill(
+                    child: Pill(
                       label: 'Puppy/Kitten',
-                      selected: _ageGroup == 'Puppy/Kitten',
+                      selected: pet.ageGroup == 'Puppy/Kitten',
                       outlineOnly: true,
-                      onTap: () => setState(() => _ageGroup = 'Puppy/Kitten'),
+                      onTap: () => setState(
+                        () => controller.updateAgeGroup('Puppy/Kitten'),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
                   Expanded(
-                    child: _Pill(
+                    child: Pill(
                       label: 'Senior',
-                      selected: _ageGroup == 'Senior',
-                      onTap: () => setState(() => _ageGroup = 'Senior'),
+                      selected: pet.ageGroup == 'Senior',
+                      onTap: () =>
+                          setState(() => controller.updateAgeGroup('Senior')),
                     ),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
 
-              // Health & Care Needs
               const Text(
                 'Health & Care Needs',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
-              _NeedsGrid(
-                items: _needs,
-                onToggle: (k, v) => setState(() => _needs[k] = v),
+              NeedsGrid(
+                items: pet.healthNeeds,
+                onToggle: (k, v) =>
+                    setState(() => controller.toggleHealthNeed(k, v)),
               ),
               const SizedBox(height: 16),
 
-              // Status
               const Text(
                 'Status',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 6),
               DropdownButtonFormField<String>(
-                value: _status,
+                value: pet.status,
                 isExpanded: true,
                 decoration: _input(hint: 'For Adoption'),
                 items: const [
@@ -207,135 +199,13 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     child: Text('Needs Medical Care'),
                   ),
                 ],
-                onChanged: (v) => setState(() => _status = v ?? 'For Adoption'),
+                onChanged: (v) => setState(
+                  () => controller.updateStatus(v ?? 'For Adoption'),
+                ),
               ),
-              const SizedBox(height: 80), // breathing room above Save button
+              const SizedBox(height: 80),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-// ---------- Small widgets ----------
-
-class _Pill extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final bool outlineOnly;
-  final VoidCallback onTap;
-
-  const _Pill({
-    required this.label,
-    required this.selected,
-    required this.onTap,
-    this.outlineOnly = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final bg = selected && !outlineOnly
-        ? _AddPetProfileState.brand
-        : Colors.white;
-    final fg = selected && !outlineOnly
-        ? Colors.white
-        : _AddPetProfileState.brand;
-    final side = BorderSide(color: _AddPetProfileState.brand, width: 1.3);
-
-    return SizedBox(
-      height: 44,
-      child: OutlinedButton(
-        onPressed: onTap,
-        style: OutlinedButton.styleFrom(
-          backgroundColor: bg,
-          foregroundColor: fg,
-          side: side,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(14),
-          ),
-          textStyle: const TextStyle(fontWeight: FontWeight.w800),
-        ),
-        child: Text(label),
-      ),
-    );
-  }
-}
-
-class _NeedsGrid extends StatelessWidget {
-  final Map<String, bool> items;
-  final void Function(String, bool) onToggle;
-
-  const _NeedsGrid({required this.items, required this.onToggle});
-
-  @override
-  Widget build(BuildContext context) {
-    final keys = items.keys.toList();
-
-    // Render as a 2-column table like the mock
-    List<TableRow> rows = [];
-    for (int i = 0; i < keys.length; i += 2) {
-      final k1 = keys[i];
-      final k2 = (i + 1 < keys.length) ? keys[i + 1] : null;
-
-      rows.add(
-        TableRow(
-          children: [
-            _NeedCheck(
-              label: k1,
-              value: items[k1]!,
-              onChanged: (v) => onToggle(k1, v),
-            ),
-            if (k2 != null)
-              _NeedCheck(
-                label: k2,
-                value: items[k2]!,
-                onChanged: (v) => onToggle(k2, v),
-              )
-            else
-              const SizedBox.shrink(),
-          ],
-        ),
-      );
-    }
-
-    return Table(
-      columnWidths: const {0: FlexColumnWidth(1), 1: FlexColumnWidth(1)},
-      defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-      children: rows,
-    );
-  }
-}
-
-class _NeedCheck extends StatelessWidget {
-  final String label;
-  final bool value;
-  final ValueChanged<bool> onChanged;
-
-  const _NeedCheck({
-    required this.label,
-    required this.value,
-    required this.onChanged,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return CheckboxListTile(
-      value: value,
-      onChanged: (v) => onChanged(v ?? false),
-      controlAffinity: ListTileControlAffinity.leading,
-      contentPadding: const EdgeInsets.only(right: 12),
-      dense: true,
-      checkboxShape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(4),
-      ),
-      activeColor: _AddPetProfileState.brand,
-      checkColor: Colors.white,
-      title: Text(
-        label,
-        style: const TextStyle(
-          color: Color(0xFF212C36),
-          fontWeight: FontWeight.w600,
         ),
       ),
     );
