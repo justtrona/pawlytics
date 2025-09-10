@@ -44,12 +44,11 @@ class CampaignDetailsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ✅ Campaign Image with border stroke
             Container(
               decoration: BoxDecoration(
                 border: Border.all(
-                  color: const Color.fromARGB(255, 18, 13, 13), // stroke color
-                  width: 1, // stroke thickness
+                  color: const Color.fromARGB(255, 18, 13, 13),
+                  width: 1,
                 ),
                 borderRadius: BorderRadius.circular(12),
               ),
@@ -65,7 +64,6 @@ class CampaignDetailsPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // ✅ Title
             Text(
               title,
               style: const TextStyle(
@@ -75,7 +73,6 @@ class CampaignDetailsPage extends StatelessWidget {
               ),
             ),
 
-            // ✅ Raised / Goal + Star (side by side)
             Row(
               children: [
                 Text(
@@ -85,10 +82,10 @@ class CampaignDetailsPage extends StatelessWidget {
                     color: Color(0xFF1F2C47),
                   ),
                 ),
-                const SizedBox(width: 230), // spacing between text and star
+                const SizedBox(width: 230),
                 IconButton(
-                  padding: EdgeInsets.zero, // remove default padding
-                  constraints: const BoxConstraints(), // shrink tap area
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   icon: const Icon(
                     Icons.star_border,
                     size: 35,
@@ -100,7 +97,6 @@ class CampaignDetailsPage extends StatelessWidget {
             ),
             const SizedBox(height: 10),
 
-            // ✅ Progress bar
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
@@ -113,7 +109,6 @@ class CampaignDetailsPage extends StatelessWidget {
 
             const SizedBox(height: 20),
 
-            // ✅ Description
             const Text(
               "Description",
               style: TextStyle(
@@ -138,14 +133,8 @@ class CampaignDetailsPage extends StatelessWidget {
         ),
       ),
 
-      // ✅ Donate Button at bottom, slightly lifted
       bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(
-          16,
-          0,
-          16,
-          32,
-        ), // bottom = 32 for spacing
+        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
         child: SizedBox(
           width: double.infinity,
           height: 50,

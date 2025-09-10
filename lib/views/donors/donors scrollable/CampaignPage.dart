@@ -9,7 +9,7 @@ class CampaignPage extends StatefulWidget {
 }
 
 class _CampaignPageState extends State<CampaignPage> {
-  String selectedFilter = "All"; // ✅ Track selected filter
+  String selectedFilter = "All";
 
   @override
   Widget build(BuildContext context) {
@@ -31,19 +31,17 @@ class _CampaignPageState extends State<CampaignPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            Navigator.pop(context); // ✅ This returns to Home
+            Navigator.pop(context);
           },
         ),
       ),
       body: Column(
         children: [
-          // ✅ Top Filters Section
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // ✅ ToggleButtons for All, Pets, Campaigns
                 Center(
                   child: Container(
                     decoration: BoxDecoration(
@@ -55,7 +53,7 @@ class _CampaignPageState extends State<CampaignPage> {
                       borderRadius: BorderRadius.circular(30),
                       borderColor: Colors.transparent,
                       selectedBorderColor: Colors.transparent,
-                      fillColor: Colors.transparent, // Active tab background
+                      fillColor: Colors.transparent,
                       selectedColor: Colors.black,
                       color: Colors.grey,
                       isSelected: [
@@ -120,13 +118,11 @@ class _CampaignPageState extends State<CampaignPage> {
 
                 const SizedBox(height: 12),
 
-                // ✅ Dropdowns
-                // ✅ Dropdowns
                 Row(
                   children: [
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: "All Campaigns", // ✅ default value
+                        value: "All Campaigns",
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.grey.shade300,
@@ -147,7 +143,7 @@ class _CampaignPageState extends State<CampaignPage> {
                     const SizedBox(width: 8),
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: "Last 30 Days", // ✅ default value
+                        value: "Last 30 Days",
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.grey.shade300,
@@ -170,17 +166,14 @@ class _CampaignPageState extends State<CampaignPage> {
 
                 const SizedBox(height: 12),
 
-                // ✅ Search bar
                 TextField(
                   decoration: InputDecoration(
                     hintText: "Search Campaign",
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
-                    fillColor: Colors.grey.shade300, // ✅ plain box background
+                    fillColor: Colors.grey.shade300,
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(
-                        12,
-                      ), // ✅ rounded corners
+                      borderRadius: BorderRadius.circular(12),
                       borderSide: BorderSide.none,
                     ),
                   ),
@@ -191,27 +184,23 @@ class _CampaignPageState extends State<CampaignPage> {
 
           const Divider(height: 0),
 
-          // ✅ Scrollable Campaign List
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.all(20),
-              itemCount: 3, // number of campaigns
+              itemCount: 3,
               itemBuilder: (context, index) {
-                // ✅ Different tags per campaign
                 final List<List<String>> allTags = [
                   ["Medical Supplies", "Dogs", "Urgent", "Food"],
                   ["Honorarium", "Weekly Funds", "Urgent", "Shelter"],
                   ["Medical Supplies", "Dogs", "Urgent", "Food"],
                 ];
 
-                // ✅ Different images per campaign
                 final List<String> allImages = [
-                  "assets/virus.png",
-                  "assets/rescue.png",
-                  "assets/virus.png",
+                  "assets/images/donors/virus.png",
+                  "assets/images/donors/rescue.png",
+                  "assets/images/donors/virus.png",
                 ];
 
-                // ✅ Different descriptions (optional)
                 final List<String> allDescriptions = [
                   "We are raising fund for dog food. Your help can save our shelter dogs...",
                   "We are gathering weekly funds to support vet honorarium and shelter needs...",
@@ -221,7 +210,7 @@ class _CampaignPageState extends State<CampaignPage> {
                 return CampaignCard(
                   description: allDescriptions[index],
                   tags: allTags[index],
-                  image: allImages[index], // ✅ pick different image
+                  image: allImages[index],
                   progress: 0.4,
                   raised: "₱10,750.00",
                   goal: "₱15,000.00",
@@ -235,8 +224,6 @@ class _CampaignPageState extends State<CampaignPage> {
   }
 }
 
-// ✅ Reusable Campaign Card (title removed)
-// ✅ Reusable Campaign Card (title removed)
 class CampaignCard extends StatelessWidget {
   final String description;
   final List<String> tags;
@@ -258,12 +245,7 @@ class CampaignCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: const Color.fromARGB(
-        255,
-        195,
-        216,
-        231,
-      ), // ✅ background for the big box (adjust as you like)
+      color: const Color.fromARGB(255, 195, 216, 231),
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -271,19 +253,13 @@ class CampaignCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Image + Star (with stroke/border)
             Stack(
               children: [
                 Container(
                   decoration: BoxDecoration(
                     border: Border.all(
-                      color: const Color.fromARGB(
-                        255,
-                        20,
-                        11,
-                        11,
-                      ), // ✅ stroke color
-                      width: 1, // ✅ stroke thickness
+                      color: const Color.fromARGB(255, 20, 11, 11),
+                      width: 1,
                     ),
                     borderRadius: BorderRadius.circular(12),
                   ),
@@ -313,7 +289,6 @@ class CampaignCard extends StatelessWidget {
             ),
             const SizedBox(height: 8),
 
-            // Tags
             Wrap(
               spacing: 6,
               children: tags
@@ -327,7 +302,6 @@ class CampaignCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
 
-            // Progress bar
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
@@ -339,7 +313,6 @@ class CampaignCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
 
-            // Raised / Goal
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -363,7 +336,6 @@ class CampaignCard extends StatelessWidget {
 
             const SizedBox(height: 6),
 
-            // ✅ Description
             Text(
               description,
               maxLines: 2,
@@ -373,7 +345,6 @@ class CampaignCard extends StatelessWidget {
 
             const SizedBox(height: 12),
 
-            // ✅ Donate Button (navigates to details page)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(

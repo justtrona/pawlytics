@@ -12,25 +12,25 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
   final List<Map<String, String>> items = [
     {
-      "image": "assets/dogfood.png",
+      "image": "assets/images/donors/dogfood.png",
       "category": "Campaigns",
       "title": "Dog Food",
       "description": "We are out of dog food anymore!",
     },
     {
-      "image": "assets/mishi.png",
+      "image": "assets/images/donors/mishi.png",
       "category": "Pets",
       "title": "Mishi",
       "description": "5 years old | For Adoption | Rescue Dog",
     },
     {
-      "image": "assets/mrshocks.png",
+      "image": "assets/images/donors/mrshocks.png",
       "category": "Pets",
       "title": "Mr. Shocks",
       "description": "3 years old | Under Medication | Rescue Dog",
     },
     {
-      "image": "assets/shelter.png",
+      "image": "assets/images/donors/shelter.png",
       "category": "Campaigns",
       "title": "Shelter needs food supplies",
       "description":

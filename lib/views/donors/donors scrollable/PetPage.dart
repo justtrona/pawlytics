@@ -98,14 +98,14 @@ class PetPage extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 children: [
                   _buildPetCard(
-                    imagePath: "assets/peter.png",
+                    imagePath: "assets/images/donors/peter.png",
                     name: "Peter",
                     healthStatus: "Healthy",
                     careNeeds: "Regular",
                     adoptionStatus: "Available",
                   ),
                   _buildPetCard(
-                    imagePath: "assets/max.png",
+                    imagePath: "assets/images/donors/max.png",
                     name: "Max",
                     healthStatus: "Healthy",
                     careNeeds: "Regular",
