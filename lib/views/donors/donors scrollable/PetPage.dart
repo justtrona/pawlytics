@@ -98,6 +98,7 @@ class PetPage extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 children: [
                   _buildPetCard(
+                    context,
                     imagePath: "assets/images/donors/peter.png",
                     name: "Peter",
                     healthStatus: "Healthy",
@@ -105,6 +106,7 @@ class PetPage extends StatelessWidget {
                     adoptionStatus: "Available",
                   ),
                   _buildPetCard(
+                    context,
                     imagePath: "assets/images/donors/max.png",
                     name: "Max",
                     healthStatus: "Healthy",
@@ -114,15 +116,15 @@ class PetPage extends StatelessWidget {
                 ],
               ),
             ),
-
-            const SizedBox(height: 20),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildPetCard({
+  // Pet Card Widget
+  Widget _buildPetCard(
+    BuildContext context, {
     required String imagePath,
     required String name,
     required String healthStatus,
@@ -185,7 +187,20 @@ class PetPage extends StatelessWidget {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    onPressed: () {},
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PetDetailsPage(
+                            name: name,
+                            imagePath: imagePath,
+                            description:
+                                "$name is a gentle rescue dog who was found alone but never lost hope. Now ready for a second chance at love",
+                            tags: ["1y", "NEEDS MEDICAL CARE", "Aspin"],
+                          ),
+                        ),
+                      );
+                    },
                     child: const Text(
                       "View",
                       style: TextStyle(
@@ -216,6 +231,127 @@ class PetPage extends StatelessWidget {
           style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w500),
         ),
       ],
+    );
+  }
+}
+
+class PetDetailsPage extends StatelessWidget {
+  final String name;
+  final String imagePath;
+  final String description;
+  final List<String> tags;
+
+  const PetDetailsPage({
+    super.key,
+    required this.name,
+    required this.imagePath,
+    required this.description,
+    required this.tags,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        foregroundColor: Colors.black,
+        centerTitle: true,
+        title: Text(
+          name,
+          style: const TextStyle(
+            fontSize: 22,
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1F2C47),
+          ),
+        ),
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ClipRRect(
+              borderRadius: BorderRadius.circular(12),
+              child: Image.asset(
+                imagePath,
+                width: double.infinity,
+                height: 220,
+                fit: BoxFit.cover,
+              ),
+            ),
+            const SizedBox(height: 12),
+
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    description,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      color: Color(0xFF1F2C47),
+                    ),
+                  ),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.star_border, color: Color(0xFF1F2C47)),
+                  onPressed: () {},
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+
+            Wrap(
+              spacing: 8,
+              children: tags.map((tag) {
+                return Chip(
+                  label: Text(
+                    tag,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.bold,
+                      color: tag == "NEEDS MEDICAL CARE"
+                          ? Colors.red
+                          : const Color(0xFF1F2C47),
+                    ),
+                  ),
+                  backgroundColor: tag == "NEEDS MEDICAL CARE"
+                      ? Colors.red.shade50
+                      : Colors.grey.shade200,
+                );
+              }).toList(),
+            ),
+
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              height: 45,
+              child: ElevatedButton(
+                onPressed: () {},
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1F2C47),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: const Text(
+                  "Donate",
+                  style: TextStyle(fontSize: 16, color: Colors.white),
+                ),
+              ),
+            ),
+            TextButton(
+              onPressed: () {},
+              child: const Text(
+                "View More",
+                style: TextStyle(fontSize: 14, color: Color(0xFF1F2C47)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
