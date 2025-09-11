@@ -40,9 +40,8 @@ class PetProfileController {
   void toggleSpayNeuter(bool value) =>
       petProfile = petProfile.copyWith(spayNeuter: value);
 
-  /// Save to Supabase table 'pet_profiles' and store returned id (if any)
   Future<void> savePet() async {
-    updateName(); // ensure name is synced
+    updateName();
 
     final payload = petProfile.toMapInsert();
 
@@ -65,7 +64,6 @@ class PetProfileController {
         final first = inserted[0];
         if (first is Map) newId = first['id']?.toString();
       } else {
-        // fallback: try toString
         try {
           newId = inserted['id']?.toString();
         } catch (_) {
@@ -78,7 +76,6 @@ class PetProfileController {
         petProfile = petProfile.copyWith(id: newId);
       }
     } catch (e) {
-      // bubble error so UI can show it
       rethrow;
     }
   }

@@ -33,6 +33,10 @@ class _PetProfilesState extends State<PetProfiles> {
   int adoptionCount = 0;
   int medicalCount = 0;
 
+  // NEW state for filter & sort
+  String? _selectedType; // e.g. "Dog" or "Cat"
+  bool _sortNewest = true;
+
   @override
   void initState() {
     super.initState();
@@ -40,13 +44,29 @@ class _PetProfilesState extends State<PetProfiles> {
   }
 
   Future<void> _loadPets() async {
-    try {
-      final response = await Supabase.instance.client
-          .from('pet_profiles')
-          .select()
-          .order('created_at', ascending: false);
+    setState(() => _loading = true);
 
-      final pets = (response as List)
+    try {
+      final client = Supabase.instance.client;
+
+      // Build + await final query in one expression to avoid builder-type mismatch
+      final rawResponse = _selectedType != null && _selectedType!.isNotEmpty
+          ? await client
+                .from('pet_profiles')
+                .select()
+                .eq(
+                  'species',
+                  _selectedType!,
+                ) // safe to unwrap because of check
+                .order('created_at', ascending: !_sortNewest)
+          : await client
+                .from('pet_profiles')
+                .select()
+                .order('created_at', ascending: !_sortNewest);
+
+      final data = rawResponse as List<dynamic>;
+
+      final pets = data
           .map((row) => PetProfile.fromMap(row as Map<String, dynamic>))
           .toList();
 
@@ -67,6 +87,52 @@ class _PetProfilesState extends State<PetProfiles> {
       debugPrint('Error loading pets: $e');
       setState(() => _loading = false);
     }
+  }
+
+  // Dialog for filtering by type
+  void _showFilterDialog() {
+    // get unique species from loaded pets (if none loaded, show Dog/Cat fallback)
+    final speciesList = _pets.isNotEmpty
+        ? _pets.map((p) => p.species).toSet().toList()
+        : ['Dog', 'Cat'];
+
+    showDialog(
+      context: context,
+      builder: (_) {
+        return AlertDialog(
+          title: const Text("Filter by Type"),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text("All"),
+                onTap: () {
+                  setState(() => _selectedType = null);
+                  Navigator.pop(context);
+                  _loadPets();
+                },
+              ),
+              ...speciesList.map(
+                (s) => ListTile(
+                  title: Text(s),
+                  onTap: () {
+                    setState(() => _selectedType = s);
+                    Navigator.pop(context);
+                    _loadPets();
+                  },
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  // Toggle sort order
+  void _toggleSort() {
+    setState(() => _sortNewest = !_sortNewest);
+    _loadPets();
   }
 
   // Always 2 columns
@@ -192,16 +258,20 @@ class _PetProfilesState extends State<PetProfiles> {
                       Expanded(
                         child: _PillButton(
                           icon: Icons.filter_list_rounded,
-                          label: 'Filter by Type',
-                          onTap: () {},
+                          label: _selectedType == null
+                              ? 'Filter by Type'
+                              : 'Type: $_selectedType',
+                          onTap: _showFilterDialog,
                         ),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
                         child: _PillButton(
                           icon: Icons.sort_rounded,
-                          label: 'Sort by Newest',
-                          onTap: () {},
+                          label: _sortNewest
+                              ? 'Sort by Newest'
+                              : 'Sort by Oldest',
+                          onTap: _toggleSort,
                         ),
                       ),
                     ],
@@ -397,7 +467,7 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-// Chips
+// Chips remain unchanged...
 class _ChipOutlined extends StatelessWidget {
   final String text;
   const _ChipOutlined({required this.text});
