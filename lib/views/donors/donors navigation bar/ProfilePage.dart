@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/ProfileEdit.dart';
+// ⬅️ import your ProfileEdit file
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -55,7 +57,17 @@ class ProfilePage extends StatelessWidget {
                 ),
               ),
             ),
-            buildMenuButton(context, icon: Icons.person, title: "User TenTen"),
+            buildMenuButton(
+              context,
+              icon: Icons.person,
+              title: "User TenTen",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const ProfileEdit()),
+                );
+              },
+            ),
             buildMenuButton(context, icon: Icons.star, title: "Favorites"),
             buildMenuButton(
               context,
