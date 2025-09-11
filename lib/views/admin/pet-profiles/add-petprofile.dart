@@ -1,9 +1,7 @@
 // lib/screens/add_pet_profile.dart
-
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/controllers/add-pet-controller.dart';
-import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/needs_grid.dart';
-import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/pill.dart';
+import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/pill.dart'; // adjust import path if needed
 
 class AddPetProfile extends StatefulWidget {
   const AddPetProfile({super.key});
@@ -69,11 +67,18 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
-                onPressed: () {
-                  controller.updateName();
-                  ScaffoldMessenger.of(
-                    context,
-                  ).showSnackBar(const SnackBar(content: Text('Pet saved')));
+                onPressed: () async {
+                  try {
+                    await controller.savePet();
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(const SnackBar(content: Text('Pet saved')));
+                    Navigator.of(context).maybePop(); // optional close
+                  } catch (e) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Error saving pet: $e')),
+                    );
+                  }
                 },
                 child: const Text('Save Pet'),
               ),
@@ -84,6 +89,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
+              // Profile Picture Placeholder
               Center(
                 child: Container(
                   width: 100,
@@ -104,6 +110,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 16),
 
+              // Pet Name
               const Text(
                 'Pet Name',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
@@ -132,7 +139,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     child: Pill(
                       label: 'Cat',
                       selected: pet.species == 'Cat',
-                      outlineOnly: true,
+                      // outlineOnly: true,
                       onTap: () =>
                           setState(() => controller.updateSpecies('Cat')),
                     ),
@@ -148,7 +155,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     child: Pill(
                       label: 'Puppy/Kitten',
                       selected: pet.ageGroup == 'Puppy/Kitten',
-                      outlineOnly: true,
+                      // outlineOnly: true,
                       onTap: () => setState(
                         () => controller.updateAgeGroup('Puppy/Kitten'),
                       ),
@@ -167,18 +174,64 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 16),
 
+              // Health & Care Needs (use bool fields directly)
               const Text(
                 'Health & Care Needs',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
               ),
               const SizedBox(height: 10),
-              NeedsGrid(
-                items: pet.healthNeeds,
-                onToggle: (k, v) =>
-                    setState(() => controller.toggleHealthNeed(k, v)),
+              Column(
+                children: [
+                  CheckboxListTile(
+                    title: const Text('Surgery'),
+                    value: pet.surgery,
+                    onChanged: (v) =>
+                        setState(() => controller.toggleSurgery(v ?? false)),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Dental Care'),
+                    value: pet.dentalCare,
+                    onChanged: (v) =>
+                        setState(() => controller.toggleDentalCare(v ?? false)),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Vaccination'),
+                    value: pet.vaccination,
+                    onChanged: (v) => setState(
+                      () => controller.toggleVaccination(v ?? false),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Injury Treatment'),
+                    value: pet.injuryTreatment,
+                    onChanged: (v) => setState(
+                      () => controller.toggleInjuryTreatment(v ?? false),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Deworming'),
+                    value: pet.deworming,
+                    onChanged: (v) =>
+                        setState(() => controller.toggleDeworming(v ?? false)),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Skin Treatment'),
+                    value: pet.skinTreatment,
+                    onChanged: (v) => setState(
+                      () => controller.toggleSkinTreatment(v ?? false),
+                    ),
+                  ),
+                  CheckboxListTile(
+                    title: const Text('Spay/Neuter'),
+                    value: pet.spayNeuter,
+                    onChanged: (v) =>
+                        setState(() => controller.toggleSpayNeuter(v ?? false)),
+                  ),
+                ],
               ),
               const SizedBox(height: 16),
 
+              // Status
               const Text(
                 'Status',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
