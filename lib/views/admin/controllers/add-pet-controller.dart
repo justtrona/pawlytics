@@ -7,6 +7,7 @@ class PetProfileController {
   final TextEditingController nameController = TextEditingController();
 
   PetProfile petProfile = PetProfile(
+    id: '',
     name: 'Peter',
     species: 'Dog',
     ageGroup: 'Senior',
