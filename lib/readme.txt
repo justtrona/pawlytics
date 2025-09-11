@@ -6,3 +6,4 @@
 
 9/11/25
 - pet management
+- create na table
