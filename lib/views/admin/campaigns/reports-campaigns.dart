@@ -8,13 +8,12 @@ class ReportsCampaigns extends StatefulWidget {
 }
 
 class _ReportsCampaignsState extends State<ReportsCampaigns> {
-  // Palette (tuned to your mock)
+  // Palette
   static const Color brand = Color(0xFF27374D);
   static const Color navy = brand;
   static const Color chipBg = Color(0xFFE8EEF4);
   static const Color cardBorder = Color(0xFFCBD5E1);
   static const Color progressBg = Color(0xFFCED6DE);
-  static const Color txtDark = Color(0xFF1F2D3D);
   static const Color txtGrey = Color(0xFF6D7884);
 
   // Filters
@@ -27,160 +26,122 @@ class _ReportsCampaignsState extends State<ReportsCampaigns> {
     'Pet Medical Support',
     'Emergency Care',
   ];
-
   final _statusOptions = const ['All Statuses', 'On Track', 'Completed'];
 
   @override
   Widget build(BuildContext context) {
-    final w = MediaQuery.of(context).size.width;
-    final maxW = w >= 520
-        ? 520.0
-        : w; // keep a nice readable width on larger phones
-
     return Scaffold(
       backgroundColor: Colors.white,
+
+      // Simple AppBar (no bottom:)
       appBar: AppBar(
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black,
         elevation: 0,
         centerTitle: true,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back_ios_new_rounded),
-          onPressed: () => Navigator.of(context).maybePop(),
-        ),
         title: const Text(
-          'Campaign Performance',
+          'Campaign Reports',
           style: TextStyle(
             color: navy,
             fontWeight: FontWeight.w800,
-            fontSize: 22,
+            fontSize: 20,
             letterSpacing: 0.2,
           ),
         ),
-      ),
-      body: SafeArea(
-        child: Center(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: maxW),
-            child: SingleChildScrollView(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Filter chips row
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _DropdownChip(
-                          value: _selectedCampaign,
-                          values: _campaignOptions,
-                          onChanged: (v) =>
-                              setState(() => _selectedCampaign = v),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: _DropdownChip(
-                          value: _selectedStatus,
-                          values: _statusOptions,
-                          onChanged: (v) => setState(() => _selectedStatus = v),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Cards
-                  _CampaignCard(
-                    title: 'Adoption Medical Fund',
-                    priceRange: 'PHP 80.00 - PHP 150.00',
-                    statusText: 'On Track',
-                    progress: 0.70,
-                    leftCaption: 'Goal: 200 Pets',
-                    rightCaption: 'Reached: 141 Pets',
-                  ),
-                  const SizedBox(height: 16),
-                  _CampaignCard(
-                    title: 'Pet Medical Support',
-                    priceRange: 'PHP 80.00 - PHP 150.00',
-                    statusText: 'Completed',
-                    progress: 0.90,
-                    leftCaption: 'Goal: 150 Pets',
-                    rightCaption: 'Reached: 160 Pets',
-                  ),
-                  const SizedBox(height: 16),
-                  _CampaignCard(
-                    title: 'Emergency Care',
-                    priceRange: 'PHP 80.00 - PHP 150.00',
-                    statusText: 'On Track',
-                    progress: 0.60,
-                    leftCaption: 'Goal: 100 Pets',
-                    rightCaption: 'Reached: 67 Pets',
-                  ),
-
-                  const SizedBox(height: 28),
-
-                  // Manage button
-                  SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: navy,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
-                        elevation: 0,
-                      ),
-                      onPressed: () {},
-                      child: const Text(
-                        'MANAGE',
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          letterSpacing: 0.6,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-
-                  // Bottom padding to clear custom nav
-                  SizedBox(height: 80 + MediaQuery.of(context).padding.bottom),
-                ],
-              ),
-            ),
+        leading: IconButton(
+          icon: const Icon(
+            Icons.arrow_back_ios_new_rounded,
+            color: Colors.black,
           ),
+          onPressed: () => Navigator.of(context).maybePop(),
         ),
       ),
 
-      // Rounded "pill" Bottom Nav (visual only)
-      bottomNavigationBar: SafeArea(
-        top: false,
-        minimum: const EdgeInsets.fromLTRB(12, 0, 12, 10),
-        child: Container(
-          height: 68,
-          decoration: BoxDecoration(
-            color: navy,
-            borderRadius: BorderRadius.circular(24),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 18),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: const [
-              _NavItem(
-                icon: Icons.dashboard_rounded,
-                label: 'Dashboard',
-                selected: true,
+      // Content (filters + cards + button) — ConstrainedBox removed
+      body: SingleChildScrollView(
+        // keep top padding minimal so chips sit right under the AppBar
+        padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Filters
+            Row(
+              children: [
+                Expanded(
+                  child: _DropdownChip(
+                    value: _selectedCampaign,
+                    values: _campaignOptions,
+                    onChanged: (v) => setState(() => _selectedCampaign = v),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: _DropdownChip(
+                    value: _selectedStatus,
+                    values: _statusOptions,
+                    onChanged: (v) => setState(() => _selectedStatus = v),
+                  ),
+                ),
+              ],
+            ),
+
+            // Tighten gap before first card
+            const SizedBox(height: 8),
+
+            // Cards
+            const _CampaignCard(
+              title: 'Adoption Medical Fund',
+              priceRange: 'PHP 80.00 - PHP 150.00',
+              statusText: 'On Track',
+              progress: 0.70,
+              leftCaption: 'Goal: 200 Pets',
+              rightCaption: 'Reached: 141 Pets',
+            ),
+            const SizedBox(height: 16),
+            const _CampaignCard(
+              title: 'Pet Medical Support',
+              priceRange: 'PHP 80.00 - PHP 150.00',
+              statusText: 'Completed',
+              progress: 0.90,
+              leftCaption: 'Goal: 150 Pets',
+              rightCaption: 'Reached: 160 Pets',
+            ),
+            const SizedBox(height: 16),
+            const _CampaignCard(
+              title: 'Emergency Care',
+              priceRange: 'PHP 80.00 - PHP 150.00',
+              statusText: 'On Track',
+              progress: 0.60,
+              leftCaption: 'Goal: 100 Pets',
+              rightCaption: 'Reached: 67 Pets',
+            ),
+
+            const SizedBox(height: 24),
+
+            // Manage button
+            SizedBox(
+              width: double.infinity,
+              height: 48,
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: navy,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  elevation: 0,
+                ),
+                onPressed: () {},
+                child: const Text(
+                  'MANAGE',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    letterSpacing: 0.6,
+                    color: Colors.white,
+                  ),
+                ),
               ),
-              _NavItem(icon: Icons.pets_rounded, label: 'Pet Profiles'),
-              _NavItem(
-                icon: Icons.notifications_rounded,
-                label: 'Notifications',
-              ),
-              _NavItem(icon: Icons.menu_rounded, label: 'Menu'),
-            ],
-          ),
+            ),
+            const SizedBox(height: 16),
+          ],
         ),
       ),
     );
@@ -239,10 +200,10 @@ class _DropdownChip extends StatelessWidget {
 class _CampaignCard extends StatelessWidget {
   final String title;
   final String priceRange;
-  final String statusText; // "On Track", "Completed", etc.
-  final double progress; // 0..1
-  final String leftCaption; // e.g., "Goal: 200 Pets"
-  final String rightCaption; // e.g., "Reached: 141 Pets"
+  final String statusText;
+  final double progress;
+  final String leftCaption;
+  final String rightCaption;
 
   const _CampaignCard({
     required this.title,
@@ -253,10 +214,7 @@ class _CampaignCard extends StatelessWidget {
     required this.rightCaption,
   });
 
-  Color get _statusBg => statusText == 'Completed'
-      ? const Color(0xFFDDE2E8)
-      : const Color(0xFFDDE2E8);
-
+  Color get _statusBg => const Color(0xFFDDE2E8);
   Color get _statusText => _ReportsCampaignsState.navy;
 
   @override
@@ -337,7 +295,6 @@ class _CampaignCard extends StatelessWidget {
 
           // Progress + percent
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: _ProgressBar(
@@ -357,7 +314,6 @@ class _CampaignCard extends StatelessWidget {
               ),
             ],
           ),
-
           const SizedBox(height: 12),
 
           // Bottom captions
@@ -392,9 +348,9 @@ class _CampaignCard extends StatelessWidget {
   }
 }
 
-/// --- Progress Bar with subtle shadow ---------------------------------------------
+/// --- Progress Bar -----------------------------------------------------------------
 class _ProgressBar extends StatelessWidget {
-  final double value; // 0..1
+  final double value;
   final double height;
   final Color bg;
   final Color fg;
@@ -438,39 +394,6 @@ class _ProgressBar extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-/// --- Bottom nav item --------------------------------------------------------------
-class _NavItem extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final bool selected;
-
-  const _NavItem({
-    required this.icon,
-    required this.label,
-    this.selected = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final color = Colors.white.withOpacity(selected ? 1 : 0.8);
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          label,
-          style: TextStyle(
-            color: color,
-            fontSize: 12,
-            fontWeight: selected ? FontWeight.w800 : FontWeight.w700,
-          ),
-        ),
-      ],
     );
   }
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/admin-dashboard.dart';
 import 'package:pawlytics/views/admin/admin-menu.dart';
+import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 
 class NavigationButtonAdmin extends StatefulWidget {
   const NavigationButtonAdmin({super.key});
@@ -16,7 +17,8 @@ class _NavigationButtonAdminState extends State<NavigationButtonAdmin> {
 
   final _pages = const <Widget>[
     AdminDashboard(),
-    _Stub(title: 'Pet Profiles'),
+    PetProfiles(),
+    // _Stub(title: 'Pet Profiles'),
     _Stub(title: 'Notifications'),
     menuBar(),
   ];
@@ -34,6 +36,7 @@ class _NavigationButtonAdminState extends State<NavigationButtonAdmin> {
           selectedItemColor: Colors.white,
           unselectedItemColor: Colors.white70,
           currentIndex: _currentIndex,
+
           onTap: (i) => setState(() => _currentIndex = i),
           items: const [
             BottomNavigationBarItem(
