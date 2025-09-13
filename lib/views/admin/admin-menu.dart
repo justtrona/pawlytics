@@ -139,9 +139,9 @@ class _menuBarState extends State<menuBar> {
                       // ),
                       _MenuItem(
                         icon: Icons.receipt_long_rounded,
-                        label: 'Donation Usage',
+                        label: 'FundUsage',
                         onTap: () =>
-                            Navigator.pushNamed(context, route.usageDonation),
+                            Navigator.pushNamed(context, route.usageFund),
                       ),
                     ],
                   ),

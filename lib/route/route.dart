@@ -8,7 +8,8 @@ import 'package:pawlytics/views/admin/campaigns/create-campaign.dart';
 import 'package:pawlytics/views/admin/campaigns/reports-campaigns.dart';
 import 'package:pawlytics/views/admin/donation/history-donation.dart';
 import 'package:pawlytics/views/admin/donation/report-donation.dart';
-import 'package:pawlytics/views/admin/donation/usage-donation.dart';
+// import 'package:pawlytics/views/admin/donation/usage-donation.dart';
+import 'package:pawlytics/views/admin/donation/usage-fund.dart';
 import 'package:pawlytics/views/admin/donors-analytics/rewards-certification.dart';
 import 'package:pawlytics/views/admin/dropoff-location/create-dropoff.dart';
 import 'package:pawlytics/views/admin/dropoff-location/dropoff-location.dart';
@@ -27,7 +28,7 @@ import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
 
 //donors imports
-import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
+// import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
 
 // route navigation list
 
@@ -45,7 +46,7 @@ const String createDropoff = 'create-dropoff';
 const String addPetProfile = 'add-pet-profile';
 const String addUtilities = 'add-utilities';
 const String donationHistory = 'donation-history';
-const String usageDonation = 'usage-donation';
+const String usageFund = 'usage-donation';
 const String donationReports = 'donation-reports';
 const String campaignreports = 'campaigns-report';
 const String expensereports = 'expense-report';
@@ -90,8 +91,8 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => Addutilities());
     case donationHistory:
       return MaterialPageRoute(builder: (context) => DonationHistory());
-    case usageDonation:
-      return MaterialPageRoute(builder: (context) => DonationUsage());
+    case usageFund:
+      return MaterialPageRoute(builder: (context) => FundUsage());
     case donationReports:
       return MaterialPageRoute(builder: (context) => DonationReports());
     case campaignreports:

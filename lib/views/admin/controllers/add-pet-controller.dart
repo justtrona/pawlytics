@@ -1,8 +1,6 @@
-// lib/controllers/add_pet_controller.dart
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/model/pet-profiles.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// import 'package:pawlytics/models/pet_profile.dart';
 
 class PetProfileController {
   final TextEditingController nameController = TextEditingController();
@@ -40,43 +38,38 @@ class PetProfileController {
   void toggleSpayNeuter(bool value) =>
       petProfile = petProfile.copyWith(spayNeuter: value);
 
-  Future<void> savePet() async {
+  Future<bool> savePet() async {
     updateName();
 
     final payload = petProfile.toMapInsert();
 
     try {
-      // Insert and request returned row(s)
       final inserted = await Supabase.instance.client
           .from('pet_profiles')
           .insert(payload)
           .select()
-          .maybeSingle(); // maybeSingle avoids exceptions if nothing returned
+          .maybeSingle();
 
       String? newId;
 
       if (inserted == null) {
-        // no row returned — still may be fine; leave id null
         newId = null;
       } else if (inserted is Map) {
         newId = inserted['id']?.toString();
       } else if (inserted is List && inserted.isNotEmpty) {
         final first = inserted[0];
         if (first is Map) newId = first['id']?.toString();
-      } else {
-        try {
-          newId = inserted['id']?.toString();
-        } catch (_) {
-          newId = null;
-        }
       }
 
       // only set id if we successfully found one
       if (newId != null && newId.isNotEmpty) {
         petProfile = petProfile.copyWith(id: newId);
       }
+
+      return true; // if nag success
     } catch (e) {
-      rethrow;
+      debugPrint("Save pet error: $e");
+      return false; // failed
     }
   }
 }

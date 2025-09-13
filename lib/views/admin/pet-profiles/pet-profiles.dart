@@ -1,19 +1,14 @@
-// lib/screens/pet_profiles.dart
-
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/model/pet-profiles.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-// import 'package:pawlytics/models/pet_profile.dart';
 import 'package:pawlytics/route/route.dart' as route;
 
-// THEME
 const _brand = Color(0xFF27374D);
 const _softGrey = Color(0xFFE9EEF3);
 const _cardGrey = Color(0xFFDDE5EC);
 const _chipGrey = Color(0xFFF1F4F7);
 const _danger = Color(0xFFE74C3C);
 
-// Layout
 const _hPad = 10.0;
 const _vGap = 10.0;
 const _tileRadius = 10.0;
@@ -26,7 +21,7 @@ class PetProfiles extends StatefulWidget {
 }
 
 class _PetProfilesState extends State<PetProfiles> {
-  final List<PetProfile> _pets = [];
+  List<PetProfile> _pets = [];
   bool _loading = true;
 
   int totalPets = 0;
@@ -34,13 +29,16 @@ class _PetProfilesState extends State<PetProfiles> {
   int medicalCount = 0;
 
   // NEW state for filter & sort
-  String? _selectedType; // e.g. "Dog" or "Cat"
+  String? _selectedType;
   bool _sortNewest = true;
+
+  RealtimeChannel? _petChannel;
 
   @override
   void initState() {
     super.initState();
     _loadPets();
+    _subscribeToPets();
   }
 
   Future<void> _loadPets() async {
@@ -49,15 +47,11 @@ class _PetProfilesState extends State<PetProfiles> {
     try {
       final client = Supabase.instance.client;
 
-      // Build + await final query in one expression to avoid builder-type mismatch
       final rawResponse = _selectedType != null && _selectedType!.isNotEmpty
           ? await client
                 .from('pet_profiles')
                 .select()
-                .eq(
-                  'species',
-                  _selectedType!,
-                ) // safe to unwrap because of check
+                .eq('species', _selectedType!)
                 .order('created_at', ascending: !_sortNewest)
           : await client
                 .from('pet_profiles')
@@ -71,16 +65,8 @@ class _PetProfilesState extends State<PetProfiles> {
           .toList();
 
       setState(() {
-        _pets
-          ..clear()
-          ..addAll(pets);
-
-        totalPets = _pets.length;
-        adoptionCount = _pets.where((p) => p.status == 'For Adoption').length;
-        medicalCount = _pets
-            .where((p) => p.status == 'Needs Medical Care')
-            .length;
-
+        _pets = pets;
+        _recalcStats();
         _loading = false;
       });
     } catch (e) {
@@ -89,9 +75,80 @@ class _PetProfilesState extends State<PetProfiles> {
     }
   }
 
-  // Dialog for filtering by type
+  void _recalcStats() {
+    totalPets = _pets.length;
+    adoptionCount = _pets.where((p) => p.status == 'For Adoption').length;
+    medicalCount = _pets.where((p) => p.status == 'Needs Medical Care').length;
+  }
+
+  void _subscribeToPets() {
+    final client = Supabase.instance.client;
+
+    _petChannel = client
+        .channel('public:pet_profiles')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'pet_profiles',
+          callback: (payload) {
+            debugPrint('Realtime event: ${payload.eventType}');
+
+            final newRecord = payload.newRecord;
+            final oldRecord = payload.oldRecord;
+
+            setState(() {
+              switch (payload.eventType) {
+                case PostgresChangeEvent.insert:
+                  if (newRecord != null) {
+                    _pets = [PetProfile.fromMap(newRecord), ..._pets];
+                  }
+                  break;
+
+                case PostgresChangeEvent.update:
+                  if (newRecord != null && oldRecord != null) {
+                    final index = _pets.indexWhere(
+                      (p) => p.id == oldRecord['id'],
+                    );
+                    if (index != -1) {
+                      _pets = [
+                        for (int i = 0; i < _pets.length; i++)
+                          if (i == index)
+                            PetProfile.fromMap(newRecord)
+                          else
+                            _pets[i],
+                      ];
+                    }
+                  }
+                  break;
+
+                case PostgresChangeEvent.delete:
+                  if (oldRecord != null) {
+                    _pets = _pets
+                        .where((p) => p.id != oldRecord['id'])
+                        .toList();
+                  }
+                  break;
+
+                default:
+                  break;
+              }
+
+              _recalcStats();
+            });
+          },
+        )
+        .subscribe();
+  }
+
+  @override
+  void dispose() {
+    if (_petChannel != null) {
+      Supabase.instance.client.removeChannel(_petChannel!);
+    }
+    super.dispose();
+  }
+
   void _showFilterDialog() {
-    // get unique species from loaded pets (if none loaded, show Dog/Cat fallback)
     final speciesList = _pets.isNotEmpty
         ? _pets.map((p) => p.species).toSet().toList()
         : ['Dog', 'Cat'];
@@ -129,13 +186,11 @@ class _PetProfilesState extends State<PetProfiles> {
     );
   }
 
-  // Toggle sort order
   void _toggleSort() {
     setState(() => _sortNewest = !_sortNewest);
     _loadPets();
   }
 
-  // Always 2 columns
   int _gridCols(double _) => 2;
 
   @override
@@ -154,7 +209,6 @@ class _PetProfilesState extends State<PetProfiles> {
             : ListView(
                 padding: const EdgeInsets.fromLTRB(_hPad, 8, _hPad, 24),
                 children: [
-                  // Header
                   Row(
                     children: const [
                       CircleAvatar(
@@ -214,7 +268,6 @@ class _PetProfilesState extends State<PetProfiles> {
                   ),
                   const SizedBox(height: _vGap),
 
-                  // Add + filters
                   Row(
                     children: [
                       Expanded(
@@ -278,7 +331,6 @@ class _PetProfilesState extends State<PetProfiles> {
                   ),
                   const SizedBox(height: _vGap),
 
-                  // Grid
                   LayoutBuilder(
                     builder: (context, c) {
                       final cols = _gridCols(c.maxWidth);
@@ -305,11 +357,9 @@ class _PetProfilesState extends State<PetProfiles> {
   }
 }
 
-// ---------- Card ----------
-// ✅ Correct PetGridCard
+// Card
 class _PetGridCard extends StatelessWidget {
-  final PetProfile pet; // // <-- Use your model
-
+  final PetProfile pet;
   const _PetGridCard({required this.pet});
 
   @override
@@ -319,7 +369,7 @@ class _PetGridCard extends StatelessWidget {
       borderRadius: BorderRadius.circular(_tileRadius),
       child: InkWell(
         borderRadius: BorderRadius.circular(_tileRadius),
-        onTap: () {}, // hook to details if needed
+        onTap: () {},
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -331,7 +381,7 @@ class _PetGridCard extends StatelessWidget {
                   height: 90,
                   child: Image.network(
                     pet.imageUrl?.isNotEmpty == true
-                        ? pet.imageUrl! // ✅ Use from DB if available
+                        ? pet.imageUrl!
                         : 'https://placehold.co/300x300?text=${pet.species}',
                     fit: BoxFit.cover,
                     errorBuilder: (_, __, ___) =>
@@ -371,7 +421,7 @@ class _PetGridCard extends StatelessWidget {
   }
 }
 
-// ---------- Small widgets ----------
+// Small widgets
 class _StatCard extends StatelessWidget {
   final String value;
   final String label;
@@ -467,7 +517,6 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-// Chips remain unchanged...
 class _ChipOutlined extends StatelessWidget {
   final String text;
   const _ChipOutlined({required this.text});

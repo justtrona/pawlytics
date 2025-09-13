@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 
-class DonationUsage extends StatefulWidget {
-  const DonationUsage({super.key});
+class FundUsage extends StatefulWidget {
+  const FundUsage({super.key});
 
   @override
-  State<DonationUsage> createState() => _DonationUsageState();
+  State<FundUsage> createState() => _FundState();
 }
 
-class _DonationUsageState extends State<DonationUsage> {
+class _FundState extends State<FundUsage> {
   // Theme
   static const brand = Color(0xFF27374D);
 
@@ -18,7 +18,7 @@ class _DonationUsageState extends State<DonationUsage> {
   final _petCtrl = TextEditingController(text: 'Peter');
   final _amountCtrl = TextEditingController(text: 'PHP 800.00');
   final _dateCtrl = TextEditingController();
-  final _proofCtrl = TextEditingController(); // filename (optional)
+  final _proofCtrl = TextEditingController();
 
   @override
   void dispose() {
@@ -83,7 +83,6 @@ class _DonationUsageState extends State<DonationUsage> {
   }
 
   Future<void> _attachProof() async {
-    // Mock picker just to visualize the flow
     final name = await showModalBottomSheet<String>(
       context: context,
       showDragHandle: true,
