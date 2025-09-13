@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/controller/donation-controller.dart';
 
 class ManualDonationPage extends StatefulWidget {
   const ManualDonationPage({super.key});
@@ -8,7 +9,37 @@ class ManualDonationPage extends StatefulWidget {
 }
 
 class _ManualDonationPageState extends State<ManualDonationPage> {
-  String _donationType = "Cash";
+  late DonationController controller;
+
+  @override
+  void initState() {
+    super.initState();
+    controller = DonationController();
+  }
+
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final donation = controller.buildDonation();
+    final issues = donation.validate();
+
+    if (issues.isNotEmpty) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text(issues.join('\n'))));
+      return;
+    }
+
+    final map = donation.toMap();
+    debugPrint('Donation saved: $map');
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Donation saved successfully!')),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,10 +57,8 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
-            if (_donationType == "In Kind") {
-              setState(() {
-                _donationType = "Cash";
-              });
+            if (controller.donationType == "In Kind") {
+              setState(() => controller.donationType = "Cash");
             } else {
               Navigator.pop(context);
             }
@@ -43,45 +72,40 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
           children: [
             const Text(
               "Donor Info",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildTextField(Icons.person, "Enter Name"),
+            _buildTextField(Icons.person, "Enter Name", controller.nameCtl),
             const SizedBox(height: 12),
             _buildTextField(
               Icons.phone,
               "Enter Number",
+              controller.phoneCtl,
               keyboardType: TextInputType.phone,
             ),
             const SizedBox(height: 20),
 
             const Text(
               "Date of Donation",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            _buildDropdownField(Icons.calendar_today, "Select Date"),
+            InkWell(
+              onTap: () => controller.pickDate(context, () => setState(() {})),
+              child: _buildDropdownField(
+                Icons.calendar_today,
+                controller.formattedDate,
+              ),
+            ),
             const SizedBox(height: 20),
 
             const Text(
               "Donation Type",
-              style: TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                color: Colors.black87,
-              ),
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
-              value: _donationType,
+              value: controller.donationType,
               decoration: InputDecoration(
                 prefixIcon: const Icon(
                   Icons.volunteer_activism,
@@ -90,68 +114,92 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(8),
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  vertical: 12,
-                  horizontal: 10,
-                ),
               ),
               items: const [
                 DropdownMenuItem(value: "Cash", child: Text("Cash")),
                 DropdownMenuItem(value: "In Kind", child: Text("In Kind")),
               ],
               onChanged: (value) {
+                if (value == null) return;
                 setState(() {
-                  _donationType = value!;
+                  controller.donationType = value;
+                  if (value == "Cash") {
+                    controller.itemCtl.clear();
+                    controller.qtyCtl.clear();
+                  } else {
+                    controller.amountCtl.clear();
+                    controller.selectedPaymentMethod = null;
+                  }
                 });
               },
             ),
             const SizedBox(height: 20),
 
-            if (_donationType == "Cash") ...[
+            if (controller.donationType == "Cash") ...[
               const Text(
                 "Payment Method",
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black87,
-                ),
+                style: TextStyle(fontWeight: FontWeight.bold),
               ),
               const SizedBox(height: 8),
-              _buildDropdownField(Icons.credit_card, "Select Payment"),
+              DropdownButtonFormField<String>(
+                value: controller.selectedPaymentMethod,
+                decoration: InputDecoration(
+                  prefixIcon: const Icon(
+                    Icons.credit_card,
+                    color: Colors.black54,
+                  ),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                items: controller.paymentOptions
+                    .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+                    .toList(),
+                onChanged: (value) =>
+                    setState(() => controller.selectedPaymentMethod = value),
+                hint: const Text('Select Payment'),
+              ),
               const SizedBox(height: 12),
               _buildTextField(
                 Icons.attach_money,
                 "Enter Amount",
+                controller.amountCtl,
                 keyboardType: TextInputType.number,
               ),
+              const SizedBox(height: 12),
+              _buildTextField(
+                Icons.note,
+                "Notes (Optional)",
+                controller.notesCtl,
+              ),
             ] else ...[
-              _buildTextField(Icons.inventory_2, "Item"),
+              _buildTextField(Icons.inventory_2, "Item", controller.itemCtl),
               const SizedBox(height: 12),
               _buildTextField(
                 Icons.numbers,
                 "Quantity",
+                controller.qtyCtl,
                 keyboardType: TextInputType.number,
               ),
               const SizedBox(height: 12),
-              _buildTextField(Icons.note, "Notes (Optional)"),
+              _buildTextField(
+                Icons.note,
+                "Notes (Optional)",
+                controller.notesCtl,
+              ),
             ],
 
             const SizedBox(height: 30),
 
-            Center(
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1F2C47),
-                  minimumSize: const Size(double.infinity, 45),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                ),
-                onPressed: () {},
-                child: const Text(
-                  "Save",
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFF1F2C47),
+                minimumSize: const Size(double.infinity, 45),
+              ),
+              onPressed: _save,
+              child: const Text(
+                "Save",
+                style: TextStyle(fontSize: 16, color: Colors.white),
               ),
             ),
           ],
@@ -162,40 +210,31 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
 
   Widget _buildTextField(
     IconData icon,
-    String hint, {
+    String hint,
+    TextEditingController ctl, {
     TextInputType keyboardType = TextInputType.text,
   }) {
     return TextField(
+      controller: ctl,
       keyboardType: keyboardType,
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: Colors.black54),
         hintText: hint,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 12,
-          horizontal: 10,
-        ),
       ),
     );
   }
 
-  Widget _buildDropdownField(IconData icon, String hint) {
+  Widget _buildDropdownField(IconData icon, String label) {
     return InputDecorator(
       decoration: InputDecoration(
         prefixIcon: Icon(icon, color: Colors.black54),
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
-        contentPadding: const EdgeInsets.symmetric(
-          vertical: 12,
-          horizontal: 10,
-        ),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(
-            hint,
-            style: const TextStyle(color: Colors.black54, fontSize: 14),
-          ),
+          Text(label, style: const TextStyle(color: Colors.black87)),
           const Icon(Icons.arrow_drop_down, color: Colors.black54),
         ],
       ),

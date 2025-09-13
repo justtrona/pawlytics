@@ -46,6 +46,7 @@ dev_dependencies:
     sdk: flutter
   supabase_flutter: ^2.9.1
   image_picker: ^1.1.1
+  intl: ^0.19.0
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is
