@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pawlytics/views/donors/donation%20btn/DonatePage.dart';
-import 'package:pawlytics/views/donors/donation%20usage%20btn/ViewMore.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/ViewMore.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/CampaignPage.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/GoalPage.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/PetPage.dart';
@@ -368,7 +368,8 @@ class _HomePageState extends State<HomePage> {
                                     Navigator.push(
                                       context,
                                       MaterialPageRoute(
-                                        builder: (context) => const ViewMore(),
+                                        builder: (context) =>
+                                            const ViewMorePage(),
                                       ),
                                     );
                                   },

@@ -8,7 +8,7 @@ class PaymentMethodPage extends StatefulWidget {
 }
 
 class _PaymentMethodPageState extends State<PaymentMethodPage> {
-  String selectedMethod = "GCash"; // default
+  String selectedMethod = "GCash";
   final List<String> methods = ["GCash", "PayMaya", "Bank Transfer"];
 
   @override
@@ -37,7 +37,6 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
           children: [
             const SizedBox(height: 16),
 
-            // Description (justified like in screenshot)
             const Text(
               "Select your preferred payout method from the available options. "
               "This will be used for future donation disbursements.",
@@ -51,9 +50,8 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
 
             const SizedBox(height: 40),
 
-            // Dropdown with fixed width like screenshot
             SizedBox(
-              width: double.infinity, // makes it like a textfield width
+              width: double.infinity,
               child: DropdownButtonFormField<String>(
                 value: selectedMethod,
                 items: methods
@@ -90,13 +88,10 @@ class _PaymentMethodPageState extends State<PaymentMethodPage> {
 
             const Spacer(),
 
-            // Save button (responsive, no function yet)
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  // no function yet
-                },
+                onPressed: () {},
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color(0xFF1F2C47),
                   padding: const EdgeInsets.symmetric(vertical: 14),

@@ -48,7 +48,6 @@ class AnimalsYouHelpedPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Search bar
             Row(
               children: [
                 Expanded(
@@ -56,14 +55,14 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                     decoration: InputDecoration(
                       hintText: "Search",
                       hintStyle: TextStyle(
-                        color: Colors.black54.withOpacity(0.3), // low opacity
+                        color: Colors.black54.withOpacity(0.3),
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(35),
                       ),
                       contentPadding: const EdgeInsets.symmetric(
                         horizontal: 16,
-                        vertical: 16, // taller box
+                        vertical: 16,
                       ),
                     ),
                   ),
@@ -71,7 +70,7 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                 const SizedBox(width: 8),
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1F2C47), // blue
+                    backgroundColor: const Color(0xFF1F2C47),
                     padding: const EdgeInsets.symmetric(
                       horizontal: 20,
                       vertical: 21,
@@ -80,9 +79,7 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                       borderRadius: BorderRadius.circular(35),
                     ),
                   ),
-                  onPressed: () {
-                    // TODO: Add search logic
-                  },
+                  onPressed: () {},
                   child: const Text(
                     "Search",
                     style: TextStyle(color: Colors.white, fontSize: 14),
@@ -92,7 +89,6 @@ class AnimalsYouHelpedPage extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // Grid of animals
             Expanded(
               child: GridView.builder(
                 itemCount: animals.length,
@@ -100,7 +96,7 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.8, // adjust box height ratio
+                  childAspectRatio: 0.8,
                 ),
                 itemBuilder: (context, index) {
                   final animal = animals[index];
@@ -114,7 +110,7 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircleAvatar(
-                          radius: 45, // bigger image
+                          radius: 45,
                           backgroundImage: AssetImage(animal["image"]!),
                         ),
                         const SizedBox(height: 12),
@@ -142,7 +138,6 @@ class AnimalsYouHelpedPage extends StatelessWidget {
               ),
             ),
 
-            // View More Button
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -153,9 +148,7 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                     borderRadius: BorderRadius.circular(20),
                   ),
                 ),
-                onPressed: () {
-                  // TODO: Navigate to full list
-                },
+                onPressed: () {},
                 child: const Text(
                   "View More",
                   style: TextStyle(fontSize: 16, color: Colors.white),

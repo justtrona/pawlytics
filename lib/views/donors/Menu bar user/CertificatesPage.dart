@@ -92,7 +92,7 @@ class CertificatesPage extends StatelessWidget {
   }) {
     return Container(
       padding: const EdgeInsets.all(20),
-      height: 150, // bigger height for the box
+      height: 150,
       decoration: BoxDecoration(
         color: background,
         borderRadius: BorderRadius.circular(16),
@@ -100,16 +100,9 @@ class CertificatesPage extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Left side - Icon
-          Image.asset(
-            asset,
-            width: 100, // adjusted size so it won’t overflow
-            height: 100,
-            fit: BoxFit.contain,
-          ),
+          Image.asset(asset, width: 100, height: 100, fit: BoxFit.contain),
           const SizedBox(width: 16),
 
-          // Right side - Texts, progress, buttons
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

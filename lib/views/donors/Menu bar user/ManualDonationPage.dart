@@ -8,7 +8,7 @@ class ManualDonationPage extends StatefulWidget {
 }
 
 class _ManualDonationPageState extends State<ManualDonationPage> {
-  String _donationType = "Cash"; // default selected type
+  String _donationType = "Cash";
 
   @override
   Widget build(BuildContext context) {
@@ -27,18 +27,11 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () {
             if (_donationType == "In Kind") {
-              // If user is in "In Kind", switch back to Cash instead of popping
               setState(() {
                 _donationType = "Cash";
               });
             } else {
-              // If already in Cash, go back to previous screen
               Navigator.pop(context);
-
-              // Or if you want to redirect somewhere else later:
-              // Navigator.pushReplacement(context, MaterialPageRoute(
-              //   builder: (context) => SomeOtherPage(),
-              // ));
             }
           },
         ),
@@ -48,7 +41,6 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Donor Info
             const Text(
               "Donor Info",
               style: TextStyle(
@@ -67,7 +59,6 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
             ),
             const SizedBox(height: 20),
 
-            // Date of Donation
             const Text(
               "Date of Donation",
               style: TextStyle(
@@ -80,7 +71,6 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
             _buildDropdownField(Icons.calendar_today, "Select Date"),
             const SizedBox(height: 20),
 
-            // Donation Type
             const Text(
               "Donation Type",
               style: TextStyle(
@@ -117,7 +107,6 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
             ),
             const SizedBox(height: 20),
 
-            // Fields based on Donation Type
             if (_donationType == "Cash") ...[
               const Text(
                 "Payment Method",
@@ -149,7 +138,6 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
 
             const SizedBox(height: 30),
 
-            // Save button
             Center(
               child: ElevatedButton(
                 style: ElevatedButton.styleFrom(
@@ -159,9 +147,7 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
                     borderRadius: BorderRadius.circular(8),
                   ),
                 ),
-                onPressed: () {
-                  // TODO: save logic
-                },
+                onPressed: () {},
                 child: const Text(
                   "Save",
                   style: TextStyle(fontSize: 16, color: Colors.white),
@@ -174,7 +160,6 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
     );
   }
 
-  // Reusable input field
   Widget _buildTextField(
     IconData icon,
     String hint, {
@@ -194,7 +179,6 @@ class _ManualDonationPageState extends State<ManualDonationPage> {
     );
   }
 
-  // Reusable dropdown (static style only)
   Widget _buildDropdownField(IconData icon, String hint) {
     return InputDecorator(
       decoration: InputDecoration(
