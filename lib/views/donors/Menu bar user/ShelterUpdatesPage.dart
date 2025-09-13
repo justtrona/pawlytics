@@ -60,7 +60,6 @@ class ShelterUpdatesPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-           
             Container(
               decoration: BoxDecoration(
                 color: Colors.grey.shade200,
@@ -77,7 +76,6 @@ class ShelterUpdatesPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            
             Container(
               padding: const EdgeInsets.symmetric(vertical: 1),
               decoration: BoxDecoration(
@@ -86,63 +84,76 @@ class ShelterUpdatesPage extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  
                   Expanded(
                     child: Column(
                       children: const [
-                        Text("Tracking",
-                            style: TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.bold)),
+                        Text(
+                          "Tracking",
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                         SizedBox(height: 3),
-                        Text("243",
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black)),
-                        Text("Total\nAdoptions",
-                            textAlign: TextAlign.center,
-                            style:
-                                TextStyle(fontSize: 12, color: Colors.black54)),
+                        Text(
+                          "243",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text(
+                          "Total\nAdoptions",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                        ),
                       ],
                     ),
                   ),
 
-                  
                   Container(
-                      width: 2,
-                      height: 150,
-                      color: const Color.fromARGB(255, 14, 5, 5)),
+                    width: 2,
+                    height: 150,
+                    color: const Color.fromARGB(255, 14, 5, 5),
+                  ),
 
-                  
                   Expanded(
                     child: Column(
                       children: const [
-                        Text("250",
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black)),
-                        Text("Animals\nin Shelter",
-                            textAlign: TextAlign.center,
-                            style:
-                                TextStyle(fontSize: 12, color: Colors.black54)),
+                        Text(
+                          "250",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text(
+                          "Animals\nin Shelter",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                        ),
                       ],
                     ),
                   ),
 
-                  
                   Expanded(
                     child: Column(
                       children: const [
-                        Text("10",
-                            style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black)),
-                        Text("Adopts\nToday",
-                            textAlign: TextAlign.center,
-                            style:
-                                TextStyle(fontSize: 12, color: Colors.black54)),
+                        Text(
+                          "10",
+                          style: TextStyle(
+                            fontSize: 20,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
+                          ),
+                        ),
+                        Text(
+                          "Adopts\nToday",
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 12, color: Colors.black54),
+                        ),
                       ],
                     ),
                   ),
@@ -152,7 +163,6 @@ class ShelterUpdatesPage extends StatelessWidget {
 
             const SizedBox(height: 16),
 
-            /
             Expanded(
               child: ListView.separated(
                 itemCount: updates.length,
@@ -175,27 +185,41 @@ class ShelterUpdatesPage extends StatelessWidget {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Icon(update["icon"] as IconData,
-                            size: 32, color: Colors.black87),
+                        Icon(
+                          update["icon"] as IconData,
+                          size: 32,
+                          color: Colors.black87,
+                        ),
                         const SizedBox(width: 12),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(update["title"] as String,
-                                  style: const TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      color: Colors.black87)),
+                              Text(
+                                update["title"] as String,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black87,
+                                ),
+                              ),
                               const SizedBox(height: 2),
-                              Text(update["message"] as String,
-                                  style: const TextStyle(
-                                      fontSize: 13, color: Colors.black87)),
+                              Text(
+                                update["message"] as String,
+                                style: const TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.black87,
+                                ),
+                              ),
                             ],
                           ),
                         ),
-                        Text(update["time"] as String,
-                            style: const TextStyle(
-                                fontSize: 12, color: Colors.black54)),
+                        Text(
+                          update["time"] as String,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            color: Colors.black54,
+                          ),
+                        ),
                       ],
                     ),
                   );

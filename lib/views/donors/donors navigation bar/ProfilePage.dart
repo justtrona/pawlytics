@@ -1,6 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/AnimalsYouHelpedPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/CampaignOutcomesPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/CertificatesPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/ContactUsPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/ManualDonationPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/MyDonationPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/NotificationPreferencePage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/PaymentMethodPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/PrivacySettingsPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/ShelterUpdatesPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/TermsConditionsPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/ProfileEdit.dart';
-// ⬅️ import your ProfileEdit file
+// ⬅️ import PrivacySettingsPage
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -72,8 +83,17 @@ class ProfilePage extends StatelessWidget {
             buildMenuButton(
               context,
               icon: Icons.payment,
-              title: "Payment Method",
+              title: "Payment method",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PaymentMethodPage(),
+                  ),
+                );
+              },
             ),
+
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
@@ -89,12 +109,29 @@ class ProfilePage extends StatelessWidget {
               context,
               icon: Icons.monetization_on,
               title: "My Donations",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const MyDonationPage(),
+                  ),
+                );
+              },
             ),
             buildMenuButton(
               context,
               icon: Icons.receipt_long,
               title: "Manual Donation",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ManualDonationPage(),
+                  ),
+                );
+              },
             ),
+
             buildMenuButton(
               context,
               icon: Icons.campaign,
@@ -104,7 +141,16 @@ class ProfilePage extends StatelessWidget {
               context,
               icon: Icons.workspace_premium,
               title: "Certificates",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CertificatesPage(),
+                  ),
+                );
+              },
             ),
+
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
@@ -120,17 +166,44 @@ class ProfilePage extends StatelessWidget {
               context,
               icon: Icons.show_chart,
               title: "Your Impact",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const AnimalsYouHelpedPage(),
+                  ),
+                );
+              },
             ),
+
             buildMenuButton(
               context,
               icon: Icons.update,
               title: "Shelter Updates",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ShelterUpdatesPage(),
+                  ),
+                );
+              },
             ),
+
             buildMenuButton(
               context,
               icon: Icons.bar_chart,
               title: "Campaign Outcomes",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const CampaignOutcomesPage(),
+                  ),
+                );
+              },
             ),
+
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
@@ -142,22 +215,62 @@ class ProfilePage extends StatelessWidget {
                 ),
               ),
             ),
+            // ✅ Hooked Privacy Settings
             buildMenuButton(
               context,
               icon: Icons.lock,
               title: "Privacy Settings",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const PrivacySettingsPage(),
+                  ),
+                );
+              },
             ),
             buildMenuButton(
               context,
               icon: Icons.description,
               title: "Terms and Condition",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const TermsConditionsPage(),
+                  ),
+                );
+              },
             ),
+
             buildMenuButton(
               context,
               icon: Icons.notifications,
               title: "Notification Preferences",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const NotificationPreferencePage(),
+                  ),
+                );
+              },
             ),
-            buildMenuButton(context, icon: Icons.mail, title: "Contact Us"),
+
+            buildMenuButton(
+              context,
+              icon: Icons.mail,
+              title: "Contact Us",
+              onTap: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => const ContactUsPage(),
+                  ),
+                );
+              },
+            ),
+
             buildMenuButton(context, icon: Icons.logout, title: "Logout"),
           ],
         ),

@@ -28,7 +28,7 @@ class CertificatesPage extends StatelessWidget {
         padding: const EdgeInsets.all(16),
         children: [
           _buildCertCard(
-            asset: "assets/gold.png",
+            asset: "assets/images/donors/bronze.png",
             title: "Bronze Certificate",
             subtitle: "Earned on March 12, 2026",
             background: const Color(0xFFFFF3E0),
@@ -47,7 +47,7 @@ class CertificatesPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _buildCertCard(
-            asset: "assets/silver.png",
+            asset: "assets/images/donors/silver.png",
             title: "Silver Certificate",
             subtitle: "₱900 out of ₱10,000",
             background: const Color(0xFFE0E0E0),
@@ -57,21 +57,21 @@ class CertificatesPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
           _buildCertCard(
-            asset: "assets/gold.png",
+            asset: "assets/images/donors/gold.png",
             title: "Gold Certificate",
             subtitle: "₱11,000 to Unlock This Achievement",
             background: const Color(0xFFFFF9C4),
           ),
           const SizedBox(height: 20),
           _buildCertCard(
-            asset: "assets/silver.png",
+            asset: "assets/images/donors/silver.png",
             title: "Platinum Certificate",
             subtitle: "₱20,000 to Unlock This Achievement",
             background: const Color(0xFFEDE7F6),
           ),
           const SizedBox(height: 20),
           _buildCertCard(
-            asset: "assets/diamond.png",
+            asset: "assets/images/donors/diamond.png",
             title: "Diamond Certificate",
             subtitle: "₱40,000 to Unlock This Achievement",
             background: const Color(0xFFE0F7FA),

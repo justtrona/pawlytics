@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/DonationSuccessPage.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/PayQrCodePage.dart';
 
 class DonatePage extends StatefulWidget {
   const DonatePage({super.key});
@@ -180,21 +182,42 @@ class _DonatePageState extends State<DonatePage>
           const SizedBox(height: 20),
           Column(
             children: [
-              Column(
-                children: const [
-                  Icon(Icons.qr_code, size: 36, color: Colors.black87),
-                  SizedBox(height: 6),
-                  Text(
-                    "Scan QR Code",
-                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-                  ),
-                ],
+              InkWell(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const PayQrCodePage(),
+                    ),
+                  );
+                },
+                borderRadius: BorderRadius.circular(12), // ripple effect
+                child: Column(
+                  children: const [
+                    Icon(Icons.qr_code, size: 36, color: Colors.black87),
+                    SizedBox(height: 6),
+                    Text(
+                      "Scan QR Code",
+                      style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton(
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const DonationSuccessPage(),
+                      ),
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: Color(0xFF1F2C47),
                     padding: const EdgeInsets.symmetric(vertical: 16),
@@ -372,7 +395,14 @@ class _DonatePageState extends State<DonatePage>
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const DonationSuccessPage(),
+                    ),
+                  );
+                },
                 style: ElevatedButton.styleFrom(
                   backgroundColor: Color(0xFF1F2C47),
                   padding: const EdgeInsets.symmetric(vertical: 16),

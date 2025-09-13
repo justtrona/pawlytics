@@ -9,14 +9,22 @@ class AnimalsYouHelpedPage extends StatelessWidget {
       {
         "name": "Peter",
         "status": "Donated May. 15",
-        "image": "assets/peter.png",
+        "image": "assets/images/donors/peter.png",
       },
-      {"name": "Max", "status": "Adopted May. 15", "image": "assets/max.png"},
-      {"name": "Luna", "status": "Adopted May. 15", "image": "assets/luna.png"},
+      {
+        "name": "Max",
+        "status": "Adopted May. 15",
+        "image": "assets/images/donors/max.png",
+      },
+      {
+        "name": "Luna",
+        "status": "Adopted May. 15",
+        "image": "assets/images/donors/luna.png",
+      },
       {
         "name": "Buboy",
         "status": "Donated May. 15",
-        "image": "assets/peter.png",
+        "image": "assets/images/donors/peter.png",
       },
     ];
 
