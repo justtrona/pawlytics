@@ -1,4 +1,3 @@
-// lib/models/donation.dart
 import 'package:flutter/foundation.dart';
 
 enum DonationModel { cash, inKind }
@@ -8,12 +7,12 @@ class Donation {
   // Common
   final String donorName;
   final String
-  donorPhone; // Keep as String to preserve formatting/leading zeros
+  donorPhone;
   final DateTime donationDate;
   final DonationModel type;
 
   // Cash
-  final String? paymentMethod; // e.g. "Bank Transfer", "Card", "Gcash", etc.
+  final String? paymentMethod; 
   final double? amount;
 
   // In-Kind
@@ -33,7 +32,7 @@ class Donation {
     this.notes,
   });
 
-  /// Convenience constructors
+  // constructors for each type
   factory Donation.cash({
     required String donorName,
     required String donorPhone,
@@ -72,7 +71,6 @@ class Donation {
     );
   }
 
-  /// Minimal sanity checks (optional to call before save)
   List<String> validate() {
     final issues = <String>[];
     if (donorName.trim().isEmpty) issues.add('Donor name is required.');
@@ -121,7 +119,6 @@ class Donation {
     );
   }
 
-  /// Map serializers (no JSON). Date is ISO8601 string for API-friendliness.
   Map<String, dynamic> toMap() {
     return {
       'donorName': donorName,

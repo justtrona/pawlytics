@@ -3,7 +3,7 @@ import 'package:intl/intl.dart';
 import 'package:pawlytics/views/donors/model/donation-model.dart';
 
 class DonationController {
-  // ----- Text Controllers -----
+  //Text Controllers
   final nameCtl = TextEditingController();
   final phoneCtl = TextEditingController();
   final amountCtl = TextEditingController();
