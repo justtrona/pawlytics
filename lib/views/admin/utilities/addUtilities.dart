@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
-
-class Addutilities extends StatefulWidget {
-  const Addutilities({super.key});
+import 'package:pawlytics/views/admin/controllers/utilities-controller.dart';
+import 'package:pawlytics/views/admin/model/utilities-model.dart';
+class AddUtilities extends StatefulWidget {
+  const AddUtilities({super.key});
 
   @override
-  State<Addutilities> createState() => _AddutilitiesState();
+  State<AddUtilities> createState() => _AddUtilitiesState();
 }
 
-class _AddutilitiesState extends State<Addutilities> {
-  // Theme
+class _AddUtilitiesState extends State<AddUtilities> {
   static const brand = Color(0xFF27374D);
-
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers / state
   final TextEditingController _amountCtrl = TextEditingController();
   final TextEditingController _dueCtrl = TextEditingController();
+  final _controller = UtilityController();
 
   String _utility = 'Utilities';
   String _status = 'Paid';
+  DateTime? _dueDate;
 
   @override
   void dispose() {
@@ -28,9 +28,9 @@ class _AddutilitiesState extends State<Addutilities> {
   }
 
   OutlineInputBorder _border(Color c) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(18),
-    borderSide: BorderSide(color: c, width: 1.2),
-  );
+        borderRadius: BorderRadius.circular(18),
+        borderSide: BorderSide(color: c, width: 1.2),
+      );
 
   InputDecoration _dec({String? hint, Widget? suffixIcon}) {
     return InputDecoration(
@@ -52,30 +52,38 @@ class _AddutilitiesState extends State<Addutilities> {
       lastDate: DateTime(now.year + 5),
       initialDate: now,
       builder: (context, child) => Theme(
-        data: Theme.of(
-          context,
-        ).copyWith(colorScheme: ColorScheme.fromSeed(seedColor: brand)),
+        data: Theme.of(context)
+            .copyWith(colorScheme: ColorScheme.fromSeed(seedColor: brand)),
         child: child!,
       ),
     );
     if (picked != null) {
-      String two(int n) => n.toString().padLeft(2, '0');
-      _dueCtrl.text = '${two(picked.month)}/${two(picked.day)}/${picked.year}';
-      setState(() {});
+      setState(() {
+        _dueDate = picked;
+        _dueCtrl.text =
+            '${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}/${picked.year}';
+      });
     }
   }
 
-  void _save() {
-    if (!_formKey.currentState!.validate()) return;
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate() || _dueDate == null) return;
     FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Saved: $_utility, ${_amountCtrl.text}, ${_dueCtrl.text}, $_status',
-        ),
-      ),
+
+    final utility = Utility(
+      type: _utility,
+      amount: double.parse(_amountCtrl.text),
+      dueDate: _dueDate!,
+      status: _status,
     );
-    // TODO: persist to backend / navigate
+
+    await _controller.addUtility(utility);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Utility saved successfully!')),
+    );
+
+    Navigator.pop(context);
   }
 
   @override
@@ -98,47 +106,28 @@ class _AddutilitiesState extends State<Addutilities> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                // Utilities dropdown
                 DropdownButtonFormField<String>(
                   value: _utility,
                   isExpanded: true,
                   decoration: _dec(hint: 'Utilities'),
                   items: const [
-                    DropdownMenuItem(
-                      value: 'Utilities',
-                      child: Text('Utilities'),
-                    ),
+                    DropdownMenuItem(value: 'Utilities', child: Text('Utilities')),
                     DropdownMenuItem(value: 'Water', child: Text('Water')),
-                    DropdownMenuItem(
-                      value: 'Electricity',
-                      child: Text('Electricity'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Waste Collection',
-                      child: Text('Waste Collection'),
-                    ),
-                    DropdownMenuItem(
-                      value: 'Drinking Water',
-                      child: Text('Drinking Water'),
-                    ),
+                    DropdownMenuItem(value: 'Electricity', child: Text('Electricity')),
+                    DropdownMenuItem(value: 'Waste Collection', child: Text('Waste Collection')),
+                    DropdownMenuItem(value: 'Drinking Water', child: Text('Drinking Water')),
                   ],
                   onChanged: (v) => setState(() => _utility = v ?? 'Utilities'),
                 ),
                 const SizedBox(height: 14),
-
-                // Goal Amount
                 TextFormField(
                   controller: _amountCtrl,
-                  keyboardType: const TextInputType.numberWithOptions(
-                    decimal: true,
-                  ),
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
                   decoration: _dec(hint: 'Goal Amount'),
                   validator: (v) =>
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
-
-                // Due Date (read-only with picker)
                 TextFormField(
                   controller: _dueCtrl,
                   readOnly: true,
@@ -154,8 +143,6 @@ class _AddutilitiesState extends State<Addutilities> {
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
-
-                // Status dropdown
                 DropdownButtonFormField<String>(
                   value: _status,
                   isExpanded: true,
@@ -168,8 +155,6 @@ class _AddutilitiesState extends State<Addutilities> {
                   onChanged: (v) => setState(() => _status = v ?? 'Paid'),
                 ),
                 const SizedBox(height: 22),
-
-                // Save button
                 SizedBox(
                   height: 48,
                   child: ElevatedButton(

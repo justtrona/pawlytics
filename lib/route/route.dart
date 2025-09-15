@@ -88,7 +88,7 @@ Route<dynamic> controller(RouteSettings settings) {
     case addPetProfile:
       return MaterialPageRoute(builder: (context) => AddPetProfile());
     case addUtilities:
-      return MaterialPageRoute(builder: (context) => Addutilities());
+      return MaterialPageRoute(builder: (context) => AddUtilities());
     case donationHistory:
       return MaterialPageRoute(builder: (context) => DonationHistory());
     case usageFund:

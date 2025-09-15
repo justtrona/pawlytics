@@ -44,75 +44,72 @@ class _CampaignPageState extends State<CampaignPage> {
               children: [
                 Center(
                   child: Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(30),
-                    ),
+                    
                     padding: const EdgeInsets.all(4),
-                    child: ToggleButtons(
-                      borderRadius: BorderRadius.circular(30),
-                      borderColor: Colors.transparent,
-                      selectedBorderColor: Colors.transparent,
-                      fillColor: Colors.transparent,
-                      selectedColor: Colors.black,
-                      color: Colors.grey,
-                      isSelected: [
-                        selectedFilter == "All",
-                        selectedFilter == "Pets",
-                        selectedFilter == "Campaigns",
-                      ],
-                      onPressed: (index) {
-                        setState(() {
-                          if (index == 0) selectedFilter = "All";
-                          if (index == 1) selectedFilter = "Pets";
-                          if (index == 2) selectedFilter = "Campaigns";
-                        });
-                      },
-                      children: const [
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            "All",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF23344E),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            "Pets",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF23344E),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          child: Text(
-                            "Campaigns",
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF23344E),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
+                    // child: ToggleButtons(
+                    //   borderRadius: BorderRadius.circular(30),
+                    //   borderColor: Colors.transparent,
+                    //   selectedBorderColor: Colors.transparent,
+                    //   fillColor: Colors.transparent,
+                    //   selectedColor: Colors.black,
+                    //   color: Colors.grey,
+                    //   isSelected: [
+                    //     selectedFilter == "All",
+                    //     selectedFilter == "Pets",
+                    //     selectedFilter == "Campaigns",
+                    //   ],
+                    //   onPressed: (index) {
+                    //     setState(() {
+                    //       if (index == 0) selectedFilter = "All";
+                    //       if (index == 1) selectedFilter = "Pets";
+                    //       if (index == 2) selectedFilter = "Campaigns";
+                    //     });
+                    //   },
+                    //   children: const [
+                    //     Padding(
+                    //       padding: EdgeInsets.symmetric(
+                    //         horizontal: 16,
+                    //         vertical: 8,
+                    //       ),
+                    //       child: Text(
+                    //         "All",
+                    //         style: TextStyle(
+                    //           fontSize: 16,
+                    //           fontWeight: FontWeight.bold,
+                    //           color: Color(0xFF23344E),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     Padding(
+                    //       padding: EdgeInsets.symmetric(
+                    //         horizontal: 16,
+                    //         vertical: 8,
+                    //       ),
+                    //       child: Text(
+                    //         "Pets",
+                    //         style: TextStyle(
+                    //           fontSize: 16,
+                    //           fontWeight: FontWeight.bold,
+                    //           color: Color(0xFF23344E),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //     Padding(
+                    //       padding: EdgeInsets.symmetric(
+                    //         horizontal: 16,
+                    //         vertical: 8,
+                    //       ),
+                    //       child: Text(
+                    //         "Campaigns",
+                    //         style: TextStyle(
+                    //           fontSize: 16,
+                    //           fontWeight: FontWeight.bold,
+                    //           color: Color(0xFF23344E),
+                    //         ),
+                    //       ),
+                    //     ),
+                    //   ],
+                    // ),
                   ),
                 ),
 

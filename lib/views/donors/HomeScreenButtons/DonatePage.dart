@@ -226,7 +226,7 @@ class _DonatePageState extends State<DonatePage>
                     ),
                   ),
                   child: const Text(
-                    "Confirm",
+                    "Send Donation",
                     style: TextStyle(fontSize: 18, color: Colors.white),
                   ),
                 ),
