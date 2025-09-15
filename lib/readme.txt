@@ -71,18 +71,17 @@ CREATE TABLE donation_allocations (
 
 //campaign queryy
 
-create table campaigns (
-    id bigserial primary key,
-    title text not null,
-    description text,
-    image_url text,
-    goal numeric(12,2) not null check (goal > 0),
-    raised numeric(12,2) not null default 0 check (raised >= 0),
-    deadline date not null,
-    status text not null check (status in ('active', 'ended')) default 'active',
-
-    created_at timestamptz not null default now(),
-    updated_at timestamptz not null default now()
+CREATE TABLE campaigns (
+    id BIGSERIAL PRIMARY KEY,
+    program VARCHAR(100) NOT NULL,           -- Rescue, Vaccination, Spay/Neuter, etc.
+    category VARCHAR(50) NOT NULL,           -- Urgent, Medical, Shelter, Food
+    fundraising_goal DECIMAL(12,2) NOT NULL, -- Target fundraising amount
+    currency VARCHAR(10) NOT NULL DEFAULT 'PHP',
+    deadline DATE NOT NULL,
+    description TEXT,
+    notify_at_75 BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT NOW(),
+    updated_at TIMESTAMP DEFAULT NOW()
 );
 
 -- keep `updated_at` fresh on row update

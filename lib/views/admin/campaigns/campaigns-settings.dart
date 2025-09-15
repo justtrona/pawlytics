@@ -14,7 +14,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   // Spacing & sizing
   static const double kSectionGap = 20; // vertical gap between sections
   static const double kFieldGap = 12; // horizontal gap inside rows
-  static const double kControlHeight = 48; // aim for consistent control height
+  static const double kControlHeight = 48; // consistent control height
   static const EdgeInsets kScreenPadding = EdgeInsets.fromLTRB(16, 12, 16, 24);
 
   // State
@@ -24,23 +24,21 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   bool _notifyAt75 = true;
 
   final _goalCtrl = TextEditingController(text: '12,500.00');
-  final _animalsCtrl = TextEditingController(text: '120');
   final _deadlineCtrl = TextEditingController(text: '');
   final _descCtrl = TextEditingController();
 
   @override
   void dispose() {
     _goalCtrl.dispose();
-    _animalsCtrl.dispose();
     _deadlineCtrl.dispose();
     _descCtrl.dispose();
     super.dispose();
   }
 
   OutlineInputBorder _border([Color? c]) => OutlineInputBorder(
-    borderRadius: BorderRadius.circular(12),
-    borderSide: BorderSide(color: c ?? Colors.blueGrey.shade200, width: 1),
-  );
+        borderRadius: BorderRadius.circular(12),
+        borderSide: BorderSide(color: c ?? Colors.blueGrey.shade200, width: 1),
+      );
 
   InputDecoration _dec({
     String? label,
@@ -57,7 +55,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
       prefix: prefix,
       filled: true,
       fillColor: Colors.blueGrey.shade50,
-      // ~48px tall field (14 top + 14 bottom + font height)
       contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorder: _border(),
       focusedBorder: _border(Colors.blueGrey.shade400),
@@ -66,24 +63,24 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   }
 
   Widget _sectionLabel(String text) => Padding(
-    padding: const EdgeInsets.only(bottom: 8),
-    child: Text(
-      text,
-      style: const TextStyle(
-        fontWeight: FontWeight.w700,
-        color: Colors.black87,
-      ),
-    ),
-  );
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Text(
+          text,
+          style: const TextStyle(
+            fontWeight: FontWeight.w700,
+            color: Colors.black87,
+          ),
+        ),
+      );
 
   ButtonStyle get _primaryBtn => ElevatedButton.styleFrom(
-    backgroundColor: brand,
-    foregroundColor: Colors.white,
-    elevation: 0,
-    padding: const EdgeInsets.symmetric(horizontal: 18),
-    minimumSize: const Size(120, kControlHeight), // consistent button height
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-  );
+        backgroundColor: brand,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        padding: const EdgeInsets.symmetric(horizontal: 18),
+        minimumSize: const Size(120, kControlHeight),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      );
 
   Future<void> _pickDeadline() async {
     final now = DateTime.now();
@@ -240,37 +237,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                     ],
                     onChanged: (v) => setState(() => _currency = v!),
                   ),
-                ),
-              ],
-            ),
-
-            _vGap,
-
-            // Number of Animals + button
-            _sectionLabel('Number of Animals to Help'),
-            Row(
-              children: [
-                Expanded(
-                  child: SizedBox(
-                    height: kControlHeight,
-                    child: TextField(
-                      controller: _animalsCtrl,
-                      keyboardType: TextInputType.number,
-                      decoration: _dec(
-                        prefixIcon: const Icon(Icons.pets_outlined),
-                      ),
-                    ),
-                  ),
-                ),
-                _hGap,
-                ElevatedButton(
-                  style: _primaryBtn,
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(
-                      content: Text('Target set to ${_animalsCtrl.text}'),
-                    ),
-                  ),
-                  child: const Text('Set Target'),
                 ),
               ],
             ),
