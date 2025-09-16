@@ -113,6 +113,42 @@ create table if not exists utilities (
     updated_at timestamp with time zone default now()
 );
 
+//for anon user or sample sa
 
+CREATE POLICY "Allow insert for anon"
+ON campaigns
+FOR INSERT
+TO anon
+WITH CHECK (true);
+
+
+// for more security, authenticated nani sya
+-- allow any authenticated user to insert into campaigns
+CREATE POLICY "Allow insert for authenticated users"
+ON campaigns
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+DROP POLICY "Allow anon insert on campaigns" ON campaigns;
+
+CREATE POLICY "Allow authenticated insert on campaigns"
+ON campaigns
+FOR INSERT
+TO authenticated
+WITH CHECK (true);
+
+
+// if gikan anon, delete ang policy 
+
+DROP POLICY "Allow insert for anon" ON campaigns;
+
+If you also want anon users to read campaigns:
+
+CREATE POLICY "Allow anon select campaigns"
+ON campaigns
+FOR SELECT
+TO anon
+USING (true);
 
 

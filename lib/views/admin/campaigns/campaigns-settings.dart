@@ -1,31 +1,34 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CampaignSettingsScreen extends StatefulWidget {
   const CampaignSettingsScreen({super.key});
 
   @override
-  State<CampaignSettingsScreen> createState() => _CampaignSettingsScreenState();
+  State<CampaignSettingsScreen> createState() =>
+      _CampaignSettingsScreenState();
 }
 
 class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
-  // Branding
   static const brand = Color(0xFF27374D);
 
-  // Spacing & sizing
-  static const double kSectionGap = 20; // vertical gap between sections
-  static const double kFieldGap = 12; // horizontal gap inside rows
-  static const double kControlHeight = 48; // consistent control height
-  static const EdgeInsets kScreenPadding = EdgeInsets.fromLTRB(16, 12, 16, 24);
+  static const double kSectionGap = 20;
+  static const double kFieldGap = 12;
+  static const double kControlHeight = 48;
+  static const EdgeInsets kScreenPadding =
+      EdgeInsets.fromLTRB(16, 12, 16, 24);
 
-  // State
   String _program = 'All Campaigns';
   String _category = 'Urgent';
   String _currency = 'PHP';
   bool _notifyAt75 = true;
 
   final _goalCtrl = TextEditingController(text: '12,500.00');
-  final _deadlineCtrl = TextEditingController(text: '');
+  final _deadlineCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
+
+  DateTime? _deadline; // <-- new variable to store actual date
 
   @override
   void dispose() {
@@ -37,7 +40,8 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
 
   OutlineInputBorder _border([Color? c]) => OutlineInputBorder(
         borderRadius: BorderRadius.circular(12),
-        borderSide: BorderSide(color: c ?? Colors.blueGrey.shade200, width: 1),
+        borderSide:
+            BorderSide(color: c ?? Colors.blueGrey.shade200, width: 1),
       );
 
   InputDecoration _dec({
@@ -55,10 +59,10 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
       prefix: prefix,
       filled: true,
       fillColor: Colors.blueGrey.shade50,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorder: _border(),
       focusedBorder: _border(Colors.blueGrey.shade400),
-      isDense: false,
     );
   }
 
@@ -79,7 +83,8 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: 18),
         minimumSize: const Size(120, kControlHeight),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       );
 
   Future<void> _pickDeadline() async {
@@ -90,15 +95,14 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
       lastDate: DateTime(now.year + 5),
       initialDate: now,
       builder: (context, child) => Theme(
-        data: Theme.of(
-          context,
-        ).copyWith(colorScheme: ColorScheme.fromSeed(seedColor: brand)),
+        data: Theme.of(context)
+            .copyWith(colorScheme: ColorScheme.fromSeed(seedColor: brand)),
         child: child!,
       ),
     );
     if (picked != null) {
-      _deadlineCtrl.text =
-          '${picked.month.toString().padLeft(2, '0')}/${picked.day.toString().padLeft(2, '0')}/${picked.year}';
+      _deadline = picked; // store actual date
+      _deadlineCtrl.text = DateFormat('MM/dd/yyyy').format(picked);
       setState(() {});
     }
   }
@@ -106,13 +110,45 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   SizedBox get _vGap => const SizedBox(height: kSectionGap);
   SizedBox get _hGap => const SizedBox(width: kFieldGap);
 
+  Future<void> _postCampaign() async {
+    try {
+      final response =
+          await Supabase.instance.client.from('campaigns').insert({
+        'program': _program,
+        'category': _category,
+        'fundraising_goal':
+            double.tryParse(_goalCtrl.text.replaceAll(',', '')) ?? 0,
+        'deadline': _deadline?.toIso8601String(), // send ISO8601
+        'currency': _currency,
+        'description': _descCtrl.text,
+        'notify_at_75': _notifyAt75,
+        'created_at': DateTime.now().toIso8601String(),
+      }).select();
+
+      if (response.isNotEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Campaign posted successfully!')),
+        );
+        Navigator.pop(context);
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to post campaign.')),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error posting campaign: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
         leading: const BackButton(),
-        title: const Text('Campaign Settings'),
+        title: const Text('Campaign'),
         centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
@@ -122,7 +158,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
         child: ListView(
           padding: kScreenPadding,
           children: [
-            // Default Program
             _sectionLabel('Default Program'),
             DropdownButtonFormField<String>(
               value: _program,
@@ -148,7 +183,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
 
             _vGap,
 
-            // Category
             _sectionLabel('Category'),
             DropdownButtonFormField<String>(
               value: _category,
@@ -165,7 +199,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
 
             _vGap,
 
-            // Fundraising Goal + button
             _sectionLabel('Fundraising Goal'),
             Row(
               children: [
@@ -174,16 +207,16 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                     height: kControlHeight,
                     child: TextField(
                       controller: _goalCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
+                      keyboardType:
+                          const TextInputType.numberWithOptions(decimal: true),
                       decoration: _dec(
                         prefixIcon: const Icon(Icons.payments_outlined),
                         prefix: Padding(
                           padding: const EdgeInsets.only(left: 8, right: 4),
                           child: Text(
                             '$_currency ',
-                            style: const TextStyle(fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -193,9 +226,11 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                 _hGap,
                 ElevatedButton(
                   style: _primaryBtn,
-                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
+                  onPressed: () =>
+                      ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Goal set to $_currency ${_goalCtrl.text}'),
+                      content:
+                          Text('Goal set to $_currency ${_goalCtrl.text}'),
                     ),
                   ),
                   child: const Text('Set Goal'),
@@ -205,7 +240,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
 
             _vGap,
 
-            // Deadline + Currency
             Row(
               children: [
                 Expanded(
@@ -218,7 +252,8 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                       decoration: _dec(
                         label: 'Deadline',
                         hint: 'MM/DD/YYYY',
-                        prefixIcon: const Icon(Icons.calendar_today_outlined),
+                        prefixIcon:
+                            const Icon(Icons.calendar_today_outlined),
                       ),
                     ),
                   ),
@@ -243,7 +278,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
 
             _vGap,
 
-            // Description
             _sectionLabel('Description'),
             TextField(
               controller: _descCtrl,
@@ -258,7 +292,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
 
             _vGap,
 
-            // Progress tracker card
             Container(
               decoration: BoxDecoration(
                 color: Colors.blueGrey.shade50,
@@ -273,33 +306,32 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                     'Progress Tracker',
                     style: TextStyle(fontWeight: FontWeight.w700),
                   ),
-                  const SizedBox(height: kFieldGap),
+                  const SizedBox(height: 12),
                   CheckboxListTile(
                     contentPadding: EdgeInsets.zero,
                     dense: true,
                     controlAffinity: ListTileControlAffinity.leading,
                     value: _notifyAt75,
-                    onChanged: (v) => setState(() => _notifyAt75 = v ?? false),
+                    onChanged: (v) =>
+                        setState(() => _notifyAt75 = v ?? false),
                     title: const Text(
                       'Notify When 75% Goal Reached: Enable goal notifications',
                       style: TextStyle(height: 1.2),
                     ),
                   ),
-                  const SizedBox(height: kFieldGap),
-                  ElevatedButton(
-                    style: _primaryBtn,
-                    onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          _notifyAt75
-                              ? 'Notifications enabled at 75% of goal'
-                              : 'Notifications disabled',
-                        ),
-                      ),
-                    ),
-                    child: const Text('Set Target'),
-                  ),
                 ],
+              ),
+            ),
+
+            _vGap,
+
+            // Post Campaign Button
+            SizedBox(
+              height: kControlHeight,
+              child: ElevatedButton(
+                style: _primaryBtn,
+                onPressed: _postCampaign,
+                child: const Text('Post Campaign'),
               ),
             ),
           ],
