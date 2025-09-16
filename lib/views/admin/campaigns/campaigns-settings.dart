@@ -19,7 +19,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   static const EdgeInsets kScreenPadding =
       EdgeInsets.fromLTRB(16, 12, 16, 24);
 
-  String _program = 'All Campaigns';
+  String _program = 'Shelters Improvement';
   String _category = 'Urgent';
   String _currency = 'PHP';
   bool _notifyAt75 = true;
@@ -118,7 +118,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
         'category': _category,
         'fundraising_goal':
             double.tryParse(_goalCtrl.text.replaceAll(',', '')) ?? 0,
-        'deadline': _deadline?.toIso8601String(), // send ISO8601
+        'deadline': _deadline?.toIso8601String(),
         'currency': _currency,
         'description': _descCtrl.text,
         'notify_at_75': _notifyAt75,
@@ -164,11 +164,27 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
               borderRadius: BorderRadius.circular(12),
               decoration: _dec(),
               items: const [
+                // DropdownMenuItem(
+                //   value: 'All Campaigns',
+                //   child: Text('All Campaigns'),
+                // ),
+                 DropdownMenuItem(
+                  value: 'Shelters Improvement',
+                  child: Text('Shelters Improvement'),
+                ),
                 DropdownMenuItem(
-                  value: 'All Campaigns',
-                  child: Text('All Campaigns'),
+                  value: 'Surgery',
+                  child: Text('Surgery'),
+                ),
+                  DropdownMenuItem(
+                  value: 'Dog Pound',
+                  child: Text('Dog Pound'),
                 ),
                 DropdownMenuItem(value: 'Rescue', child: Text('Rescue')),
+                 DropdownMenuItem(
+                  value: 'Stray Animals',
+                  child: Text('Stray Animals'),
+                ),
                 DropdownMenuItem(
                   value: 'Vaccination',
                   child: Text('Vaccination'),
@@ -176,6 +192,18 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                 DropdownMenuItem(
                   value: 'Spay/Neuter',
                   child: Text('Spay/Neuter'),
+                ),
+                 DropdownMenuItem(
+                  value: 'Pet Food',
+                  child: Text('Pet Food'),
+                ),
+                DropdownMenuItem(
+                  value: 'Medical Supplies',
+                  child: Text('Medical Supplies'),
+                ),
+                 DropdownMenuItem(
+                  value: 'Outreach and Awareness',
+                  child: Text('Outreach and Awareness'),
                 ),
               ],
               onChanged: (v) => setState(() => _program = v!),
@@ -190,9 +218,10 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
               decoration: _dec(),
               items: const [
                 DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
-                DropdownMenuItem(value: 'Medical', child: Text('Medical')),
-                DropdownMenuItem(value: 'Shelter', child: Text('Shelter')),
-                DropdownMenuItem(value: 'Food', child: Text('Food')),
+                DropdownMenuItem(value: 'Medical Care', child: Text('Medical Care')),
+                DropdownMenuItem(value: 'Food and Care', child: Text('Food and Care')),
+                DropdownMenuItem(value: 'Emergency Care', child: Text('Emergency Care')),
+                DropdownMenuItem(value: 'Community and Advocacy', child: Text('Community and Advocacy')),
               ],
               onChanged: (v) => setState(() => _category = v!),
             ),
@@ -324,8 +353,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
             ),
 
             _vGap,
-
-            // Post Campaign Button
+            
             SizedBox(
               height: kControlHeight,
               child: ElevatedButton(
