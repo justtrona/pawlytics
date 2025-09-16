@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/admin/admin_widgets/navigation-buttons.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pawlytics/auth/auth_service.dart';
 import 'package:pawlytics/route/route.dart' as route;
@@ -23,8 +24,8 @@ class LoginController {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
 
-      final AuthResponse response = await authService
-          .signInWithEmailAndPassword(email, password);
+      final AuthResponse response =
+          await authService.signInWithEmailAndPassword(email, password);
 
       if (response.user != null) {
         final user = response.user!;
@@ -44,7 +45,13 @@ class LoginController {
             ),
           );
 
-          Navigator.pushReplacementNamed(context, route.adminDashboard);
+          // ✅ Redirect to Admin Navigation (with dashboard inside)
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(
+              builder: (_) => const NavigationButtonAdmin(),
+            ),
+          );
         }
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -85,7 +92,7 @@ class LoginController {
     return null;
   }
 
-  //CLEANUP
+  // CLEANUP
   void dispose() {
     emailController.dispose();
     passwordController.dispose();

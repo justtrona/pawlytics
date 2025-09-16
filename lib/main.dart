@@ -22,7 +22,7 @@ class MyApp extends StatelessWidget {
       title: 'Pawlytics',
       debugShowCheckedModeBanner: false,
       onGenerateRoute: route.controller,
-      initialRoute: route.navigationButtonAdmin,
+      initialRoute: route.landing,
       // initialRoute: route.homepage,
       // onGenerateInitialRoutes: (initialRoute) =>
       //     route.navigationButtonAdmin == initialRoute,

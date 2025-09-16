@@ -152,3 +152,24 @@ TO anon
 USING (true);
 
 
+// katong mag log in new user then para makaadd new table
+
+-- make sure RLS is enabled
+alter table campaigns enable row level security;
+
+-- allow anon (public, not logged in) to insert
+create policy "Public can insert campaigns"
+on campaigns
+for insert
+to anon
+with check (true);
+
+-- allow public to select campaigns
+create policy "Public can view campaigns"
+on campaigns
+for select
+to anon
+using (true);
+
+
+

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:pawlytics/auth/auth_service.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pawlytics/controller/registration-controller.dart';
+import 'package:pawlytics/auth/auth_service.dart';
 import 'package:pawlytics/route/route.dart' as route;
 
 class SignUp extends StatefulWidget {
@@ -14,6 +15,21 @@ class _SignUpState extends State<SignUp> {
   final RegistrationCcontroller registrationCcontroller =
       RegistrationCcontroller();
   final AuthService authService = AuthService();
+
+  late final Stream<User?> _authStream;
+
+  @override
+  void initState() {
+    super.initState();
+
+    // 🔥 Listen for auth state changes (redirect when confirmed)
+    _authStream = authService.currentUserStream;
+    _authStream.listen((user) {
+      if (user != null && user.emailConfirmedAt != null) {
+        Navigator.pushReplacementNamed(context, route.login);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -42,7 +58,6 @@ class _SignUpState extends State<SignUp> {
           ),
         ),
       ),
-
       backgroundColor: Colors.white,
       body: SingleChildScrollView(
         child: Form(
@@ -52,7 +67,7 @@ class _SignUpState extends State<SignUp> {
             children: [
               Column(
                 children: [
-                  SizedBox(height: 30),
+                  const SizedBox(height: 30),
                   Text(
                     'SIGN UP',
                     style: TextStyle(
@@ -73,13 +88,12 @@ class _SignUpState extends State<SignUp> {
                         TextFormField(
                           controller:
                               registrationCcontroller.fullNameController,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.person),
                             labelText: 'Full Name',
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(20)),
                             ),
                           ),
                           validator: (value) => registrationCcontroller
@@ -89,13 +103,12 @@ class _SignUpState extends State<SignUp> {
                         TextFormField(
                           controller:
                               registrationCcontroller.phoneNumberController,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.phone),
                             labelText: 'Phone Number',
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(20)),
                             ),
                           ),
                           validator:
@@ -104,13 +117,12 @@ class _SignUpState extends State<SignUp> {
                         const SizedBox(height: 20),
                         TextFormField(
                           controller: registrationCcontroller.emailController,
-                          decoration: InputDecoration(
+                          decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.email),
                             labelText: 'Email Address',
                             border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(20)),
                             ),
                           ),
                           validator: registrationCcontroller.validateEmail,
@@ -121,7 +133,7 @@ class _SignUpState extends State<SignUp> {
                               registrationCcontroller.passwordController,
                           obscureText: registrationCcontroller.isHidden,
                           decoration: InputDecoration(
-                            prefixIcon: Icon(Icons.lock),
+                            prefixIcon: const Icon(Icons.lock),
                             suffixIcon: IconButton(
                               onPressed: () {
                                 setState(() {
@@ -136,18 +148,16 @@ class _SignUpState extends State<SignUp> {
                               ),
                             ),
                             labelText: 'Password',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
+                            border: const OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(20)),
                             ),
                           ),
                           validator: registrationCcontroller.validatePassword,
                         ),
                         const SizedBox(height: 20),
                         TextFormField(
-                          controller:
-                              registrationCcontroller.confirmpasswordController,
+                          controller: registrationCcontroller.confirmpasswordController,
                           obscureText: registrationCcontroller.isHiddenConfirm,
                           decoration: InputDecoration(
                             suffixIcon: IconButton(
@@ -163,12 +173,11 @@ class _SignUpState extends State<SignUp> {
                                     : Icons.visibility_outlined,
                               ),
                             ),
-                            prefixIcon: Icon(Icons.lock),
+                            prefixIcon: const Icon(Icons.lock),
                             labelText: 'Confirm Password',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.all(
-                                Radius.circular(20),
-                              ),
+                            border: const OutlineInputBorder(
+                              borderRadius:
+                                  BorderRadius.all(Radius.circular(20)),
                             ),
                           ),
                           validator:
@@ -200,11 +209,11 @@ class _SignUpState extends State<SignUp> {
                       ),
                     ),
                   ),
-                  SizedBox(height: 12),
+                  const SizedBox(height: 12),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Text(
+                      const Text(
                         'Already have an account?',
                         style: TextStyle(
                           fontSize: 15,
@@ -213,10 +222,9 @@ class _SignUpState extends State<SignUp> {
                         ),
                       ),
                       InkWell(
-                        // Navigator.pop(context); use if humana ui sa users
                         onTap: () => Navigator.pushNamed(context, route.login),
                         child: const Text(
-                          'Sign In',
+                          ' Sign In',
                           style: TextStyle(
                             fontSize: 15,
                             color: Colors.black,

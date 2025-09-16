@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/admin/controllers/campaigns-controller.dart';
+import 'package:pawlytics/views/admin/model/campaigns-model.dart';
 import 'package:pawlytics/route/route.dart' as route;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CreateCampaign extends StatefulWidget {
   const CreateCampaign({super.key});
@@ -15,50 +18,74 @@ class _CreateCampaignState extends State<CreateCampaign> {
   static const tileGrey = Color(0xFFDDE5EC);
   static const textMuted = Color(0xFF6A7886);
 
+  // ====== CONTROLLER ======
+  final CampaignController _controller = CampaignController();
+
+  // ====== DATA ======
+  List<Campaign> _campaigns = [];
+  bool _loading = true;
+
   // ====== FILTERS ======
   String _statusFilter = 'All Statuses';
   String _sortBy = 'Date Created';
 
-  // ====== MOCK DATA ======
-  final List<_Campaign> _all = [
-    _Campaign(
-      title: 'Medical Care for Peter',
-      raised: 2500,
-      goal: 5000,
-      status: _CampaignStatus.active,
-      deadline: DateTime(2025, 7, 25),
-      createdAt: DateTime(2025, 6, 6),
-      image:
-          'https://images.unsplash.com/photo-1543466835-00a7907e9de1?q=80&w=600&auto=format&fit=crop',
-    ),
-    _Campaign(
-      title: 'Food and Shelter for Strays',
-      raised: 5500,
-      goal: 8000,
-      status: _CampaignStatus.ended,
-      deadline: DateTime(2025, 5, 25),
-      createdAt: DateTime(2025, 4, 12),
-      image:
-          'https://images.unsplash.com/photo-1534361960057-19889db9621e?q=80&w=1200&auto=format&fit=crop',
-    ),
-    _Campaign(
-      title: 'Medical Care for Peter',
-      raised: 8000,
-      goal: 10000,
-      status: _CampaignStatus.ended,
-      deadline: DateTime(2025, 4, 11),
-      createdAt: DateTime(2025, 3, 2),
-      image:
-          'https://images.unsplash.com/photo-1518791841217-8f162f1e1131?q=80&w=1000&auto=format&fit=crop',
-    ),
-  ];
+  // ====== REALTIME ======
+  RealtimeChannel? _campaignsChannel;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchCampaigns();
+    _subscribeToCampaigns();
+  }
+
+  @override
+  void dispose() {
+    _campaignsChannel?.unsubscribe();
+    super.dispose();
+  }
+
+  /// Fetch campaigns from Supabase
+  Future<void> _fetchCampaigns() async {
+    try {
+      final data = await _controller.fetchCampaigns();
+      if (!mounted) return;
+      setState(() {
+        _campaigns = data;
+        _loading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error fetching campaigns: $e")),
+      );
+    }
+  }
+
+  /// Subscribe to realtime changes on campaigns
+  void _subscribeToCampaigns() {
+    final supabase = Supabase.instance.client;
+
+    _campaignsChannel = supabase
+        .channel('campaigns-changes')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all, // INSERT, UPDATE, DELETE
+          schema: 'public',
+          table: 'campaigns',
+          callback: (payload) {
+            _fetchCampaigns();
+          },
+        )
+        .subscribe();
+  }
 
   // ====== DERIVED DATA ======
-  List<_Campaign> get _filtered {
-    var list = _all.where((c) {
+  List<Campaign> get _filtered {
+    var list = _campaigns.where((c) {
       if (_statusFilter == 'All Statuses') return true;
-      if (_statusFilter == 'Active') return c.status == _CampaignStatus.active;
-      if (_statusFilter == 'Ended') return c.status == _CampaignStatus.ended;
+      if (_statusFilter == 'Active') return c.deadline.isAfter(DateTime.now());
+      if (_statusFilter == 'Ended') return c.deadline.isBefore(DateTime.now());
       return true;
     }).toList();
 
@@ -69,19 +96,18 @@ class _CreateCampaignState extends State<CreateCampaign> {
       case 'Deadline':
         list.sort((a, b) => a.deadline.compareTo(b.deadline));
         break;
-      case 'Amount Raised':
-        list.sort((a, b) =>
-            (b.raised / b.goal).compareTo(a.raised / a.goal));
+      case 'Goal Amount':
+        list.sort((a, b) => b.fundraisingGoal.compareTo(a.fundraisingGoal));
         break;
     }
     return list;
   }
 
   int get _activeCount =>
-      _all.where((c) => c.status == _CampaignStatus.active).length;
-  int get _totalCampaigns => _all.length;
-  num get _totalRaised =>
-      _all.fold<num>(0, (sum, c) => sum + (c.raised));
+      _campaigns.where((c) => c.deadline.isAfter(DateTime.now())).length;
+  int get _totalCampaigns => _campaigns.length;
+  num get _totalGoal =>
+      _campaigns.fold<num>(0, (sum, c) => sum + c.fundraisingGoal);
 
   // ====== HELPERS ======
   String _fmtMoney(num v) {
@@ -123,117 +149,127 @@ class _CreateCampaignState extends State<CreateCampaign> {
         foregroundColor: Colors.black87,
       ),
       body: SafeArea(
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-          children: [
-            // Top stats
-            Row(
-              children: [
-                Expanded(
-                  child: _StatPill(
-                    label: 'Total Campaigns',
-                    value: '$_totalCampaigns',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _StatPill(
-                    label: 'Active Campaigns',
-                    value: '$_activeCount',
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: _StatPill(
-                    label: 'Total Donation Raised',
-                    value: _fmtMoney(_totalRaised),
-                    emphasize: true,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : RefreshIndicator(
+                onRefresh: _fetchCampaigns,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  children: [
+                    // Top stats
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StatPill(
+                            label: 'Total Campaigns',
+                            value: '$_totalCampaigns',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _StatPill(
+                            label: 'Active Campaigns',
+                            value: '$_activeCount',
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _StatPill(
+                            label: 'Total Goal Amount',
+                            value: _fmtMoney(_totalGoal),
+                            emphasize: true,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
 
-            // Create Campaign
-            SizedBox(
-              height: 46,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: brand,
-                  foregroundColor: Colors.white,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
-                  ),
+                    // Create Campaign
+                    SizedBox(
+                      height: 46,
+                      child: ElevatedButton(
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: brand,
+                          foregroundColor: Colors.white,
+                          elevation: 0,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
+                        ),
+                        onPressed: () {
+                          Navigator.pushNamed(context, route.campaignSettings);
+                        },
+                        child: const Text('Create Campaign'),
+                      ),
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Filters row
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _FilterPill(
+                            label: _statusFilter,
+                            onTap: () async {
+                              final v = await _pickOption(
+                                context,
+                                title: 'Status',
+                                options: const [
+                                  'All Statuses',
+                                  'Active',
+                                  'Ended'
+                                ],
+                                current: _statusFilter,
+                              );
+                              if (v != null) setState(() => _statusFilter = v);
+                            },
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _FilterPill(
+                            label: 'Sort by $_sortBy',
+                            onTap: () async {
+                              final v = await _pickOption(
+                                context,
+                                title: 'Sort By',
+                                options: const [
+                                  'Date Created',
+                                  'Deadline',
+                                  'Goal Amount',
+                                ],
+                                current: _sortBy,
+                              );
+                              if (v != null) setState(() => _sortBy = v);
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+
+                    // Campaign list
+                    if (_filtered.isEmpty)
+                      const Center(
+                        child: Padding(
+                          padding: EdgeInsets.all(20),
+                          child: Text("No campaigns found"),
+                        ),
+                      )
+                    else
+                      ..._filtered.map(
+                        (c) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _CampaignTile(
+                            data: c,
+                            money: _fmtMoney,
+                            dateFmt: _fmtDate,
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-                onPressed: () {
-                  Navigator.pushNamed(context, route.campaignSettings);
-                },
-                child: const Text('Create Campaign'),
               ),
-            ),
-            const SizedBox(height: 12),
-
-            // Filters row
-            Row(
-              children: [
-                Expanded(
-                  child: _FilterPill(
-                    label: _statusFilter,
-                    onTap: () async {
-                      final v = await _pickOption(
-                        context,
-                        title: 'Status',
-                        options: const [
-                          'All Statuses',
-                          'Active',
-                          'Ended'
-                        ],
-                        current: _statusFilter,
-                      );
-                      if (v != null) setState(() => _statusFilter = v);
-                    },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: _FilterPill(
-                    label: 'Sort by $_sortBy',
-                    onTap: () async {
-                      final v = await _pickOption(
-                        context,
-                        title: 'Sort By',
-                        options: const [
-                          'Date Created',
-                          'Deadline',
-                          'Amount Raised',
-                        ],
-                        current: _sortBy,
-                      );
-                      if (v != null) setState(() => _sortBy = v);
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-
-            // Campaign list
-            ..._filtered.map(
-              (c) => Padding(
-                padding: const EdgeInsets.only(bottom: 10),
-                child: _CampaignTile(
-                  data: c,
-                  money: _fmtMoney,
-                  dateFmt: _fmtDate,
-                  onTap: () {
-                    // TODO: open campaign details
-                  },
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -284,29 +320,6 @@ class _CreateCampaignState extends State<CreateCampaign> {
       ),
     );
   }
-}
-
-// ====== MODELS ======
-enum _CampaignStatus { active, ended }
-
-class _Campaign {
-  final String title;
-  final int raised;
-  final int goal;
-  final DateTime deadline;
-  final DateTime createdAt;
-  final String image;
-  final _CampaignStatus status;
-
-  _Campaign({
-    required this.title,
-    required this.raised,
-    required this.goal,
-    required this.deadline,
-    required this.createdAt,
-    required this.image,
-    required this.status,
-  });
 }
 
 // ====== WIDGETS ======
@@ -412,116 +425,122 @@ class _FilterPill extends StatelessWidget {
 }
 
 class _CampaignTile extends StatelessWidget {
-  final _Campaign data;
+  final Campaign data;
   final String Function(num) money;
   final String Function(DateTime) dateFmt;
-  final VoidCallback? onTap;
 
   const _CampaignTile({
     required this.data,
     required this.money,
     required this.dateFmt,
-    this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
-    final pct = (data.raised / data.goal).clamp(0.0, 1.0);
-
     return Material(
       color: _CreateCampaignState.tileGrey,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: onTap,
+        onTap: () {
+          // TODO: Navigate to details
+        },
         child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
+          padding: const EdgeInsets.all(12),
+          child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Thumbnail
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: SizedBox(
-                  width: 96,
-                  height: 72,
-                  child: Image.network(
-                    data.image,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => const ColoredBox(
+              // Program + category + goal
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Container(
+                      width: 96,
+                      height: 72,
                       color: Colors.white,
-                      child: Icon(Icons.image_not_supported),
+                      child: const Icon(Icons.campaign,
+                          size: 40, color: Colors.grey),
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(width: 10),
-
-              // Texts + progress
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 2, right: 4),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Title
-                      Text(
-                        data.title,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: const TextStyle(
-                          color: _CreateCampaignState.brand,
-                          fontWeight: FontWeight.w800,
-                          fontSize: 15,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Progress label
-                      Text(
-                        '${money(data.raised)} of ${money(data.goal)}',
-                        style: const TextStyle(
-                          color: _CreateCampaignState.brand,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 12.5,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-
-                      // Progress bar
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(6),
-                        child: LinearProgressIndicator(
-                          value: pct,
-                          minHeight: 8,
-                          backgroundColor: Colors.white.withOpacity(.7),
-                          valueColor: const AlwaysStoppedAnimation(
-                            _CreateCampaignState.brand,
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          data.program,
+                          style: const TextStyle(
+                            color: _CreateCampaignState.brand,
+                            fontWeight: FontWeight.w800,
+                            fontSize: 15,
                           ),
                         ),
-                      ),
-                      const SizedBox(height: 8),
-
-                      // Deadline + status chip
-                      Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'Deadline: ${dateFmt(data.deadline)}',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(
-                                color: _CreateCampaignState.textMuted,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
+                        const SizedBox(height: 6),
+                        Text(
+                          '${data.category} • Goal: ${money(data.fundraisingGoal)} ${data.currency}',
+                          style: const TextStyle(
+                            color: _CreateCampaignState.brand,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12.5,
                           ),
-                          const SizedBox(width: 6),
-                          _StatusChip(status: data.status),
-                        ],
-                      ),
-                    ],
+                        ),
+                      ],
+                    ),
                   ),
+                  _StatusChip(isActive: data.deadline.isAfter(DateTime.now())),
+                ],
+              ),
+
+              const SizedBox(height: 10),
+
+              // Description
+              if (data.description.isNotEmpty)
+                Text(
+                  data.description,
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    color: _CreateCampaignState.textMuted,
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+
+              const SizedBox(height: 8),
+
+              // Deadline + notify
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    'Deadline: ${dateFmt(data.deadline)}',
+                    style: const TextStyle(
+                      color: _CreateCampaignState.textMuted,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                    ),
+                  ),
+                  if (data.notifyAt75)
+                    const Chip(
+                      label: Text("Notify @ 75%"),
+                      backgroundColor: Colors.orange,
+                      labelStyle:
+                          TextStyle(color: Colors.white, fontSize: 11),
+                    ),
+                ],
+              ),
+
+              const SizedBox(height: 6),
+
+              // Created / updated info
+              Text(
+                'Created: ${dateFmt(data.createdAt)} • Updated: ${dateFmt(data.updatedAt)}',
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 11,
+                  fontWeight: FontWeight.w500,
                 ),
               ),
             ],
@@ -533,14 +552,12 @@ class _CampaignTile extends StatelessWidget {
 }
 
 class _StatusChip extends StatelessWidget {
-  final _CampaignStatus status;
+  final bool isActive;
 
-  const _StatusChip({required this.status});
+  const _StatusChip({required this.isActive});
 
   @override
   Widget build(BuildContext context) {
-    final isActive = status == _CampaignStatus.active;
-
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
