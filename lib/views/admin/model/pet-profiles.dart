@@ -1,11 +1,7 @@
-// lib/models/pet_profile.dart
-
 import 'package:flutter/foundation.dart';
 
-// lib/models/pet_profile.dart
-
 class PetProfile {
-  final String? id; // nullable so we can create before DB assigns id
+  final String? id;
   final String name;
   final String species;
   final String ageGroup;
@@ -19,8 +15,8 @@ class PetProfile {
   final bool skinTreatment;
   final bool spayNeuter;
 
-  final String? imageUrl; // ✅ new column (image)
-  final DateTime? createdAt; // ✅ new column (created_at)
+  final String? imageUrl; 
+  final DateTime? createdAt;
 
   PetProfile({
     this.id,
@@ -39,7 +35,6 @@ class PetProfile {
     this.createdAt,
   });
 
-  // Convert DB row -> object (handles 0/1 or true/false)
   factory PetProfile.fromMap(Map<String, dynamic> map) {
     bool _toBool(dynamic v) => v == 1 || v == '1' || v == true || v == 'true';
 
@@ -56,14 +51,13 @@ class PetProfile {
       deworming: _toBool(map['deworming']),
       skinTreatment: _toBool(map['skin_treatment']),
       spayNeuter: _toBool(map['spay_neuter']),
-      imageUrl: map['image'], // ✅ new
+      imageUrl: map['image'],
       createdAt: map['created_at'] != null
           ? DateTime.tryParse(map['created_at'].toString())
-          : null, // ✅ parse timestamp
+          : null,
     );
   }
 
-  // For insert (exclude id, created_at auto-generated)
   Map<String, dynamic> toMapInsert() {
     return {
       'name': name,
@@ -77,11 +71,10 @@ class PetProfile {
       'deworming': deworming ? 1 : 0,
       'skin_treatment': skinTreatment ? 1 : 0,
       'spay_neuter': spayNeuter ? 1 : 0,
-      'image': imageUrl, // ✅ optional
+      'image': imageUrl, 
     };
   }
 
-  // Full map (include id & createdAt)
   Map<String, dynamic> toMap() {
     final m = toMapInsert();
     if (id != null) m['id'] = id;

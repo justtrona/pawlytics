@@ -4,7 +4,6 @@ import 'package:pawlytics/views/admin/model/utilities-model.dart';
 class UtilityController {
   final _client = Supabase.instance.client;
 
-  // Save a utility record
   Future<void> addUtility(Utility utility) async {
     await _client.from('utilities').insert({
       'type': utility.type,
@@ -14,7 +13,6 @@ class UtilityController {
     });
   }
 
-  // Get all utilities
   Future<List<Utility>> fetchUtilities() async {
     final res = await _client.from('utilities').select();
 

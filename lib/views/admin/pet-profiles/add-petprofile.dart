@@ -109,7 +109,6 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 16),
 
-              // Pet Name
               const Text(
                 'Pet Name',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
@@ -122,7 +121,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 14),
 
-              // Species
+              // Species or type
               Row(
                 children: [
                   Expanded(

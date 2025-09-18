@@ -12,24 +12,20 @@ class CreateCampaign extends StatefulWidget {
 }
 
 class _CreateCampaignState extends State<CreateCampaign> {
-  // ====== THEME ======
+  
   static const brand = Color(0xFF27374D);
   static const softGrey = Color(0xFFE9EEF3);
   static const tileGrey = Color(0xFFDDE5EC);
   static const textMuted = Color(0xFF6A7886);
 
-  // ====== CONTROLLER ======
   final CampaignController _controller = CampaignController();
 
-  // ====== DATA ======
   List<Campaign> _campaigns = [];
   bool _loading = true;
 
-  // ====== FILTERS ======
   String _statusFilter = 'All Statuses';
   String _sortBy = 'Date Created';
 
-  // ====== REALTIME ======
   RealtimeChannel? _campaignsChannel;
 
   @override
@@ -63,14 +59,13 @@ class _CreateCampaignState extends State<CreateCampaign> {
     }
   }
 
-  /// Subscribe to realtime changes on campaigns
   void _subscribeToCampaigns() {
     final supabase = Supabase.instance.client;
 
     _campaignsChannel = supabase
         .channel('campaigns-changes')
         .onPostgresChanges(
-          event: PostgresChangeEvent.all, // INSERT, UPDATE, DELETE
+          event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'campaigns',
           callback: (payload) {
@@ -80,7 +75,6 @@ class _CreateCampaignState extends State<CreateCampaign> {
         .subscribe();
   }
 
-  // ====== DERIVED DATA ======
   List<Campaign> get _filtered {
     var list = _campaigns.where((c) {
       if (_statusFilter == 'All Statuses') return true;
@@ -109,7 +103,6 @@ class _CreateCampaignState extends State<CreateCampaign> {
   num get _totalGoal =>
       _campaigns.fold<num>(0, (sum, c) => sum + c.fundraisingGoal);
 
-  // ====== HELPERS ======
   String _fmtMoney(num v) {
     final s = v.toStringAsFixed(0);
     final re = RegExp(r'\B(?=(\d{3})+(?!\d))');
@@ -135,7 +128,7 @@ class _CreateCampaignState extends State<CreateCampaign> {
     return '${months[d.month]} ${d.day}, ${d.year}';
   }
 
-  // ====== UI ======
+  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -510,7 +503,7 @@ class _CampaignTile extends StatelessWidget {
 
               const SizedBox(height: 8),
 
-              // Deadline + notify
+            
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -534,7 +527,6 @@ class _CampaignTile extends StatelessWidget {
 
               const SizedBox(height: 6),
 
-              // Created / updated info
               Text(
                 'Created: ${dateFmt(data.createdAt)} • Updated: ${dateFmt(data.updatedAt)}',
                 style: const TextStyle(

@@ -452,7 +452,6 @@ class _PillButton extends StatelessWidget {
   }
 }
 
-// Chips
 class _ChipOutlined extends StatelessWidget {
   final String text;
   const _ChipOutlined({required this.text});

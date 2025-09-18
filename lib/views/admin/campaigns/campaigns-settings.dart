@@ -28,7 +28,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   final _deadlineCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
-  DateTime? _deadline; // <-- new variable to store actual date
+  DateTime? _deadline; // para sa actual
 
   @override
   void dispose() {

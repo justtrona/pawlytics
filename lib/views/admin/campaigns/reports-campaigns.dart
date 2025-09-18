@@ -8,7 +8,6 @@ class ReportsCampaigns extends StatefulWidget {
 }
 
 class _ReportsCampaignsState extends State<ReportsCampaigns> {
-  // Palette
   static const Color brand = Color(0xFF27374D);
   static const Color navy = brand;
   static const Color chipBg = Color(0xFFE8EEF4);
@@ -16,7 +15,7 @@ class _ReportsCampaignsState extends State<ReportsCampaigns> {
   static const Color progressBg = Color(0xFFCED6DE);
   static const Color txtGrey = Color(0xFF6D7884);
 
-  // Filters
+  
   String _selectedCampaign = 'All Campaigns';
   String _selectedStatus = 'All Statuses';
 
@@ -33,7 +32,6 @@ class _ReportsCampaignsState extends State<ReportsCampaigns> {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // Simple AppBar (no bottom:)
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
@@ -56,14 +54,11 @@ class _ReportsCampaignsState extends State<ReportsCampaigns> {
         ),
       ),
 
-      // Content (filters + cards + button) — ConstrainedBox removed
       body: SingleChildScrollView(
-        // keep top padding minimal so chips sit right under the AppBar
         padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Filters
             Row(
               children: [
                 Expanded(
@@ -84,8 +79,7 @@ class _ReportsCampaignsState extends State<ReportsCampaigns> {
               ],
             ),
 
-            // Tighten gap before first card
-            const SizedBox(height: 8),
+            space(),
 
             // Cards
             const _CampaignCard(
@@ -146,9 +140,10 @@ class _ReportsCampaignsState extends State<ReportsCampaigns> {
       ),
     );
   }
+
+  SizedBox space() => const SizedBox(height: 8);
 }
 
-/// --- Small reusable dropdown chip -------------------------------------------------
 class _DropdownChip extends StatelessWidget {
   final String value;
   final List<String> values;
@@ -196,7 +191,6 @@ class _DropdownChip extends StatelessWidget {
   }
 }
 
-/// --- Campaign Card ----------------------------------------------------------------
 class _CampaignCard extends StatelessWidget {
   final String title;
   final String priceRange;
@@ -293,7 +287,6 @@ class _CampaignCard extends StatelessWidget {
           ),
           const SizedBox(height: 10),
 
-          // Progress + percent
           Row(
             children: [
               Expanded(
@@ -316,7 +309,6 @@ class _CampaignCard extends StatelessWidget {
           ),
           const SizedBox(height: 12),
 
-          // Bottom captions
           Row(
             children: [
               Expanded(
@@ -348,7 +340,6 @@ class _CampaignCard extends StatelessWidget {
   }
 }
 
-/// --- Progress Bar -----------------------------------------------------------------
 class _ProgressBar extends StatelessWidget {
   final double value;
   final double height;
