@@ -22,8 +22,8 @@ class MyApp extends StatelessWidget {
       title: 'Pawlytics',
       debugShowCheckedModeBanner: false,
       onGenerateRoute: route.controller,
-      // initialRoute: route.landing,
-      initialRoute: route.routePage,
+      initialRoute: route.landing,
+      // initialRoute: route.routePage,
       // initialRoute: route.homepage,
       // onGenerateInitialRoutes: (initialRoute) =>
       //     route.navigationButtonAdmin == initialRoute,

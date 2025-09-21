@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/widgets/buildImageCard.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 class GetStartedPageTwo extends StatelessWidget {
   const GetStartedPageTwo({super.key});
@@ -75,7 +76,7 @@ class GetStartedPageTwo extends StatelessWidget {
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
+                children: [
                   Text(
                     'Hope begins with you.',
                     style: TextStyle(
@@ -95,10 +96,14 @@ class GetStartedPageTwo extends StatelessWidget {
                         ),
                       ),
                       SizedBox(width: 8),
-                      Icon(
-                        Icons.arrow_circle_right_outlined,
-                        color: Color(0xff27374d),
-                        size: 50,
+                      IconButton(
+                        icon: Icon(
+                          Icons.arrow_circle_right_outlined,
+                          color: Color(0xff27374d),
+                          size: 50,
+                        ),
+                        onPressed: () =>
+                            Navigator.pushNamed(context, route.getStartedPage),
                       ),
                     ],
                   ),

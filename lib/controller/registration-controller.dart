@@ -13,6 +13,9 @@ class RegistrationCcontroller {
   final passwordController = TextEditingController();
   final confirmpasswordController = TextEditingController();
 
+  // role attribute
+  String selectedRole = "donor"; // default role lang
+
   bool isHidden = true;
   bool isHiddenConfirm = true;
 
@@ -36,6 +39,8 @@ class RegistrationCcontroller {
         email: email,
         password: password,
         phoneNumber: phoneNumber,
+        role: selectedRole,
+        createdAt: DateTime.now(),
       );
 
       final AuthResponse response = await authService
@@ -60,7 +65,9 @@ class RegistrationCcontroller {
               backgroundColor: Colors.green,
             ),
           );
+        }
 
+        if (context.mounted) {
           Navigator.pushReplacementNamed(context, route.login);
         }
       } else {
@@ -78,7 +85,7 @@ class RegistrationCcontroller {
     }
   }
 
-  //VALIDATORS
+  // VALIDATORS
 
   String? validateField(String? value, String fieldName) {
     if (value == null || value.isEmpty) {

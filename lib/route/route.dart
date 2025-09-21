@@ -17,15 +17,18 @@ import 'package:pawlytics/views/admin/expense/expense-report.dart';
 import 'package:pawlytics/views/admin/feedbacks/feedback.dart';
 import 'package:pawlytics/views/admin/payment-config/payment-configuration.dart';
 import 'package:pawlytics/views/admin/pet-profiles/add-petprofile.dart';
-import 'package:pawlytics/views/admin/utilities/addUtilities.dart';
-import 'package:pawlytics/views/admin/utilities/utilities-main.dart';
+// import 'package:pawlytics/views/admin/utilities/addUtilities.dart';
+// import 'package:pawlytics/views/admin/utilities/utilities-main.dart';
 import 'package:pawlytics/views/donors/donor%20navigation%20func/RoutePage.dart';
 import 'package:pawlytics/views/get_start/get_started.dart';
+import 'package:pawlytics/views/get_start/get_started_main.dart';
+import 'package:pawlytics/views/get_start/get_started_two.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
 import 'package:pawlytics/views/get_start/sign_up.dart';
 import 'package:pawlytics/views/admin/campaigns/campaigns-settings.dart';
 import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
+import 'package:pawlytics/views/landing_page.dart';
 
 //donors imports
 // import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
@@ -33,6 +36,8 @@ import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
 // route navigation list
 
 const String landing = '/';
+const String getStartedPage = '/getStartedPage';
+const String getStartedPage2 = 'getStartedPage2';
 const String login = 'login';
 const String signup = 'signup';
 const String adminDashboard = 'admin-dashboard';
@@ -65,6 +70,10 @@ Route<dynamic> controller(RouteSettings settings) {
   switch (settings.name) {
     case landing:
       return MaterialPageRoute(builder: (context) => GetStartedPage());
+    case getStartedPage:
+      return MaterialPageRoute(builder: (context) => GetStartedMain());
+    case getStartedPage2:
+      return MaterialPageRoute(builder: (context) => GetStartedPageTwo());
     case login:
       return MaterialPageRoute(builder: (context) => LoginPage());
     case signup:
@@ -77,8 +86,8 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => CampaignSettingsScreen());
     case petProfiles:
       return MaterialPageRoute(builder: (context) => PetProfiles());
-    case utilitiesMain:
-      return MaterialPageRoute(builder: (context) => UtilitiesMain());
+    // case utilitiesMain:
+    //   return MaterialPageRoute(builder: (context) => UtilitiesMain());
     case createCampaign:
       return MaterialPageRoute(builder: (context) => CreateCampaign());
     case dropoffLocation:
@@ -87,8 +96,8 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => CreateDropoff());
     case addPetProfile:
       return MaterialPageRoute(builder: (context) => AddPetProfile());
-    case addUtilities:
-      return MaterialPageRoute(builder: (context) => AddUtilities());
+    // case addUtilities:
+    //   return MaterialPageRoute(builder: (context) => AddUtilities());
     case donationHistory:
       return MaterialPageRoute(builder: (context) => DonationHistory());
     case usageFund:

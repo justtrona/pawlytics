@@ -162,12 +162,12 @@ class _menuBarState extends State<menuBar> {
                             Navigator.pushNamed(context, route.petProfiles),
                       ),
 
-                      _MenuItem(
-                        icon: Icons.power_rounded,
-                        label: 'Utilities',
-                        onTap: () =>
-                            Navigator.pushNamed(context, route.utilitiesMain),
-                      ),
+                      // _MenuItem(
+                      //   icon: Icons.power_rounded,
+                      //   label: 'Utilities',
+                      //   onTap: () =>
+                      //       Navigator.pushNamed(context, route.utilitiesMain),
+                      // ),
                       _MenuItem(
                         icon: Icons.location_on_rounded,
                         label: 'Location',

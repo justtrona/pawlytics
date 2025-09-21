@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/get_start/login_page.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 class GetStartedMain extends StatelessWidget {
   const GetStartedMain({super.key});
@@ -100,7 +101,7 @@ class GetStartedMain extends StatelessWidget {
                     ),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
-                      children: const [
+                      children: [
                         Text(
                           'Get Started',
                           style: TextStyle(
@@ -110,10 +111,15 @@ class GetStartedMain extends StatelessWidget {
                           ),
                         ),
                         SizedBox(width: 8),
-                        Icon(
-                          Icons.arrow_circle_right_outlined,
-                          color: Colors.white,
-                          size: 45,
+                        IconButton(
+                          icon: Icon(
+                            Icons.arrow_circle_right_outlined,
+                            color: Colors.white,
+                            size: 45,
+                          ),
+                          onPressed: () {
+                            Navigator.pushNamed(context, route.signup);
+                          },
                         ),
                       ],
                     ),
@@ -132,12 +138,17 @@ class GetStartedMain extends StatelessWidget {
                     fontWeight: FontWeight.normal,
                   ),
                 ),
-                Text(
-                  ' Sign In',
-                  style: TextStyle(
-                    fontSize: 15,
-                    color: Colors.black,
-                    fontWeight: FontWeight.bold,
+                InkWell(
+                  onTap: () {
+                    Navigator.pushNamed(context, route.login);
+                  },
+                  child: const Text(
+                    ' Sign In',
+                    style: TextStyle(
+                      fontSize: 15,
+                      color: Colors.black,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
               ],

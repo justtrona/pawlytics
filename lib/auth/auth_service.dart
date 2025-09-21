@@ -23,6 +23,7 @@ class AuthService {
       data: {
         'fullName': userModel.fullName,
         'phone_number': userModel.phoneNumber,
+        'role': userModel.role,
       },
     );
 
@@ -32,10 +33,11 @@ class AuthService {
     }
 
     await _supabase.from('registration').insert({
-      'id': user.id, // same as Supabase Auth user ID
+      'id': user.id,
       'fullName': userModel.fullName,
       'email': userModel.email,
       'phone_number': userModel.phoneNumber,
+      'role': userModel.role,
       'created_at': userModel.createdAt.toIso8601String(),
     });
 
@@ -43,7 +45,7 @@ class AuthService {
   }
 
   Future<void> signOut() async {
-    return await _supabase.auth.signOut();
+    await _supabase.auth.signOut();
   }
 
   Future<void> updateUserName(String fullName) async {
@@ -73,28 +75,10 @@ class AuthService {
 
   User? get currentUser => _supabase.auth.currentUser;
 
-  /// 🔥 Stream that listens for auth state changes
+  /// 🔥 Stream of auth state changes
   Stream<User?> get currentUserStream =>
       _supabase.auth.onAuthStateChange.map((event) => event.session?.user);
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

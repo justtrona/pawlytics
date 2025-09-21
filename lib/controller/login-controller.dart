@@ -24,8 +24,8 @@ class LoginController {
       final email = emailController.text.trim();
       final password = passwordController.text.trim();
 
-      final AuthResponse response =
-          await authService.signInWithEmailAndPassword(email, password);
+      final AuthResponse response = await authService
+          .signInWithEmailAndPassword(email, password);
 
       if (response.user != null) {
         final user = response.user!;
@@ -45,12 +45,9 @@ class LoginController {
             ),
           );
 
-          // ✅ Redirect to Admin Navigation (with dashboard inside)
           Navigator.pushReplacement(
             context,
-            MaterialPageRoute(
-              builder: (_) => const NavigationButtonAdmin(),
-            ),
+            MaterialPageRoute(builder: (_) => const NavigationButtonAdmin()),
           );
         }
       } else {

@@ -136,7 +136,7 @@ class _LoginPageState extends State<LoginPage> {
                   // Navigator.pop(context); use if humana ui sa users
                   onTap: () => Navigator.pushNamed(context, route.signup),
                   child: const Text(
-                    'Register',
+                    ' Register',
                     style: TextStyle(
                       fontSize: 15,
                       color: Colors.black,
