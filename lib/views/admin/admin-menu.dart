@@ -124,28 +124,27 @@ class _menuBarState extends State<menuBar> {
                     ],
                   ),
 
-                  const _SectionTitle('Manage Donations'),
-                  _SectionCard(
-                    children: [
-                      _MenuItem(
-                        icon: Icons.history_rounded,
-                        label: 'Donation History',
-                        onTap: () =>
-                            Navigator.pushNamed(context, route.donationHistory),
-                      ),
-                      // _MenuItem(
-                      //   icon: Icons.savings_rounded,
-                      //   label: 'Donation Sources',
-                      // ),
-                      _MenuItem(
-                        icon: Icons.receipt_long_rounded,
-                        label: 'FundUsage',
-                        onTap: () =>
-                            Navigator.pushNamed(context, route.usageFund),
-                      ),
-                    ],
-                  ),
-
+                  // const _SectionTitle('Manage Donations'),
+                  // _SectionCard(
+                  //   children: [
+                  //     _MenuItem(
+                  //       icon: Icons.history_rounded,
+                  //       label: 'Donation History',
+                  //       onTap: () =>
+                  //           Navigator.pushNamed(context, route.donationHistory),
+                  //     ),
+                  //     // _MenuItem(
+                  //     //   icon: Icons.savings_rounded,
+                  //     //   label: 'Donation Sources',
+                  //     // ),
+                  //     _MenuItem(
+                  //       icon: Icons.receipt_long_rounded,
+                  //       label: 'Fund Usage',
+                  //       onTap: () =>
+                  //           Navigator.pushNamed(context, route.usageFund),
+                  //     ),
+                  //   ],
+                  // ),
                   const _SectionTitle('Fundraising Tools'),
                   _SectionCard(
                     children: [
@@ -160,6 +159,15 @@ class _menuBarState extends State<menuBar> {
                         label: 'Pet Profiles',
                         onTap: () =>
                             Navigator.pushNamed(context, route.petProfiles),
+                      ),
+
+                      _MenuItem(
+                        icon: Icons.money_rounded,
+                        label: 'Operational Expense',
+                        onTap: () => Navigator.pushNamed(
+                          context,
+                          route.operationalExpense,
+                        ),
                       ),
 
                       // _MenuItem(

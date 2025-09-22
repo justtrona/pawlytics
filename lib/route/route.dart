@@ -29,6 +29,7 @@ import 'package:pawlytics/views/admin/campaigns/campaigns-settings.dart';
 import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
 import 'package:pawlytics/views/landing_page.dart';
+import 'package:pawlytics/views/admin/operational-expense/operational-expense.dart';
 
 //donors imports
 // import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
@@ -62,6 +63,7 @@ const String auditLog = 'audit-log';
 const String feedback = 'feedback';
 const String adminSettings = 'admin-settings';
 const String adminProfile = 'admin-profile';
+const String operationalExpense = 'operational-expense';
 
 // donors
 const String routePage = 'routePage';
@@ -124,6 +126,8 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => AdminSettingsScreen());
     case adminProfile:
       return MaterialPageRoute(builder: (context) => AdminProfile());
+    case operationalExpense:
+      return MaterialPageRoute(builder: (context) => OperationalExpense());
 
     // donors
     case routePage:
