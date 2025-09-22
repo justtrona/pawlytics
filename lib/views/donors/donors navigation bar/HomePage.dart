@@ -1,519 +1,488 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/ViewMore.dart';
+import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/AboutUsPage.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/CampaignPage.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/GoalPage.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/PetPage.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/RecommendationPage.dart';
-import 'package:pawlytics/views/donors/donors%20scrollable/ShelterPage.dart';
-import 'package:pawlytics/views/donors/donors%20scrollable/UtilitiesPage.dart';
+import 'package:pawlytics/views/donors/donors%20scrollable/connections/PetDetailsPage.dart';
 
-class HomePage extends StatefulWidget {
-  const HomePage({super.key, required this.title});
+class HomePage extends StatelessWidget {
+  const HomePage({super.key, required String title});
 
-  final String title;
-
-  @override
-  State<HomePage> createState() => _HomePageState();
-}
-
-class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-      body: SafeArea(
-        child: SingleChildScrollView(
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1F2C47),
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(25),
-                    bottomRight: Radius.circular(25),
-                  ),
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF1A2C50),
+        elevation: 0,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(25),
+            bottomRight: Radius.circular(25),
+          ),
+        ),
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: const [
+            Center(
+              child: Text(
+                "Welcome to PAWLYTICS",
+                style: TextStyle(fontSize: 14, color: Colors.white70),
+              ),
+            ),
+            SizedBox(height: 2),
+            Center(
+              child: Text(
+                "Hello, User1010!",
+                style: TextStyle(fontSize: 18, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.help_outline, color: Colors.white),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const AboutUsPage()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: SingleChildScrollView(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Featured Pet of the Week
+            Container(
+              margin: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(15),
+                image: const DecorationImage(
+                  image: AssetImage("assets/images/donors/peter.png"),
+                  fit: BoxFit.cover,
+                ),
+              ),
+              height: 180,
+              width: double.infinity,
+              child: Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(15),
+                  color: Colors.black26,
                 ),
                 child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Image.asset(
-                          "assets/images/small_logo.png",
-                          width: 50,
-                          height: 50,
-                        ),
-                        const SizedBox(width: 8),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Text(
-                              "Welcome to PAWLYTICS",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 14,
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              "Hi, User1010!",
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 18,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                        const Spacer(),
-                        const Icon(Icons.search, color: Colors.white),
-                        const SizedBox(width: 10),
-                        const Icon(Icons.notifications, color: Colors.white),
-                      ],
-                    ),
-                    const SizedBox(height: 16),
-                    Center(
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color.fromARGB(
-                            255,
-                            82,
-                            142,
-                            214,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(30),
-                          ),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 40,
-                            vertical: 12,
-                          ),
-                        ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => const DonatePage(),
-                            ),
-                          );
-                        },
-                        child: const Text(
-                          "DONATE",
-                          style: TextStyle(
-                            color: Color(0xFF1F2C47),
-                            fontWeight: FontWeight.bold,
-                            fontSize: 28,
-                          ),
-                        ),
+                    const Text(
+                      "Featured Pet of the Week",
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    SizedBox(
-                      height: 140,
-                      child: ListView(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        children: [
-                          _quickActionBox(
-                            icon: Icons.thumb_up,
-                            label: "Recommended",
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) =>
-                                      const RecommendationPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          _quickActionBox(
-                            icon: Icons.home,
-                            label: "Shelter",
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const ShelterPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          _quickActionBox(
-                            icon: Icons.campaign,
-                            label: "Campaign",
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const CampaignPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          _quickActionBox(
-                            icon: Icons.water_drop,
-                            label: "Utilities",
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const UtilitiesPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          _quickActionBox(
-                            icon: Icons.pets,
-                            label: "Pet",
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const PetPage(),
-                                ),
-                              );
-                            },
-                          ),
-                          _quickActionBox(
-                            icon: Icons.note,
-                            label: "Goal",
-                            onTap: () {
-                              Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                  builder: (context) => const GoalPage(),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
+                    const SizedBox(height: 8),
+                    ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1A2C50),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        bottomLeft: Radius.circular(15),
-                      ),
-                      child: Image.asset(
-                        "assets/images/donors/map1.png",
-                        width: 120,
-                        height: 150,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: const [
-                            Row(
-                              children: [
-                                Icon(
-                                  Icons.location_on,
-                                  size: 30,
-                                  color: Color(0xFF1F2C47),
-                                ),
-                                SizedBox(width: 6),
-                                Expanded(
-                                  child: Text(
-                                    "Brgy. Malagamot, Davao City",
-                                    style: TextStyle(
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 14,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            SizedBox(height: 5),
-                            Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  Icons.phone,
-                                  size: 35,
-                                  color: Color(0xFF1F2C47),
-                                ),
-                                SizedBox(width: 6),
-                                Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text("+63 913 323 4591"),
-                                    Text("+63 943 223 4322"),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ],
+                      onPressed: () {},
+                      child: const Text(
+                        "❤️ Meet Me",
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Color.fromARGB(255, 210, 212, 216),
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                height: 150,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
+            ),
+
+            // Quick Action Icons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const RecommendationPage(),
+                        ),
+                      );
+                    },
+                    child: buildCircleIcon(Icons.thumb_up, "Recommended"),
+                  ),
+                  const SizedBox(width: 50),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const CampaignPage(),
+                        ),
+                      );
+                    },
+                    child: buildCircleIcon(Icons.campaign, "Campaigns"),
+                  ),
+                  const SizedBox(width: 70),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const PetPage(),
+                        ),
+                      );
+                    },
+                    child: buildCircleIcon(Icons.pets, "Pets"),
+                  ),
+                  const SizedBox(width: 70),
+                  GestureDetector(
+                    onTap: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const GoalPage(),
+                        ),
+                      );
+                    },
+                    child: buildCircleIcon(Icons.flag, "Goals"),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+            const Divider(thickness: 2, indent: 20, endIndent: 20),
+
+            // Recommended Section
+            sectionHeader(context, "Recommended"),
+            SizedBox(
+              height: 230,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                children: [
+                  petCard(
+                    context,
+                    "Peter",
+                    "Golden Retriever",
+                    "Dog",
+                    "assets/images/donors/peter.png",
+                  ),
+                  petCard(
+                    context,
+                    "Max",
+                    "German Shepherd",
+                    "Dog",
+                    "assets/images/donors/dog3.png",
+                  ),
+                  petCard(
+                    context,
+                    "Luna",
+                    "Shih Tzu",
+                    "Dog",
+                    "assets/images/donors/dog3.png",
+                  ),
+                  petCard(
+                    context,
+                    "Rocky",
+                    "Beagle",
+                    "Dog",
+                    "assets/images/donors/luna.png",
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 1),
+
+            // Donation Usage Card
+            _buildDonationCard(
+              context,
+              total: 15000,
+              raised: 12500,
+              deadline: "Sept 30, 2025",
+            ),
+
+            // Donate Button
+            Container(
+              alignment: Alignment.center,
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              child: ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF1A2C50),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 14,
+                    horizontal: 60,
+                  ),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30),
+                  ),
+                  elevation: 4,
                 ),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        bottomLeft: Radius.circular(15),
-                      ),
-                      child: Image.asset(
-                        "assets/images/donors/donate2.png",
-                        width: 120,
-                        height: 160,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 8,
-                          vertical: 12,
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            const Text(
-                              "Donation Usage",
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.bold,
-                                color: Color.fromARGB(137, 8, 4, 4),
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 55),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    "PHP 12,500",
-                                    style: TextStyle(
-                                      fontSize: 25,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF1F2C47),
-                                    ),
-                                  ),
-                                  const SizedBox(height: 1),
-                                  Row(
-                                    children: const [
-                                      Icon(
-                                        Icons.pets,
-                                        size: 20,
-                                        color: Color(0xFF1F2C47),
-                                      ),
-                                      SizedBox(width: 6),
-                                      Text(
-                                        "Pet Name Peter",
-                                        style: TextStyle(
-                                          fontSize: 15,
-                                          fontWeight: FontWeight.w500,
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ],
-                              ),
-                            ),
-                            Padding(
-                              padding: const EdgeInsets.only(left: 55),
-                              child: Align(
-                                alignment: Alignment.bottomLeft,
-                                child: GestureDetector(
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder: (context) =>
-                                            const ViewMorePage(),
-                                      ),
-                                    );
-                                  },
-                                  child: Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 35,
-                                      vertical: 6,
-                                    ),
-                                    decoration: const BoxDecoration(
-                                      color: Color(0xFF1F2C47),
-                                      borderRadius: BorderRadius.all(
-                                        Radius.circular(12),
-                                      ),
-                                    ),
-                                    child: const Text(
-                                      "View More",
-                                      style: TextStyle(
-                                        color: Colors.white,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) => const DonatePage()),
+                  );
+                },
+                child: const Text(
+                  "DONATE",
+                  style: TextStyle(fontSize: 16, color: Colors.white),
                 ),
               ),
-              const SizedBox(height: 20),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                height: 140,
-                decoration: BoxDecoration(
-                  color: Colors.grey[200],
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 6,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: const BorderRadius.only(
-                        topLeft: Radius.circular(15),
-                        bottomLeft: Radius.circular(15),
-                      ),
-                      child: Image.asset(
-                        "assets/images/donors/dog3.png",
-                        width: 120,
-                        height: 140,
-                        fit: BoxFit.cover,
-                      ),
-                    ),
-                    Expanded(
-                      child: Padding(
-                        padding: const EdgeInsets.all(12),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.center,
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Text(
-                              "ANIMALS IN SHELTER",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.bold,
-                                color: Color(0xFF1F2C47),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            const Text(
-                              "PHP 8,000 of PHP 10,000",
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.black87,
-                              ),
-                            ),
-                            const SizedBox(height: 12),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(10),
-                              child: LinearProgressIndicator(
-                                value: 8000 / 10000,
-                                minHeight: 12,
-                                backgroundColor: Colors.grey[400],
-                                valueColor: const AlwaysStoppedAnimation<Color>(
-                                  Color(0xFF1F2C47),
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 80),
-            ],
-          ),
+            ),
+
+            const SizedBox(height: 20),
+          ],
         ),
       ),
     );
   }
 
-  Widget _quickActionBox({
-    required IconData icon,
-    required String label,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: 100,
-        margin: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 6,
-              offset: const Offset(0, 4),
+  // Circle Icon
+  Widget buildCircleIcon(IconData icon, String label) {
+    return Column(
+      children: [
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Icon(icon, size: 28, color: const Color(0xFF1A2C50)),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          label,
+          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+        ),
+      ],
+    );
+  }
+
+  // Section Header (with navigation)
+  Widget sectionHeader(BuildContext context, String title) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            title,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+          GestureDetector(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const RecommendationPage(),
+                ),
+              );
+            },
+            child: const Text(
+              "View More",
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: Colors.blue,
+              ),
             ),
-          ],
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(icon, size: 40, color: Color(0xFF1F2C47)),
-            const SizedBox(height: 8),
-            Text(label, style: const TextStyle(fontSize: 14)),
-          ],
-        ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Pet Card
+  Widget petCard(
+    BuildContext context,
+    String name,
+    String breed,
+    String type,
+    String imagePath,
+  ) {
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(left: 16, right: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(12),
+                child: Image.asset(
+                  imagePath,
+                  height: 140,
+                  width: 180,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 2,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => PetDetailPage(
+                          name: name,
+                          image: imagePath,
+                          breed: breed,
+                          type: type,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.info,
+                    size: 14,
+                    color: Color(0xFF1A2C50),
+                  ),
+                  label: const Text(
+                    "View Details",
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A2C50),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            name,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 15,
+              color: Colors.black87,
+            ),
+          ),
+          Text(
+            "$breed • $type",
+            style: const TextStyle(fontSize: 13, color: Colors.black54),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Donation Usage Card
+  Widget _buildDonationCard(
+    BuildContext context, {
+    required int total,
+    required int raised,
+    required String deadline,
+  }) {
+    double progress = raised / total;
+
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title + View More
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text(
+                "Donation Usage",
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              GestureDetector(
+                onTap: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ViewMorePage(),
+                    ),
+                  );
+                },
+                child: const Text(
+                  "View More",
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.blue,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Progress bar
+          ClipRRect(
+            borderRadius: BorderRadius.circular(10),
+            child: LinearProgressIndicator(
+              value: progress,
+              backgroundColor: Colors.grey.shade300,
+              color: const Color(0xFF1A2C50),
+              minHeight: 10,
+            ),
+          ),
+
+          const SizedBox(height: 8),
+
+          // Raised vs total
+          Center(
+            child: Text(
+              "Php $raised of Php $total",
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+            ),
+          ),
+        ],
       ),
     );
   }
