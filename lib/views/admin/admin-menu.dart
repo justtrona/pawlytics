@@ -166,7 +166,7 @@ class _menuBarState extends State<menuBar> {
                         label: 'Operational Expense',
                         onTap: () => Navigator.pushNamed(
                           context,
-                          route.operationalExpense,
+                          route.operationalExpenseModule,
                         ),
                       ),
 
@@ -194,22 +194,22 @@ class _menuBarState extends State<menuBar> {
                         onTap: () =>
                             Navigator.pushNamed(context, route.donationReports),
                       ),
-                      _MenuItem(
-                        icon: Icons.bar_chart_rounded,
-                        label: 'Campaigns Reports',
-                        onTap: () =>
-                            Navigator.pushNamed(context, route.campaignreports),
-                      ),
+                      // _MenuItem(
+                      //   icon: Icons.bar_chart_rounded,
+                      //   label: 'Campaigns Reports',
+                      //   onTap: () =>
+                      //       Navigator.pushNamed(context, route.campaignreports),
+                      // ),
                       // _MenuItem(
                       //   icon: Icons.track_changes_rounded,
                       //   label: 'Goal Performance Reports',
                       // ),
-                      _MenuItem(
-                        icon: Icons.receipt_rounded,
-                        label: 'Expense Reports',
-                        onTap: () =>
-                            Navigator.pushNamed(context, route.expensereports),
-                      ),
+                      // _MenuItem(
+                      //   icon: Icons.receipt_rounded,
+                      //   label: 'Expense Reports',
+                      //   onTap: () =>
+                      //       Navigator.pushNamed(context, route.expensereports),
+                      // ),
                       // _MenuItem(
                       //   icon: Icons.feedback_rounded,
                       //   label: 'Feedbacks',
@@ -270,6 +270,13 @@ class _menuBarState extends State<menuBar> {
                         onTap: () =>
                             Navigator.pushNamed(context, route.adminSettings),
                       ),
+                      _MenuItem(
+                        icon: Icons.person_2_outlined, 
+                        label: "Manage User",
+                        onTap: () =>
+                               Navigator.pushNamed(context, route.userManage),
+                        ),
+                        
                     ],
                   ),
 

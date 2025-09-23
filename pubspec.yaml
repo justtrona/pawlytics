@@ -38,6 +38,8 @@ dependencies:
   fl_chart: ^0.63.0
   animations: ^2.0.11
   dog: ^1.4.0
+  provider: ^6.0.5 
+
  
 
 

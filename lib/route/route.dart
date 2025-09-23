@@ -15,6 +15,7 @@ import 'package:pawlytics/views/admin/dropoff-location/create-dropoff.dart';
 import 'package:pawlytics/views/admin/dropoff-location/dropoff-location.dart';
 import 'package:pawlytics/views/admin/expense/expense-report.dart';
 import 'package:pawlytics/views/admin/feedbacks/feedback.dart';
+import 'package:pawlytics/views/admin/manage-user/manage-user.dart';
 import 'package:pawlytics/views/admin/payment-config/payment-configuration.dart';
 import 'package:pawlytics/views/admin/pet-profiles/add-petprofile.dart';
 // import 'package:pawlytics/views/admin/utilities/addUtilities.dart';
@@ -30,6 +31,11 @@ import 'package:pawlytics/views/admin/pet-profiles/pet-profiles.dart';
 import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
 import 'package:pawlytics/views/landing_page.dart';
 import 'package:pawlytics/views/admin/operational-expense/operational-expense.dart';
+// import 'package:pawlytics/views/admin/manage-user/manage-user.dart';
+
+
+//here ang correct route sa operational expense
+import 'package:pawlytics/views/admin/operational-expense/expense-module.dart';
 
 //donors imports
 // import 'package:pawlytics/views/donors/donors navigation bar/HomePage.dart';
@@ -64,6 +70,10 @@ const String feedback = 'feedback';
 const String adminSettings = 'admin-settings';
 const String adminProfile = 'admin-profile';
 const String operationalExpense = 'operational-expense';
+const String userManage = 'manage-user';
+
+//correct route for operational expense
+const String operationalExpenseModule = 'operational-expense-module';
 
 // donors
 const String routePage = 'routePage';
@@ -128,7 +138,10 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => AdminProfile());
     case operationalExpense:
       return MaterialPageRoute(builder: (context) => OperationalExpense());
-
+    case operationalExpenseModule:
+      return MaterialPageRoute(builder: (context) => OperationalExpenseModule());
+    case userManage:
+      return MaterialPageRoute(builder: (context) => ManageUser() );
     // donors
     case routePage:
       return MaterialPageRoute(builder: (context) => RoutePage());
