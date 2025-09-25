@@ -11,7 +11,6 @@ import 'package:pawlytics/views/donors/Menu%20bar%20user/PrivacySettingsPage.dar
 import 'package:pawlytics/views/donors/Menu%20bar%20user/ShelterUpdatesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/TermsConditionsPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/ProfileEdit.dart';
-// ⬅️ import PrivacySettingsPage
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -215,7 +214,7 @@ class ProfilePage extends StatelessWidget {
                 ),
               ),
             ),
-            // ✅ Hooked Privacy Settings
+
             buildMenuButton(
               context,
               icon: Icons.lock,

@@ -10,7 +10,7 @@ class GoalPage extends StatefulWidget {
 class _GoalPageState extends State<GoalPage> {
   final TextEditingController _searchController = TextEditingController();
 
-  // Example breakdown data
+  
   final List<Map<String, dynamic>> _utilities = [
     {
       "icon": Icons.water_drop_outlined,
@@ -42,13 +42,13 @@ class _GoalPageState extends State<GoalPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter utilities based on search query
+    
     final filteredUtilities = _utilities.where((item) {
       final title = (item["title"] as String).toLowerCase();
       return title.contains(_searchQuery.toLowerCase());
     }).toList();
 
-    // Calculate total goal and raised from filtered list
+    
     final int totalGoal = filteredUtilities.fold(
       0,
       (sum, item) => sum + (item["total"] as int),
@@ -88,7 +88,7 @@ class _GoalPageState extends State<GoalPage> {
         padding: const EdgeInsets.all(16.0),
         child: Column(
           children: [
-            // Search bar
+            
             TextField(
               controller: _searchController,
               decoration: InputDecoration(
@@ -114,7 +114,7 @@ class _GoalPageState extends State<GoalPage> {
             ),
             const SizedBox(height: 20),
 
-            // Overall progress goal (for filtered list)
+            
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -166,7 +166,7 @@ class _GoalPageState extends State<GoalPage> {
 
             const SizedBox(height: 20),
 
-            // Breakdown list (filtered by search)
+            
             Expanded(
               child: filteredUtilities.isEmpty
                   ? const Center(
@@ -222,7 +222,7 @@ class _GoalPageState extends State<GoalPage> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title + Deadline
+          
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [

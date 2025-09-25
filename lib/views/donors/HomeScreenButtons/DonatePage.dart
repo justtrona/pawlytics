@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/DonationSuccessPage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/PayQrCodePage.dart';
 
 class DonatePage extends StatefulWidget {
-  const DonatePage({super.key});
+  final bool allowInKind; // 👈 new flag
+
+  const DonatePage({super.key, this.allowInKind = true});
 
   @override
   State<DonatePage> createState() => _DonatePageState();
@@ -13,6 +16,12 @@ class _DonatePageState extends State<DonatePage>
     with SingleTickerProviderStateMixin {
   final TextEditingController _amountController = TextEditingController();
   late TabController _tabController;
+
+  final TextEditingController _quantityController = TextEditingController();
+  final TextEditingController _notesController = TextEditingController();
+  String? selectedItem;
+  String? selectedLocation;
+  DateTime? selectedDate;
 
   final List<String> amounts = [
     "5",
@@ -24,21 +33,25 @@ class _DonatePageState extends State<DonatePage>
     "400",
     "500",
     "1000",
-    "5000",
-    "10000",
-    "20000",
   ];
 
   @override
   void initState() {
     super.initState();
     _amountController.text = "0.00";
-    _tabController = TabController(length: 2, vsync: this);
+
+    _tabController = TabController(
+      length: widget.allowInKind ? 2 : 1,
+      vsync: this,
+    );
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    _amountController.dispose();
+    _quantityController.dispose();
+    _notesController.dispose();
     super.dispose();
   }
 
@@ -57,15 +70,19 @@ class _DonatePageState extends State<DonatePage>
     });
   }
 
-  void _backspace() {
-    String current = _amountController.text.replaceAll(RegExp(r'[^0-9]'), '');
-    if (current.isEmpty || current == "0") return;
-
-    current = current.substring(0, current.length - 1);
-    if (current.isEmpty) current = "0";
-
+  void _resetCashFields() {
     setState(() {
-      _amountController.text = double.parse(current).toStringAsFixed(2);
+      _amountController.text = "0.00";
+    });
+  }
+
+  void _resetInKindFields() {
+    setState(() {
+      selectedItem = null;
+      selectedLocation = null;
+      selectedDate = null;
+      _quantityController.clear();
+      _notesController.clear();
     });
   }
 
@@ -95,12 +112,21 @@ class _DonatePageState extends State<DonatePage>
                   style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
                 ),
                 Expanded(
-                  child: Text(
-                    _amountController.text,
+                  child: TextField(
+                    controller: _amountController,
                     textAlign: TextAlign.right,
                     style: const TextStyle(
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
+                    ),
+                    keyboardType: TextInputType.number,
+                    inputFormatters: [
+                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                    ],
+                    decoration: const InputDecoration(
+                      border: InputBorder.none,
+                      isCollapsed: true,
+                      contentPadding: EdgeInsets.zero,
                     ),
                   ),
                 ),
@@ -111,7 +137,7 @@ class _DonatePageState extends State<DonatePage>
           Expanded(
             child: GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
-              itemCount: amounts.length - 3, // exclude 5000, 10000, 20000
+              itemCount: amounts.length,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 3,
                 mainAxisSpacing: 12,
@@ -119,36 +145,9 @@ class _DonatePageState extends State<DonatePage>
                 childAspectRatio: 2.2,
               ),
               itemBuilder: (context, index) {
-                if (index == amounts.length - 6) {
-                  return ElevatedButton(
-                    onPressed: () => _updateAmount("500"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      side: const BorderSide(color: Colors.grey),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text("500", style: TextStyle(fontSize: 16)),
-                  );
-                }
+                String value = amounts[index];
 
-                if (index == amounts.length - 5) {
-                  return ElevatedButton(
-                    onPressed: () => _updateAmount("1000"),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: Colors.black,
-                      side: const BorderSide(color: Colors.grey),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text("1000", style: TextStyle(fontSize: 16)),
-                  );
-                }
-                if (amounts[index] == "1000") {
+                if (value == "1000") {
                   return ElevatedButton(
                     onPressed: _clearAmount,
                     style: ElevatedButton.styleFrom(
@@ -163,7 +162,6 @@ class _DonatePageState extends State<DonatePage>
                   );
                 }
 
-                String value = amounts[index];
                 return ElevatedButton(
                   onPressed: () => _updateAmount(value),
                   style: ElevatedButton.styleFrom(
@@ -191,7 +189,7 @@ class _DonatePageState extends State<DonatePage>
                     ),
                   );
                 },
-                borderRadius: BorderRadius.circular(12), // ripple effect
+                borderRadius: BorderRadius.circular(12),
                 child: Column(
                   children: const [
                     Icon(Icons.qr_code, size: 36, color: Colors.black87),
@@ -211,6 +209,7 @@ class _DonatePageState extends State<DonatePage>
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    _resetCashFields();
                     Navigator.push(
                       context,
                       MaterialPageRoute(
@@ -239,13 +238,7 @@ class _DonatePageState extends State<DonatePage>
   }
 
   Widget _buildInKindTab() {
-    final TextEditingController _quantityController = TextEditingController();
-    final TextEditingController _notesController = TextEditingController();
-    String? selectedItem;
-    String? selectedLocation;
-    DateTime? selectedDateTime;
-
-    Future<void> _pickDateTime(BuildContext context) async {
+    Future<void> _pickDate(BuildContext context) async {
       final DateTime? date = await showDatePicker(
         context: context,
         initialDate: DateTime.now(),
@@ -254,20 +247,9 @@ class _DonatePageState extends State<DonatePage>
       );
 
       if (date != null) {
-        final TimeOfDay? time = await showTimePicker(
-          context: context,
-          initialTime: TimeOfDay.now(),
-        );
-
-        if (time != null) {
-          selectedDateTime = DateTime(
-            date.year,
-            date.month,
-            date.day,
-            time.hour,
-            time.minute,
-          );
-        }
+        setState(() {
+          selectedDate = date;
+        });
       }
     }
 
@@ -294,7 +276,9 @@ class _DonatePageState extends State<DonatePage>
                   )
                   .toList(),
               onChanged: (value) {
-                selectedItem = value;
+                setState(() {
+                  selectedItem = value;
+                });
               },
             ),
             const SizedBox(height: 16),
@@ -332,21 +316,20 @@ class _DonatePageState extends State<DonatePage>
                   .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
                   .toList(),
               onChanged: (value) {
-                selectedLocation = value;
+                setState(() {
+                  selectedLocation = value;
+                });
               },
             ),
             const SizedBox(height: 16),
             const Text(
-              "Select Date and Time",
+              "Select Date",
               style: TextStyle(fontWeight: FontWeight.w500),
             ),
             const SizedBox(height: 8),
             InkWell(
               onTap: () async {
-                await _pickDateTime(context);
-                if (selectedDateTime != null) {
-                  setState(() {});
-                }
+                await _pickDate(context);
               },
               child: Container(
                 width: double.infinity,
@@ -358,20 +341,13 @@ class _DonatePageState extends State<DonatePage>
                   border: Border.all(color: Colors.grey),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  children: [
-                    Text(
-                      selectedDateTime == null
-                          ? "Select Date & Time"
-                          : "${selectedDateTime!.toLocal()}".split('.')[0],
-                      style: TextStyle(
-                        color: selectedDateTime == null
-                            ? Colors.grey
-                            : Colors.black,
-                      ),
-                    ),
-                  ],
+                child: Text(
+                  selectedDate == null
+                      ? "Select Date"
+                      : "${selectedDate!.year}-${selectedDate!.month.toString().padLeft(2, '0')}-${selectedDate!.day.toString().padLeft(2, '0')}",
+                  style: TextStyle(
+                    color: selectedDate == null ? Colors.grey : Colors.black,
+                  ),
                 ),
               ),
             ),
@@ -396,6 +372,7 @@ class _DonatePageState extends State<DonatePage>
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  _resetInKindFields();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -453,15 +430,16 @@ class _DonatePageState extends State<DonatePage>
             fontSize: 15,
             fontWeight: FontWeight.w400,
           ),
-          tabs: const [
-            Tab(text: "Cash"),
-            Tab(text: "In-Kind"),
-          ],
+          tabs: widget.allowInKind
+              ? const [Tab(text: "Cash"), Tab(text: "In-Kind")]
+              : const [Tab(text: "Cash")],
         ),
       ),
       body: TabBarView(
         controller: _tabController,
-        children: [_buildCashTab(), _buildInKindTab()],
+        children: widget.allowInKind
+            ? [_buildCashTab(), _buildInKindTab()]
+            : [_buildCashTab()],
       ),
     );
   }

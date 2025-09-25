@@ -59,7 +59,7 @@ class _RoutePageState extends State<RoutePage> {
               label: "Transactions",
             ),
             BottomNavigationBarItem(icon: Icon(Icons.star), label: "Favorites"),
-            BottomNavigationBarItem(icon: Icon(Icons.person), label: "Profile"),
+            BottomNavigationBarItem(icon: Icon(Icons.menu), label: "Menu"),
           ],
         ),
       ),

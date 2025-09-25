@@ -1,194 +1,202 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/donors%20scrollable/connections/PetDetailsPage.dart';
 
 class RecommendationPage extends StatelessWidget {
-  const RecommendationPage({super.key});
+  final List<Map<String, String>> recommendedPets = [
+    {
+      "name": "Max",
+      "breed": "Aspin",
+      "type": "Dog",
+      "image": "assets/images/donors/max.png",
+    },
+    {
+      "name": "Mingming",
+      "breed": "Puspin",
+      "type": "Cat",
+      "image": "assets/images/donors/luna.png",
+    },
+    {
+      "name": "Buddy",
+      "breed": "Shih Tzu",
+      "type": "Dog",
+      "image": "assets/images/donors/peter.png",
+    },
+    {
+      "name": "Kuting",
+      "breed": "Puspin",
+      "type": "Cat",
+      "image": "assets/images/donors/max.png",
+    },
+    {
+      "name": "Chowee",
+      "breed": "Puspin",
+      "type": "Cat",
+      "image": "assets/images/donors/luna.png",
+    },
+    {
+      "name": "Princess",
+      "breed": "Aspins",
+      "type": "Dog",
+      "image": "assets/images/donors/peter.png",
+    },
+    {
+      "name": "Luna",
+      "breed": "Persian Mix",
+      "type": "Cat",
+      "image": "assets/images/donors/max.png",
+    },
+    {
+      "name": "Bantay",
+      "breed": "Puspin",
+      "type": "Cat",
+      "image": "assets/images/donors/luna.png",
+    },
+    {
+      "name": "Snow",
+      "breed": "Aspin",
+      "type": "Dog",
+      "image": "assets/images/donors/peter.png",
+    },
+  ];
+
+  RecommendationPage({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black,
         title: const Text(
-          "Recommendation",
+          "Recommended Pets",
           style: TextStyle(
+            color: Color(0xFF1F2C47),
             fontSize: 20,
             fontWeight: FontWeight.bold,
-            color: Color(0xFF1F2C47),
           ),
         ),
-        centerTitle: true,
+        centerTitle: true, // 👈 keeps title centered between back + actions
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            const Text(
-              "Matched with your interest in small breeds\nand recent donation activity.",
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Color(0xFF1F2C47), fontSize: 14),
-            ),
-            const SizedBox(height: 24),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: const [
-                Icon(Icons.pets, size: 25, color: Color(0xFF1F2C47)),
-                SizedBox(width: 8),
-                Text(
-                  "Your Preferences",
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1F2C47),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 20),
-            _buildPetCard(
-              context,
-              imagePath: "assets/images/donors/peter.png",
-              name: "Peter",
-              description: "Shy but sweet",
-              tags: const ["Healthy", "Small Breed"],
-            ),
-            _buildPetCard(
-              context,
-              imagePath: "assets/images/donors/max.png",
-              name: "Max",
-              description: "Energetic and playful",
-              tags: const ["Healthy", "Senior"],
-            ),
-            _buildPetCard(
-              context,
-              imagePath: "assets/images/donors/luna.png",
-              name: "Luna",
-              description: "Gentle",
-              tags: const ["Healthy", "Juvenile"],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildPetCard(
-    BuildContext context, {
-    required String imagePath,
-    required String name,
-    required String description,
-    required List<String> tags,
-  }) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 15),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.shade200,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            spreadRadius: 2,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      body: ListView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
         children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(12),
-              bottomLeft: Radius.circular(12),
-            ),
-            child: Image.asset(
-              imagePath,
-              width: 200,
-              height: 200,
-              fit: BoxFit.cover,
-            ),
+          // Description
+          const Text(
+            "Matched with your interest in small breeds\nand recent donation activity.",
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Color(0xFF1F2C47), fontSize: 14),
           ),
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.all(12),
+          const SizedBox(height: 14),
+
+          // Preferences Row
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.pets, size: 25, color: Color(0xFF1F2C47)),
+              SizedBox(width: 8),
+              Text(
+                "Your Preferences",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF1F2C47),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
+          // Pet List
+          ...recommendedPets.map((pet) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 14),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      const Icon(Icons.star_border, color: Color(0xFF1F2C47)),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    description,
-                    style: const TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2C47),
+                  ClipRRect(
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(10),
+                      topRight: Radius.circular(10),
+                    ),
+                    child: Image.asset(
+                      pet["image"]!,
+                      height: 180,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Wrap(
-                    spacing: 30,
-                    runSpacing: 4,
-                    children: tags
-                        .map(
-                          (tag) => Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 1,
-                              vertical: 4,
-                            ),
-                            child: Text(
-                              tag,
+
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF1F2C47),
+                      borderRadius: BorderRadius.only(
+                        bottomLeft: Radius.circular(10),
+                        bottomRight: Radius.circular(10),
+                      ),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      crossAxisAlignment: CrossAxisAlignment.center,
+                      children: [
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              "${pet["breed"]} • ${pet["type"]}",
                               style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                                color: Colors.white70,
                               ),
                             ),
+                            const SizedBox(height: 4),
+                            Text(
+                              pet["name"]!,
+                              style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        ),
+
+                        IconButton(
+                          icon: const Icon(
+                            Icons.info_outline,
+                            color: Colors.white,
+                            size: 26,
                           ),
-                        )
-                        .toList(),
-                  ),
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: ElevatedButton(
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF1F2C47),
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 88,
-                          vertical: 8,
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (context) => PetDetailPage(
+                                  name: pet["name"]!,
+                                  image: pet["image"]!,
+                                  breed: pet["breed"]!,
+                                  type: pet["type"]!,
+                                ),
+                              ),
+                            );
+                          },
                         ),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                      ),
-                      onPressed: () {},
-                      child: const Text(
-                        "View",
-                        style: TextStyle(
-                          fontSize: 20,
-                          color: Color.fromARGB(255, 209, 211, 214),
-                        ),
-                      ),
+                      ],
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
+            );
+          }).toList(),
         ],
       ),
     );

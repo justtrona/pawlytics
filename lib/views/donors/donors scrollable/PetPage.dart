@@ -12,7 +12,6 @@ class _PetPageState extends State<PetPage> {
   String searchQuery = "";
   String selectedFilter = "All"; // All, Dog, Cat
 
-  // Sample pet data
   final List<Map<String, String>> pets = [
     {
       "name": "Peter",
@@ -40,25 +39,25 @@ class _PetPageState extends State<PetPage> {
     },
     {
       "name": "Milo",
-      "breed": "Siamese",
+      "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
     },
     {
       "name": "Rocky",
-      "breed": "Bulldog",
+      "breed": "Labrador Retriever",
       "type": "Dog",
       "image": "assets/images/donors/max.png",
     },
     {
       "name": "Cleo",
-      "breed": "Maine Coon",
+      "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
     },
     {
       "name": "Charlie",
-      "breed": "Beagle",
+      "breed": "Aspin",
       "type": "Dog",
       "image": "assets/images/donors/peter.png",
     },
@@ -66,9 +65,8 @@ class _PetPageState extends State<PetPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Filter + search pets
     List<Map<String, String>> filteredPets = pets.where((pet) {
-      final matchesSearch = pet["name"]!.toLowerCase().contains(
+      final matchesSearch = pet["breed"]!.toLowerCase().contains(
         searchQuery.toLowerCase(),
       );
       final matchesFilter =
@@ -85,7 +83,7 @@ class _PetPageState extends State<PetPage> {
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
-            Navigator.pop(context); // 👈 this makes the back button work
+            Navigator.pop(context);
           },
         ),
         title: const Text(
@@ -103,7 +101,6 @@ class _PetPageState extends State<PetPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Dog Categories title
             Center(
               child: Row(
                 mainAxisSize: MainAxisSize.min,
@@ -124,7 +121,6 @@ class _PetPageState extends State<PetPage> {
 
             const SizedBox(height: 10),
 
-            // Search + Filter Row
             Row(
               children: [
                 Expanded(
@@ -135,7 +131,7 @@ class _PetPageState extends State<PetPage> {
                       });
                     },
                     decoration: InputDecoration(
-                      hintText: "Search pets",
+                      hintText: "Search breed",
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       filled: true,
                       fillColor: Colors.grey.shade200,
@@ -181,15 +177,14 @@ class _PetPageState extends State<PetPage> {
 
             const SizedBox(height: 20),
 
-            // GridView for pet cards
             Expanded(
               child: GridView.builder(
                 padding: EdgeInsets.zero,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 2, // 2 per row
+                  crossAxisCount: 2,
                   crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  childAspectRatio: 1,
+                  mainAxisSpacing: 8,
+                  childAspectRatio: 0.9,
                 ),
                 itemCount: filteredPets.length,
                 itemBuilder: (context, index) {
@@ -209,7 +204,6 @@ class _PetPageState extends State<PetPage> {
     );
   }
 
-  // Build Pet Card
   Widget _buildPetCard(
     String imagePath,
     String name,
@@ -220,7 +214,6 @@ class _PetPageState extends State<PetPage> {
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
       child: Column(
         children: [
-          // Pet Image
           ClipRRect(
             borderRadius: const BorderRadius.only(
               topLeft: Radius.circular(10),
@@ -228,16 +221,15 @@ class _PetPageState extends State<PetPage> {
             ),
             child: Image.asset(
               imagePath,
-              height: 110,
+              height: 150,
               width: double.infinity,
               fit: BoxFit.cover,
             ),
           ),
 
-          // Blue Info Section
           Container(
             width: double.infinity,
-            height: 90,
+            height: 70,
             decoration: const BoxDecoration(
               color: Color(0xFF1F2C47),
               borderRadius: BorderRadius.only(
@@ -245,65 +237,58 @@ class _PetPageState extends State<PetPage> {
                 bottomRight: Radius.circular(10),
               ),
             ),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  // Breed + Button
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Stack(
+              children: [
+                Positioned(
+                  top: 6,
+                  right: 6,
+                  child: IconButton(
+                    icon: const Icon(Icons.info_outline, color: Colors.white),
+                    iconSize: 20,
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => PetDetailPage(
+                            name: name,
+                            image: imagePath,
+                            breed: breed,
+                            type: type,
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+
+                Positioned(
+                  left: 8,
+                  bottom: 6,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Flexible(
-                        child: Text(
-                          "$breed ($type)",
-                          style: const TextStyle(
-                            fontSize: 14,
-                            color: Colors.white,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      Text(
+                        "$breed • $type",
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: Colors.white,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
-                      ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.white,
-                          foregroundColor: Color(0xFF1F2C47),
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          textStyle: const TextStyle(fontSize: 13),
+                      const SizedBox(height: 2),
+                      Text(
+                        name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => PetDetailPage(
-                                name: name,
-                                image: imagePath,
-                                breed: breed,
-                                type: type,
-                              ),
-                            ),
-                          );
-                        },
-                        child: const Text("View Details"),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
-
-                  // Pet Name
-                  Text(
-                    name,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
           ),
         ],
@@ -311,7 +296,6 @@ class _PetPageState extends State<PetPage> {
     );
   }
 
-  // Filter Dialog
   void _showFilterDialog() {
     showDialog(
       context: context,

@@ -19,12 +19,12 @@ class AboutUsPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Top Icon
+            
             const Icon(Icons.home, size: 60, color: Color(0xFF1A2C50)),
 
             const SizedBox(height: 12),
 
-            // Mission & Vision
+            
             const Text(
               "Mission & Vision",
               style: TextStyle(
@@ -49,7 +49,7 @@ class AboutUsPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // Our Story
+            
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -77,7 +77,7 @@ class AboutUsPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // What We Do
+            
             const Align(
               alignment: Alignment.centerLeft,
               child: Text(
@@ -91,7 +91,7 @@ class AboutUsPage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // First Row
+            
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -101,7 +101,7 @@ class AboutUsPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Second Row
+            
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -123,7 +123,7 @@ class AboutUsPage extends StatelessWidget {
 
             const SizedBox(height: 25),
 
-            // Address Card
+            
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -141,7 +141,7 @@ class AboutUsPage extends StatelessWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Placeholder map (you can replace with Image.asset or Google Maps widget)
+                  
                   Container(
                     height: 80,
                     width: 100,
@@ -183,7 +183,7 @@ class AboutUsPage extends StatelessWidget {
     );
   }
 
-  // Reusable action widget
+  
   Widget buildAction(IconData icon, String title, String subtitle) {
     return Expanded(
       child: Container(

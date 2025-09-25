@@ -58,7 +58,6 @@ class HomePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Featured Pet of the Week
             Container(
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -111,23 +110,11 @@ class HomePage extends StatelessWidget {
               ),
             ),
 
-            // Quick Action Icons
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
-                  GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const RecommendationPage(),
-                        ),
-                      );
-                    },
-                    child: buildCircleIcon(Icons.thumb_up, "Recommended"),
-                  ),
-                  const SizedBox(width: 50),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -139,7 +126,6 @@ class HomePage extends StatelessWidget {
                     },
                     child: buildCircleIcon(Icons.campaign, "Campaigns"),
                   ),
-                  const SizedBox(width: 70),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -151,7 +137,6 @@ class HomePage extends StatelessWidget {
                     },
                     child: buildCircleIcon(Icons.pets, "Pets"),
                   ),
-                  const SizedBox(width: 70),
                   GestureDetector(
                     onTap: () {
                       Navigator.push(
@@ -167,10 +152,9 @@ class HomePage extends StatelessWidget {
               ),
             ),
 
-            const SizedBox(height: 16),
-            const Divider(thickness: 2, indent: 20, endIndent: 20),
+            const SizedBox(height: 15),
+            const Divider(thickness: 2, indent: 10, endIndent: 10),
 
-            // Recommended Section
             sectionHeader(context, "Recommended"),
             SizedBox(
               height: 230,
@@ -179,30 +163,30 @@ class HomePage extends StatelessWidget {
                 children: [
                   petCard(
                     context,
-                    "Peter",
-                    "Golden Retriever",
+                    "Buddy",
+                    "Aspin",
                     "Dog",
                     "assets/images/donors/peter.png",
                   ),
                   petCard(
                     context,
-                    "Max",
-                    "German Shepherd",
-                    "Dog",
+                    "Ming",
+                    "Puspin",
+                    "Cat",
                     "assets/images/donors/dog3.png",
                   ),
                   petCard(
                     context,
                     "Luna",
-                    "Shih Tzu",
+                    "Aspin",
                     "Dog",
                     "assets/images/donors/dog3.png",
                   ),
                   petCard(
                     context,
-                    "Rocky",
-                    "Beagle",
-                    "Dog",
+                    "Whiskers",
+                    "Puspin",
+                    "Cat",
                     "assets/images/donors/luna.png",
                   ),
                 ],
@@ -211,15 +195,14 @@ class HomePage extends StatelessWidget {
 
             const SizedBox(height: 1),
 
-            // Donation Usage Card
             _buildDonationCard(
               context,
               total: 15000,
               raised: 12500,
               deadline: "Sept 30, 2025",
             ),
+            SizedBox(height: 15),
 
-            // Donate Button
             Container(
               alignment: Alignment.center,
               margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
@@ -227,8 +210,8 @@ class HomePage extends StatelessWidget {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF1A2C50),
                   padding: const EdgeInsets.symmetric(
-                    vertical: 14,
-                    horizontal: 60,
+                    vertical: 20,
+                    horizontal: 70,
                   ),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),
@@ -243,7 +226,7 @@ class HomePage extends StatelessWidget {
                 },
                 child: const Text(
                   "DONATE",
-                  style: TextStyle(fontSize: 16, color: Colors.white),
+                  style: TextStyle(fontSize: 20, color: Colors.white),
                 ),
               ),
             ),
@@ -255,35 +238,41 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Circle Icon
   Widget buildCircleIcon(IconData icon, String label) {
     return Column(
       children: [
         Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: Colors.white,
+          padding: const EdgeInsets.all(10),
+          decoration: const BoxDecoration(
+            color: Color(0xFF1A2C50),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
                 color: Colors.black12,
                 blurRadius: 6,
-                offset: const Offset(0, 3),
+                offset: Offset(0, 3),
               ),
             ],
           ),
-          child: Icon(icon, size: 28, color: const Color(0xFF1A2C50)),
+          child: Icon(
+            icon,
+            size: 30,
+            color: Color.fromARGB(255, 248, 248, 248),
+          ),
         ),
         const SizedBox(height: 6),
         Text(
           label,
-          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+            color: Color(0xFF1A2C50),
+          ),
         ),
       ],
     );
   }
 
-  // Section Header (with navigation)
   Widget sectionHeader(BuildContext context, String title) {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 25, vertical: 4),
@@ -298,9 +287,7 @@ class HomePage extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const RecommendationPage(),
-                ),
+                MaterialPageRoute(builder: (context) => RecommendationPage()),
               );
             },
             child: const Text(
@@ -317,7 +304,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Pet Card
   Widget petCard(
     BuildContext context,
     String name,
@@ -372,13 +358,13 @@ class HomePage extends StatelessWidget {
                   },
                   icon: const Icon(
                     Icons.info,
-                    size: 14,
+                    size: 25,
                     color: Color(0xFF1A2C50),
                   ),
                   label: const Text(
                     "View Details",
                     style: TextStyle(
-                      fontSize: 11,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: Color(0xFF1A2C50),
                     ),
@@ -392,20 +378,19 @@ class HomePage extends StatelessWidget {
             name,
             style: const TextStyle(
               fontWeight: FontWeight.w600,
-              fontSize: 15,
-              color: Colors.black87,
+              fontSize: 20,
+              color: Color(0xFF1A2C50),
             ),
           ),
           Text(
             "$breed • $type",
-            style: const TextStyle(fontSize: 13, color: Colors.black54),
+            style: const TextStyle(fontSize: 15, color: Color(0xFF1A2C50)),
           ),
         ],
       ),
     );
   }
 
-  // Donation Usage Card
   Widget _buildDonationCard(
     BuildContext context, {
     required int total,
@@ -415,24 +400,19 @@ class HomePage extends StatelessWidget {
     double progress = raised / total;
 
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.grey.shade300),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 6,
-            offset: const Offset(0, 3),
-          ),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title + View More
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
@@ -461,8 +441,6 @@ class HomePage extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 12),
-
-          // Progress bar
           ClipRRect(
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
@@ -472,10 +450,7 @@ class HomePage extends StatelessWidget {
               minHeight: 10,
             ),
           ),
-
           const SizedBox(height: 8),
-
-          // Raised vs total
           Center(
             child: Text(
               "Php $raised of Php $total",
