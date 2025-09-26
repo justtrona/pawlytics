@@ -170,6 +170,13 @@ class _menuBarState extends State<menuBar> {
                         ),
                       ),
 
+                      _MenuItem(
+                        icon: Icons.money_rounded,
+                        label: 'Manual Donation',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.manualDonation),
+                      ),
+
                       // _MenuItem(
                       //   icon: Icons.power_rounded,
                       //   label: 'Utilities',
@@ -271,12 +278,11 @@ class _menuBarState extends State<menuBar> {
                             Navigator.pushNamed(context, route.adminSettings),
                       ),
                       _MenuItem(
-                        icon: Icons.person_2_outlined, 
+                        icon: Icons.person_2_outlined,
                         label: "Manage User",
                         onTap: () =>
-                               Navigator.pushNamed(context, route.userManage),
-                        ),
-                        
+                            Navigator.pushNamed(context, route.userManage),
+                      ),
                     ],
                   ),
 

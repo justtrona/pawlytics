@@ -3,7 +3,7 @@ import 'package:pawlytics/views/donors/Menu%20bar%20user/AnimalsYouHelpedPage.da
 import 'package:pawlytics/views/donors/Menu%20bar%20user/CampaignOutcomesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/CertificatesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/ContactUsPage.dart';
-import 'package:pawlytics/views/donors/Menu%20bar%20user/ManualDonationPage.dart';
+// import 'package:pawlytics/views/donors/Menu%20bar%20user/ManualDonationPage.txt';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/MyDonationPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/NotificationPreferencePage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/PaymentMethodPage.dart';
@@ -117,20 +117,20 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-            buildMenuButton(
-              context,
-              icon: Icons.receipt_long,
-              title: "Manual Donation",
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => const ManualDonationPage(),
-                  ),
-                );
-              },
-            ),
 
+            // buildMenuButton(
+            //   context,
+            //   icon: Icons.receipt_long,
+            //   title: "Manual Donation",
+            //   onTap: () {
+            //     Navigator.push(
+            //       context,
+            //       MaterialPageRoute(
+            //         builder: (context) => const ManualDonationPage(),
+            //       ),
+            //     );
+            //   },
+            // ),
             buildMenuButton(
               context,
               icon: Icons.campaign,

@@ -1,0 +1,243 @@
+// import 'package:flutter/material.dart';
+// import 'package:pawlytics/views/donors/controller/donation-controller.dart';
+
+// class ManualDonationPage extends StatefulWidget {
+//   const ManualDonationPage({super.key});
+
+//   @override
+//   State<ManualDonationPage> createState() => _ManualDonationPageState();
+// }
+
+// class _ManualDonationPageState extends State<ManualDonationPage> {
+//   late DonationController controller;
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     controller = DonationController();
+//   }
+
+//   @override
+//   void dispose() {
+//     controller.dispose();
+//     super.dispose();
+//   }
+
+//   void _save() {
+//     final donation = controller.buildDonation();
+//     final issues = donation.validate();
+
+//     if (issues.isNotEmpty) {
+//       ScaffoldMessenger.of(
+//         context,
+//       ).showSnackBar(SnackBar(content: Text(issues.join('\n'))));
+//       return;
+//     }
+
+//     final map = donation.toMap();
+//     debugPrint('Donation saved: $map');
+//     ScaffoldMessenger.of(context).showSnackBar(
+//       const SnackBar(content: Text('Donation saved successfully!')),
+//     );
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Scaffold(
+//       backgroundColor: Colors.grey.shade100,
+//       appBar: AppBar(
+//         title: const Text(
+//           "Manual Donation",
+//           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
+//         ),
+//         centerTitle: true,
+//         backgroundColor: Colors.white,
+//         elevation: 0,
+//         iconTheme: const IconThemeData(color: Colors.black87),
+//         leading: IconButton(
+//           icon: const Icon(Icons.arrow_back),
+//           onPressed: () {
+//             if (controller.donationType == "In Kind") {
+//               setState(() => controller.donationType = "Cash");
+//             } else {
+//               Navigator.pop(context);
+//             }
+//           },
+//         ),
+//       ),
+//       body: SingleChildScrollView(
+//         padding: const EdgeInsets.all(16),
+//         child: Column(
+//           crossAxisAlignment: CrossAxisAlignment.start,
+//           children: [
+//             const Text(
+//               "Donor Info",
+//               style: TextStyle(fontWeight: FontWeight.bold),
+//             ),
+//             const SizedBox(height: 8),
+//             _buildTextField(Icons.person, "Enter Name", controller.nameCtl),
+//             const SizedBox(height: 12),
+//             _buildTextField(
+//               Icons.phone,
+//               "Enter Number",
+//               controller.phoneCtl,
+//               keyboardType: TextInputType.phone,
+//             ),
+//             const SizedBox(height: 20),
+
+//             const Text(
+//               "Date of Donation",
+//               style: TextStyle(fontWeight: FontWeight.bold),
+//             ),
+//             const SizedBox(height: 8),
+//             InkWell(
+//               onTap: () => controller.pickDate(context, () => setState(() {})),
+//               child: _buildDropdownField(
+//                 Icons.calendar_today,
+//                 controller.formattedDate,
+//               ),
+//             ),
+//             const SizedBox(height: 20),
+
+//             const Text(
+//               "Donation Type",
+//               style: TextStyle(fontWeight: FontWeight.bold),
+//             ),
+//             const SizedBox(height: 8),
+//             DropdownButtonFormField<String>(
+//               value: controller.donationType,
+//               decoration: InputDecoration(
+//                 prefixIcon: const Icon(
+//                   Icons.volunteer_activism,
+//                   color: Colors.black54,
+//                 ),
+//                 border: OutlineInputBorder(
+//                   borderRadius: BorderRadius.circular(8),
+//                 ),
+//               ),
+//               items: const [
+//                 DropdownMenuItem(value: "Cash", child: Text("Cash")),
+//                 DropdownMenuItem(value: "In Kind", child: Text("In Kind")),
+//               ],
+//               onChanged: (value) {
+//                 if (value == null) return;
+//                 setState(() {
+//                   controller.donationType = value;
+//                   if (value == "Cash") {
+//                     controller.itemCtl.clear();
+//                     controller.qtyCtl.clear();
+//                   } else {
+//                     controller.amountCtl.clear();
+//                     controller.selectedPaymentMethod = null;
+//                   }
+//                 });
+//               },
+//             ),
+//             const SizedBox(height: 20),
+
+//             if (controller.donationType == "Cash") ...[
+//               const Text(
+//                 "Payment Method",
+//                 style: TextStyle(fontWeight: FontWeight.bold),
+//               ),
+//               const SizedBox(height: 8),
+//               DropdownButtonFormField<String>(
+//                 value: controller.selectedPaymentMethod,
+//                 decoration: InputDecoration(
+//                   prefixIcon: const Icon(
+//                     Icons.credit_card,
+//                     color: Colors.black54,
+//                   ),
+//                   border: OutlineInputBorder(
+//                     borderRadius: BorderRadius.circular(8),
+//                   ),
+//                 ),
+//                 items: controller.paymentOptions
+//                     .map((m) => DropdownMenuItem(value: m, child: Text(m)))
+//                     .toList(),
+//                 onChanged: (value) =>
+//                     setState(() => controller.selectedPaymentMethod = value),
+//                 hint: const Text('Select Payment'),
+//               ),
+//               const SizedBox(height: 12),
+//               _buildTextField(
+//                 Icons.attach_money,
+//                 "Enter Amount",
+//                 controller.amountCtl,
+//                 keyboardType: TextInputType.number,
+//               ),
+//               const SizedBox(height: 12),
+//               _buildTextField(
+//                 Icons.note,
+//                 "Notes (Optional)",
+//                 controller.notesCtl,
+//               ),
+//             ] else ...[
+//               _buildTextField(Icons.inventory_2, "Item", controller.itemCtl),
+//               const SizedBox(height: 12),
+//               _buildTextField(
+//                 Icons.numbers,
+//                 "Quantity",
+//                 controller.qtyCtl,
+//                 keyboardType: TextInputType.number,
+//               ),
+//               const SizedBox(height: 12),
+//               _buildTextField(
+//                 Icons.note,
+//                 "Notes (Optional)",
+//                 controller.notesCtl,
+//               ),
+//             ],
+
+//             const SizedBox(height: 30),
+
+//             ElevatedButton(
+//               style: ElevatedButton.styleFrom(
+//                 backgroundColor: const Color(0xFF1F2C47),
+//                 minimumSize: const Size(double.infinity, 45),
+//               ),
+//               onPressed: _save,
+//               child: const Text(
+//                 "Save",
+//                 style: TextStyle(fontSize: 16, color: Colors.white),
+//               ),
+//             ),
+//           ],
+//         ),
+//       ),
+//     );
+//   }
+
+//   Widget _buildTextField(
+//     IconData icon,
+//     String hint,
+//     TextEditingController ctl, {
+//     TextInputType keyboardType = TextInputType.text,
+//   }) {
+//     return TextField(
+//       controller: ctl,
+//       keyboardType: keyboardType,
+//       decoration: InputDecoration(
+//         prefixIcon: Icon(icon, color: Colors.black54),
+//         hintText: hint,
+//         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+//       ),
+//     );
+//   }
+
+//   Widget _buildDropdownField(IconData icon, String label) {
+//     return InputDecorator(
+//       decoration: InputDecoration(
+//         prefixIcon: Icon(icon, color: Colors.black54),
+//         border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+//       ),
+//       child: Row(
+//         mainAxisAlignment: MainAxisAlignment.spaceBetween,
+//         children: [
+//           Text(label, style: const TextStyle(color: Colors.black87)),
+//           const Icon(Icons.arrow_drop_down, color: Colors.black54),
+//         ],
+//       ),
+//     );
+//   }
+// }

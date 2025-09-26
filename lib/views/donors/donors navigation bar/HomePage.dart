@@ -1,15 +1,16 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/ViewMore.dart';
-import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/AboutUsPage.dart';
-import 'package:pawlytics/views/donors/donors%20scrollable/CampaignPage.dart';
-import 'package:pawlytics/views/donors/donors%20scrollable/GoalPage.dart';
-import 'package:pawlytics/views/donors/donors%20scrollable/PetPage.dart';
-import 'package:pawlytics/views/donors/donors%20scrollable/RecommendationPage.dart';
-import 'package:pawlytics/views/donors/donors%20scrollable/connections/PetDetailsPage.dart';
+import 'package:pawlytics/views/donors/donors navigation bar/connections/AboutUsPage.dart';
+import 'package:pawlytics/views/donors/donors scrollable/CampaignPage.dart';
+import 'package:pawlytics/views/donors/donors scrollable/GoalPage.dart';
+import 'package:pawlytics/views/donors/donors scrollable/PetPage.dart';
+import 'package:pawlytics/views/donors/donors scrollable/RecommendationPage.dart';
+import 'package:pawlytics/views/donors/donors scrollable/connections/PetDetailsPage.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key, required String title});
+  const HomePage({super.key}); // removed unused `title`
 
   @override
   Widget build(BuildContext context) {
@@ -54,7 +55,9 @@ class HomePage extends StatelessWidget {
           ),
         ],
       ),
+
       body: SingleChildScrollView(
+        padding: const EdgeInsets.only(bottom: 120),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -97,7 +100,7 @@ class HomePage extends StatelessWidget {
                       ),
                       onPressed: () {},
                       child: const Text(
-                        "❤️ Meet Me",
+                        "Meet Me",
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
@@ -201,38 +204,53 @@ class HomePage extends StatelessWidget {
               raised: 12500,
               deadline: "Sept 30, 2025",
             ),
-            SizedBox(height: 15),
-
-            Container(
-              alignment: Alignment.center,
-              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1A2C50),
-                  padding: const EdgeInsets.symmetric(
-                    vertical: 20,
-                    horizontal: 70,
-                  ),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
-                  ),
-                  elevation: 4,
-                ),
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) => const DonatePage()),
-                  );
-                },
-                child: const Text(
-                  "DONATE",
-                  style: TextStyle(fontSize: 20, color: Colors.white),
-                ),
-              ),
-            ),
-
+            const SizedBox(height: 15),
             const SizedBox(height: 20),
           ],
+        ),
+      ),
+
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)], // warm, friendly
+            ),
+            borderRadius: BorderRadius.circular(36),
+            boxShadow: const [
+              BoxShadow(
+                blurRadius: 14,
+                offset: Offset(0, 8),
+                color: Colors.black26,
+              ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: FloatingActionButton.extended(
+              heroTag: 'donateFab',
+              tooltip: 'Support the animals',
+              onPressed: () async {
+                HapticFeedback.lightImpact();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DonatePage()),
+                );
+              },
+              icon: const Icon(Icons.volunteer_activism_rounded),
+              label: const Text(
+                'Donate Now',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              elevation: 0,
+            ),
+          ),
         ),
       ),
     );
@@ -397,7 +415,7 @@ class HomePage extends StatelessWidget {
     required int raised,
     required String deadline,
   }) {
-    double progress = raised / total;
+    final double progress = raised / total;
 
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),

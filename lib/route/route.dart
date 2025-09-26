@@ -7,6 +7,7 @@ import 'package:pawlytics/views/admin/audit/audit-log.dart';
 import 'package:pawlytics/views/admin/campaigns/create-campaign.dart';
 import 'package:pawlytics/views/admin/campaigns/reports-campaigns.dart';
 import 'package:pawlytics/views/admin/donation/history-donation.dart';
+import 'package:pawlytics/views/admin/donation/manual-donation.dart';
 import 'package:pawlytics/views/admin/donation/report-donation.dart';
 // import 'package:pawlytics/views/admin/donation/usage-donation.dart';
 import 'package:pawlytics/views/admin/donation/usage-fund.dart';
@@ -32,7 +33,6 @@ import 'package:pawlytics/views/admin/donors-analytics/donors-analytics.dart';
 import 'package:pawlytics/views/landing_page.dart';
 import 'package:pawlytics/views/admin/operational-expense/operational-expense.dart';
 // import 'package:pawlytics/views/admin/manage-user/manage-user.dart';
-
 
 //here ang correct route sa operational expense
 import 'package:pawlytics/views/admin/operational-expense/expense-module.dart';
@@ -71,6 +71,7 @@ const String adminSettings = 'admin-settings';
 const String adminProfile = 'admin-profile';
 const String operationalExpense = 'operational-expense';
 const String userManage = 'manage-user';
+const String manualDonation = 'manual-donation';
 
 //correct route for operational expense
 const String operationalExpenseModule = 'operational-expense-module';
@@ -139,9 +140,13 @@ Route<dynamic> controller(RouteSettings settings) {
     case operationalExpense:
       return MaterialPageRoute(builder: (context) => OperationalExpense());
     case operationalExpenseModule:
-      return MaterialPageRoute(builder: (context) => OperationalExpenseModule());
+      return MaterialPageRoute(
+        builder: (context) => OperationalExpenseModule(),
+      );
     case userManage:
-      return MaterialPageRoute(builder: (context) => ManageUser() );
+      return MaterialPageRoute(builder: (context) => ManageUserPage());
+    case manualDonation:
+      return MaterialPageRoute(builder: (context) => ManualDonation());
     // donors
     case routePage:
       return MaterialPageRoute(builder: (context) => RoutePage());

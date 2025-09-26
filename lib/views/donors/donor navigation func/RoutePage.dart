@@ -23,7 +23,7 @@ class _RoutePageState extends State<RoutePage> {
   }
 
   final List<Widget> _pages = const [
-    HomePage(title: "Flutter Demo Home Page"),
+    HomePage(),
     TransactionsPage(),
     FavoritesPage(),
     ProfilePage(),

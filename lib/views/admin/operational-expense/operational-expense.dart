@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 import 'package:pawlytics/views/admin/controllers/operational-expense-controller.dart';
 import 'package:pawlytics/views/admin/model/operational-expense-model.dart';
+import 'package:pawlytics/views/admin/model/donation-model.dart';
 
 class OperationalExpense extends StatefulWidget {
   const OperationalExpense({super.key});
@@ -11,6 +13,8 @@ class OperationalExpense extends StatefulWidget {
 }
 
 class _OperationalExpenseState extends State<OperationalExpense> {
+  final _dateFmt = DateFormat('MMM d, yyyy');
+
   @override
   Widget build(BuildContext context) {
     final controller = Provider.of<OperationalExpenseController>(context);
@@ -27,7 +31,7 @@ class _OperationalExpenseState extends State<OperationalExpense> {
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            // progress bar na part
+            // Progress / Goal
             const SizedBox(height: 12),
             Center(
               child: Text(
@@ -39,13 +43,12 @@ class _OperationalExpenseState extends State<OperationalExpense> {
             Center(
               child: Text(
                 "₱${controller.expenseGoal.toStringAsFixed(2)}",
-                style: Theme.of(context)
-                    .textTheme
-                    .headlineSmall
-                    ?.copyWith(fontWeight: FontWeight.bold, color: Colors.blue),
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  fontWeight: FontWeight.bold,
+                  color: Colors.blue,
+                ),
               ),
             ),
-
             const SizedBox(height: 16),
             LinearProgressIndicator(
               value: controller.progress,
@@ -56,49 +59,55 @@ class _OperationalExpenseState extends State<OperationalExpense> {
             ),
             const SizedBox(height: 8),
             Text(
-              "₱${controller.totalDonations.toStringAsFixed(2)} / ₱${controller.expenseGoal.toStringAsFixed(2)} donated",
+              // ✅ cash-only contributes to peso progress
+              "₱${controller.totalDonationsCash.toStringAsFixed(2)} / ₱${controller.expenseGoal.toStringAsFixed(2)} donated",
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
             ),
 
             const Divider(height: 40),
 
-            // breakdown allocation
+            // Allocation breakdown
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
                   "Expense Breakdown",
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleMedium
-                      ?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Text(
                   "Long press to delete",
                   style: TextStyle(fontSize: 12, color: Colors.grey[600]),
-                )
+                ),
               ],
             ),
             const SizedBox(height: 8),
 
             if (controller.operationalExpenseList.isEmpty)
               const Center(
-                  child: Text("No allocations yet.",
-                      style: TextStyle(color: Colors.grey))),
+                child: Text(
+                  "No allocations yet.",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
             ...controller.operationalExpenseList.asMap().entries.map((entry) {
               final index = entry.key;
               final expense = entry.value;
 
               return Card(
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 2,
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: ListTile(
                   leading: const Icon(Icons.pie_chart, color: Colors.blue),
-                  title: Text(expense.category,
-                      style: const TextStyle(fontWeight: FontWeight.w600)),
+                  title: Text(
+                    expense.category,
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                  ),
                   subtitle: Text(
                     "₱${expense.amount.toStringAsFixed(2)} "
                     "(${(controller.allocationPercent(index) * 100).toStringAsFixed(1)}%)",
@@ -109,10 +118,12 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                       IconButton(
                         icon: const Icon(Icons.edit, color: Colors.orange),
                         onPressed: () {
-                          final categoryController =
-                              TextEditingController(text: expense.category);
+                          final categoryController = TextEditingController(
+                            text: expense.category,
+                          );
                           final amountController = TextEditingController(
-                              text: expense.amount.toString());
+                            text: expense.amount.toString(),
+                          );
                           showDialog(
                             context: context,
                             builder: (context) => AlertDialog(
@@ -123,7 +134,8 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                                   TextField(
                                     controller: categoryController,
                                     decoration: const InputDecoration(
-                                        labelText: "Category"),
+                                      labelText: "Category",
+                                    ),
                                   ),
                                   TextField(
                                     controller: amountController,
@@ -137,22 +149,29 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                               ),
                               actions: [
                                 TextButton(
-                                    onPressed: () => Navigator.pop(context),
-                                    child: const Text("Cancel", 
-                                    style: TextStyle(color: Colors.red) )),
+                                  onPressed: () => Navigator.pop(context),
+                                  child: const Text(
+                                    "Cancel",
+                                    style: TextStyle(color: Colors.red),
+                                  ),
+                                ),
                                 ElevatedButton(
-                                    onPressed: () {
-                                      controller.updateAllocation(
-                                          index,
-                                          OperationalExpenseModel(
-                                              category:
-                                                  categoryController.text,
-                                              amount: double.tryParse(
-                                                      amountController.text) ??
-                                                  expense.amount));
-                                      Navigator.pop(context);
-                                    },
-                                    child: const Text("Update")),
+                                  onPressed: () {
+                                    controller.updateAllocation(
+                                      index,
+                                      OperationalExpenseModel(
+                                        category: categoryController.text,
+                                        amount:
+                                            double.tryParse(
+                                              amountController.text,
+                                            ) ??
+                                            expense.amount,
+                                      ),
+                                    );
+                                    Navigator.pop(context);
+                                  },
+                                  child: const Text("Update"),
+                                ),
                               ],
                             ),
                           );
@@ -170,33 +189,52 @@ class _OperationalExpenseState extends State<OperationalExpense> {
 
             const Divider(height: 40),
 
-            // DONATIONS
+            // Donations
             Text(
               "Donations",
-              style: Theme.of(context)
-                  .textTheme
-                  .titleMedium
-                  ?.copyWith(fontWeight: FontWeight.bold),
+              style: Theme.of(
+                context,
+              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
+
             if (controller.donations.isEmpty)
               const Center(
-                  child: Text("No donations yet.",
-                      style: TextStyle(color: Colors.grey))),
+                child: Text(
+                  "No donations yet.",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+
+            // ✅ Render cash vs in-kind safely
             ...controller.donations.asMap().entries.map((entry) {
               final index = entry.key;
-              final donation = entry.value;
+              final d = entry.value;
+              final donor = (d.donorName.isEmpty) ? 'Anonymous' : d.donorName;
+              final dateStr = _dateFmt.format(d.date);
+
+              final isCash = d.type == DonationType.cash;
+              final title = isCash
+                  ? "₱${(d.amount ?? 0).toStringAsFixed(2)} from $donor"
+                  : "${(d.item ?? 'In-kind item')} × ${(d.quantity ?? 0)} from $donor";
+
+              final subtitle = isCash
+                  ? "Cash • ${d.paymentMethod ?? '—'} • $dateStr"
+                  : "In-Kind • $dateStr";
+
               return Card(
                 shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12)),
+                  borderRadius: BorderRadius.circular(12),
+                ),
                 elevation: 2,
                 margin: const EdgeInsets.symmetric(vertical: 6),
                 child: ListTile(
-                  leading:
-                      const Icon(Icons.volunteer_activism, color: Colors.green),
-                  title: Text(
-                      "₱${donation.amount.toStringAsFixed(2)} from ${donation.donorName ?? 'Anonymous'}"),
-                  subtitle: Text(donation.date.toLocal().toString()),
+                  leading: Icon(
+                    isCash ? Icons.payments : Icons.inventory_2,
+                    color: isCash ? Colors.green : Colors.deepPurple,
+                  ),
+                  title: Text(title),
+                  subtitle: Text(subtitle),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: Colors.red),
                     onPressed: () => controller.removeDonation(index),
@@ -208,7 +246,7 @@ class _OperationalExpenseState extends State<OperationalExpense> {
         ),
       ),
 
-      // FAB: ADD NEW ALLOCATION
+      // FAB: Add Allocation
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text("Add Allocation"),
@@ -238,23 +276,27 @@ class _OperationalExpenseState extends State<OperationalExpense> {
               ),
               actions: [
                 TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text("Cancel", 
-                          style: TextStyle(color: Colors.red)
-                           )
-                          ),
+                  onPressed: () => Navigator.pop(context),
+                  child: const Text(
+                    "Cancel",
+                    style: TextStyle(color: Colors.red),
+                  ),
+                ),
                 ElevatedButton(
-                    onPressed: () {
-                      if (categoryController.text.isNotEmpty &&
-                          amountController.text.isNotEmpty) {
-                        controller.addAllocation(OperationalExpenseModel(
+                  onPressed: () {
+                    if (categoryController.text.isNotEmpty &&
+                        amountController.text.isNotEmpty) {
+                      controller.addAllocation(
+                        OperationalExpenseModel(
                           category: categoryController.text,
                           amount: double.tryParse(amountController.text) ?? 0,
-                        ));
-                      }
-                      Navigator.pop(context);
-                    },
-                    child: const Text("Add")),
+                        ),
+                      );
+                    }
+                    Navigator.pop(context);
+                  },
+                  child: const Text("Add"),
+                ),
               ],
             ),
           );
@@ -263,8 +305,6 @@ class _OperationalExpenseState extends State<OperationalExpense> {
     );
   }
 }
-
-
 
 // import 'package:flutter/material.dart';
 // import 'package:provider/provider.dart';
