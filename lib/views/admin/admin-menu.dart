@@ -120,6 +120,10 @@ class _menuBarState extends State<menuBar> {
                         label: 'Dashboard',
                         onTap: () =>
                             Navigator.pushNamed(context, route.adminDashboard),
+                        // onTap: () => Navigator.pushNamed(
+                        //   context,
+                        //   route.navigationButtonAdmin,
+                        // ),
                       ),
                     ],
                   ),

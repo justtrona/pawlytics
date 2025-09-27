@@ -12,7 +12,6 @@ class CreateCampaign extends StatefulWidget {
 }
 
 class _CreateCampaignState extends State<CreateCampaign> {
-  
   static const brand = Color(0xFF27374D);
   static const softGrey = Color(0xFFE9EEF3);
   static const tileGrey = Color(0xFFDDE5EC);
@@ -41,7 +40,6 @@ class _CreateCampaignState extends State<CreateCampaign> {
     super.dispose();
   }
 
-  /// Fetch campaigns from Supabase
   Future<void> _fetchCampaigns() async {
     try {
       final data = await _controller.fetchCampaigns();
@@ -53,9 +51,9 @@ class _CreateCampaignState extends State<CreateCampaign> {
     } catch (e) {
       if (!mounted) return;
       setState(() => _loading = false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error fetching campaigns: $e")),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error fetching campaigns: $e")));
     }
   }
 
@@ -128,13 +126,15 @@ class _CreateCampaignState extends State<CreateCampaign> {
     return '${months[d.month]} ${d.day}, ${d.year}';
   }
 
-  
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: const BackButton(),
+        leading: BackButton(
+          color: Colors.black87,
+          onPressed: () => Navigator.pop(context),
+        ),
         title: const Text('Campaigns'),
         centerTitle: true,
         elevation: 0,
@@ -210,7 +210,7 @@ class _CreateCampaignState extends State<CreateCampaign> {
                                 options: const [
                                   'All Statuses',
                                   'Active',
-                                  'Ended'
+                                  'Ended',
                                 ],
                                 current: _statusFilter,
                               );
@@ -286,10 +286,7 @@ class _CreateCampaignState extends State<CreateCampaign> {
             const SizedBox(height: 4),
             Text(
               title,
-              style: const TextStyle(
-                fontWeight: FontWeight.w800,
-                fontSize: 16,
-              ),
+              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
             const SizedBox(height: 8),
             ...options.map(
@@ -297,13 +294,15 @@ class _CreateCampaignState extends State<CreateCampaign> {
                 title: Text(
                   o,
                   style: TextStyle(
-                    fontWeight:
-                        o == current ? FontWeight.w700 : FontWeight.w500,
+                    fontWeight: o == current
+                        ? FontWeight.w700
+                        : FontWeight.w500,
                     color: o == current ? brand : Colors.black87,
                   ),
                 ),
-                trailing:
-                    o == current ? const Icon(Icons.check, color: brand) : null,
+                trailing: o == current
+                    ? const Icon(Icons.check, color: brand)
+                    : null,
                 onTap: () => Navigator.pop(ctx, o),
               ),
             ),
@@ -329,8 +328,9 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg =
-        emphasize ? _CreateCampaignState.brand : _CreateCampaignState.softGrey;
+    final bg = emphasize
+        ? _CreateCampaignState.brand
+        : _CreateCampaignState.softGrey;
     final fg = emphasize ? Colors.white : _CreateCampaignState.brand;
 
     return Container(
@@ -348,8 +348,9 @@ class _StatPill extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color:
-                  emphasize ? Colors.white70 : _CreateCampaignState.textMuted,
+              color: emphasize
+                  ? Colors.white70
+                  : _CreateCampaignState.textMuted,
               fontSize: 12,
               fontWeight: FontWeight.w600,
             ),
@@ -375,10 +376,7 @@ class _FilterPill extends StatelessWidget {
   final String label;
   final VoidCallback onTap;
 
-  const _FilterPill({
-    required this.label,
-    required this.onTap,
-  });
+  const _FilterPill({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -453,8 +451,11 @@ class _CampaignTile extends StatelessWidget {
                       width: 96,
                       height: 72,
                       color: Colors.white,
-                      child: const Icon(Icons.campaign,
-                          size: 40, color: Colors.grey),
+                      child: const Icon(
+                        Icons.campaign,
+                        size: 40,
+                        color: Colors.grey,
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -503,7 +504,6 @@ class _CampaignTile extends StatelessWidget {
 
               const SizedBox(height: 8),
 
-            
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -519,8 +519,7 @@ class _CampaignTile extends StatelessWidget {
                     const Chip(
                       label: Text("Notify @ 75%"),
                       backgroundColor: Colors.red,
-                      labelStyle:
-                          TextStyle(color: Colors.white, fontSize: 11),
+                      labelStyle: TextStyle(color: Colors.white, fontSize: 11),
                     ),
                 ],
               ),

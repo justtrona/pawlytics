@@ -3,8 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:pawlytics/views/admin/model/donation-model.dart';
 import 'package:pawlytics/views/admin/controllers/donation-controller.dart';
-// import '../../controllers/donation_controller.dart';
-// import '../../models/donation_model.dart';
+import 'package:pawlytics/route/route.dart' as route;
 
 class ManualDonation extends StatefulWidget {
   const ManualDonation({super.key});
@@ -62,11 +61,35 @@ class _ManualDonationState extends State<ManualDonation> {
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
+
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-          tooltip: 'Back',
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () {
+            Navigator.pop(context);
+          },
         ),
+        // leading: BackButton(
+        //   color: Colors.black87,
+        //   onPressed: () {
+        //     if (Navigator.of(context).canPop()) {
+        //       Navigator.of(context).pop();
+        //     } else {
+        //       Navigator.pushReplacementNamed(context, route.adminDashboard);
+        //     }
+        //   },
+        // ),
+
+        // leading: IconButton(
+        //   icon: const Icon(Icons.arrow_back),
+        //   onPressed: () {
+        //     if (Navigator.of(context).canPop()) {
+        //       Navigator.of(context).pop();
+        //     } else {
+        //       Navigator.pushReplacementNamed(context, route.adminDashboard);
+        //     }
+        //   },
+        //   tooltip: 'Back',
+        // ),
         actions: [
           IconButton(
             tooltip: 'Switch Type',

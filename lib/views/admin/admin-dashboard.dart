@@ -3,15 +3,26 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:pawlytics/views/admin/admin_widgets/stats-grid.dart';
 import 'package:pawlytics/route/route.dart' as route;
 
-class AdminDashboard extends StatelessWidget {
+// Make sure this file exports the MenuBar widget you showed.
+import 'package:pawlytics/views/admin/admin-menu.dart';
+
+class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
   static const brandColor = Color(0xA627374D);
 
   @override
+  State<AdminDashboard> createState() => _AdminDashboardState();
+}
+
+class _AdminDashboardState extends State<AdminDashboard> {
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
+
+      // ✅ Mount MenuBar directly. No `children:` param.
+      endDrawer: Drawer(child: menuBar()),
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 90),
@@ -21,7 +32,7 @@ class AdminDashboard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(16),
                 decoration: const BoxDecoration(
-                  color: brandColor,
+                  color: AdminDashboard.brandColor,
                   borderRadius: BorderRadius.only(
                     bottomLeft: Radius.circular(50),
                     bottomRight: Radius.circular(50),
@@ -32,6 +43,7 @@ class AdminDashboard extends StatelessWidget {
                   children: [
                     Row(
                       children: [
+                        // Profile avatar -> profile page
                         ElevatedButton(
                           onPressed: () =>
                               Navigator.pushNamed(context, route.adminProfile),
@@ -49,6 +61,8 @@ class AdminDashboard extends StatelessWidget {
                           ),
                         ),
                         const SizedBox(width: 10),
+
+                        // Admin name + role
                         const Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -70,14 +84,24 @@ class AdminDashboard extends StatelessWidget {
                           ],
                         ),
                         const Spacer(),
-                        Image.asset(
-                          "assets/images/small_logo.png",
-                          width: 50,
-                          height: 50,
+
+                        // ✅ Menu button to open the end drawer
+                        Builder(
+                          builder: (innerCtx) => IconButton(
+                            icon: const Icon(
+                              Icons.menu_rounded,
+                              color: Colors.white,
+                              size: 28,
+                            ),
+                            onPressed: () =>
+                                Scaffold.of(innerCtx).openEndDrawer(),
+                            tooltip: 'Open menu',
+                          ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
+
                     const Center(
                       child: Text(
                         "Remaining Funds",
@@ -95,6 +119,7 @@ class AdminDashboard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
+
                     Padding(
                       padding: const EdgeInsets.all(15.0),
                       child: Row(
@@ -109,6 +134,7 @@ class AdminDashboard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 10),
+
                     Center(
                       child: SizedBox(
                         width: 200,
@@ -139,7 +165,10 @@ class AdminDashboard extends StatelessWidget {
                   ],
                 ),
               ),
+
               const SizedBox(height: 20),
+
+              // Line chart section
               Container(
                 height: 200,
                 margin: const EdgeInsets.symmetric(horizontal: 16),
@@ -184,16 +213,20 @@ class AdminDashboard extends StatelessWidget {
                           FlSpot(6, 70),
                         ],
                         barWidth: 3,
-                        color: brandColor,
+                        color: AdminDashboard.brandColor,
                         dotData: FlDotData(show: false),
                       ),
                     ],
                   ),
                 ),
               ),
+
               const SizedBox(height: 20),
+
               const StatsGrid(),
+
               const SizedBox(height: 12),
+
               _CardListSection(
                 title: "Latest Donations",
                 items: const [
@@ -205,7 +238,9 @@ class AdminDashboard extends StatelessWidget {
                   _Item("Maine Q.", "PHP 50.00"),
                 ],
               ),
+
               const SizedBox(height: 12),
+
               _CardListSection(
                 title: "Top Campaigns",
                 items: const [
@@ -225,7 +260,9 @@ class AdminDashboard extends StatelessWidget {
   }
 }
 
-// methods below
+// -------------------------------------------------------------------
+// Helper widgets (unchanged from your original, just kept in one file)
+// -------------------------------------------------------------------
 
 class _KeyValueSmall extends StatefulWidget {
   final String title;
@@ -282,7 +319,7 @@ class _CardListSection extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 6,
-            offset: Offset(0, 3),
+            offset: const Offset(0, 3),
           ),
         ],
       ),

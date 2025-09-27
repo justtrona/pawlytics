@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/admin-dashboard.dart';
+import 'package:pawlytics/views/admin/admin-menu.dart';
 import 'package:pawlytics/views/admin/admin-profile/admin-profile.dart';
 import 'package:pawlytics/views/admin/admin-settings.dart';
 import 'package:pawlytics/views/admin/admin_widgets/navigation-buttons.dart';
@@ -72,6 +73,7 @@ const String adminProfile = 'admin-profile';
 const String operationalExpense = 'operational-expense';
 const String userManage = 'manage-user';
 const String manualDonation = 'manual-donation';
+const String menuBar = 'menu-bar';
 
 //correct route for operational expense
 const String operationalExpenseModule = 'operational-expense-module';
@@ -147,6 +149,8 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => ManageUserPage());
     case manualDonation:
       return MaterialPageRoute(builder: (context) => ManualDonation());
+    // case menuBar:
+    //   \return MaterialPageRoute(builder: (context) => MenuBar());
     // donors
     case routePage:
       return MaterialPageRoute(builder: (context) => RoutePage());
