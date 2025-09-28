@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/admin/controllers/dropoff-controller.dart';
+import 'package:pawlytics/views/admin/model/dropoff-model.dart';
 
 class CreateDropoff extends StatefulWidget {
   const CreateDropoff({super.key});
@@ -8,18 +10,20 @@ class CreateDropoff extends StatefulWidget {
 }
 
 class _CreateDropoffState extends State<CreateDropoff> {
-  // Theme
   static const brand = Color(0xFF27374D);
-  static const softGrey = Color(0xFFE9EEF3);
 
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers
   final _orgCtrl = TextEditingController();
   final _addressCtrl = TextEditingController();
   final _dateTimeCtrl = TextEditingController();
   final _phoneCtrl = TextEditingController();
   String _status = 'Active';
+
+  // ✅ declare this so we can store the real DateTime
+  DateTime? _selectedDateTime;
+
+  final DropoffLocationController _controller = DropoffLocationController();
 
   @override
   void dispose() {
@@ -54,7 +58,7 @@ class _CreateDropoffState extends State<CreateDropoff> {
       context: context,
       firstDate: DateTime(now.year - 1),
       lastDate: DateTime(now.year + 5),
-      initialDate: now,
+      initialDate: _selectedDateTime ?? now,
       builder: (context, child) => Theme(
         data: Theme.of(
           context,
@@ -63,9 +67,10 @@ class _CreateDropoffState extends State<CreateDropoff> {
       ),
     );
     if (date == null) return;
+
     final time = await showTimePicker(
       context: context,
-      initialTime: TimeOfDay.fromDateTime(now),
+      initialTime: TimeOfDay.fromDateTime(_selectedDateTime ?? now),
       builder: (context, child) => Theme(
         data: Theme.of(
           context,
@@ -83,26 +88,54 @@ class _CreateDropoffState extends State<CreateDropoff> {
       time.minute,
     );
 
+    // ✅ store actual DateTime for saving
+    _selectedDateTime = dt;
+
+    // For display only
     String _two(int n) => n.toString().padLeft(2, '0');
     final hour12 = ((dt.hour + 11) % 12) + 1;
     final ampm = dt.hour >= 12 ? 'PM' : 'AM';
 
     _dateTimeCtrl.text =
         '${_two(dt.month)}/${_two(dt.day)}/${dt.year}  ${_two(hour12)}:${_two(dt.minute)} $ampm';
+
     setState(() {});
   }
 
-  void _save() {
+  Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    FocusScope.of(context).unfocus();
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text(
-          'Saved: ${_orgCtrl.text}, ${_addressCtrl.text}, ${_dateTimeCtrl.text}, ${_phoneCtrl.text}, $_status',
-        ),
-      ),
-    );
-    // TODO: persist to backend
+
+    if (_selectedDateTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please select a date & time")),
+      );
+      return;
+    }
+
+    try {
+      final location = DropoffLocation(
+        organization: _orgCtrl.text,
+        address: _addressCtrl.text,
+        scheduledAt: _selectedDateTime!, // ✅ now safe
+        phone: _phoneCtrl.text,
+        status: _status,
+      );
+
+      await _controller.create(location);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Dropoff location saved successfully!')),
+        );
+        Navigator.pop(context, true);
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error: $e')));
+      }
+    }
   }
 
   @override
@@ -125,7 +158,6 @@ class _CreateDropoffState extends State<CreateDropoff> {
             child: ListView(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
               children: [
-                // Organization / Company
                 TextFormField(
                   controller: _orgCtrl,
                   textInputAction: TextInputAction.next,
@@ -134,8 +166,6 @@ class _CreateDropoffState extends State<CreateDropoff> {
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
-
-                // Address
                 TextFormField(
                   controller: _addressCtrl,
                   textInputAction: TextInputAction.next,
@@ -144,8 +174,6 @@ class _CreateDropoffState extends State<CreateDropoff> {
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
-
-                // Date & Time (read-only with picker)
                 TextFormField(
                   controller: _dateTimeCtrl,
                   readOnly: true,
@@ -161,8 +189,6 @@ class _CreateDropoffState extends State<CreateDropoff> {
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
-
-                // Contact Number
                 TextFormField(
                   controller: _phoneCtrl,
                   keyboardType: TextInputType.phone,
@@ -172,8 +198,6 @@ class _CreateDropoffState extends State<CreateDropoff> {
                       (v == null || v.trim().isEmpty) ? 'Required' : null,
                 ),
                 const SizedBox(height: 14),
-
-                // Status dropdown
                 DropdownButtonFormField<String>(
                   value: _status,
                   isExpanded: true,
@@ -188,8 +212,6 @@ class _CreateDropoffState extends State<CreateDropoff> {
                   onChanged: (v) => setState(() => _status = v ?? 'Active'),
                 ),
                 const SizedBox(height: 22),
-
-                // Save button
                 SizedBox(
                   height: 46,
                   child: ElevatedButton(

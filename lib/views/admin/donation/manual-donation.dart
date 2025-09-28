@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
-import 'package:pawlytics/views/admin/model/donation-model.dart';
-import 'package:pawlytics/views/admin/controllers/donation-controller.dart';
+import 'package:pawlytics/views/admin/model/manual-donation-model.dart';
+import 'package:pawlytics/views/admin/controllers/manual-donation-controller.dart';
 import 'package:pawlytics/route/route.dart' as route;
 
-class ManualDonation extends StatefulWidget {
-  const ManualDonation({super.key});
+class ManualDonationPage extends StatefulWidget {
+  const ManualDonationPage({super.key});
 
   @override
-  State<ManualDonation> createState() => _ManualDonationState();
+  State<ManualDonationPage> createState() => _ManualDonationPageState();
 }
 
-class _ManualDonationState extends State<ManualDonation> {
-  late DonationController controller;
+class _ManualDonationPageState extends State<ManualDonationPage> {
+  late ManualDonationController controller;
 
   @override
   void initState() {
     super.initState();
-    controller = DonationController();
+    controller = ManualDonationController();
   }
 
   @override
@@ -27,25 +27,21 @@ class _ManualDonationState extends State<ManualDonation> {
     super.dispose();
   }
 
-  void _save() {
+  Future<void> _save() async {
     FocusScope.of(context).unfocus();
-    final donation = controller.buildDonation();
-    final issues = donation.validate();
-
-    if (issues.isNotEmpty) {
+    try {
+      await controller.saveDonation();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Manual donation saved successfully!')),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text(issues.join('\n'))));
-      return;
+      ).showSnackBar(SnackBar(content: Text(e.toString())));
     }
-
-    final map = donation.toMap();
-    debugPrint('Admin Donation saved: $map');
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Donation saved successfully!')),
-    );
-    Navigator.pop(context, map);
   }
 
   @override
@@ -54,47 +50,24 @@ class _ManualDonationState extends State<ManualDonation> {
       backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
         title: const Text(
-          "Record Donation",
+          "Record Manual Donation",
           style: TextStyle(color: Colors.black87, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
         backgroundColor: Colors.white,
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.black87),
-
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        // leading: BackButton(
-        //   color: Colors.black87,
-        //   onPressed: () {
-        //     if (Navigator.of(context).canPop()) {
-        //       Navigator.of(context).pop();
-        //     } else {
-        //       Navigator.pushReplacementNamed(context, route.adminDashboard);
-        //     }
-        //   },
-        // ),
-
-        // leading: IconButton(
-        //   icon: const Icon(Icons.arrow_back),
-        //   onPressed: () {
-        //     if (Navigator.of(context).canPop()) {
-        //       Navigator.of(context).pop();
-        //     } else {
-        //       Navigator.pushReplacementNamed(context, route.adminDashboard);
-        //     }
-        //   },
-        //   tooltip: 'Back',
-        // ),
         actions: [
           IconButton(
             tooltip: 'Switch Type',
             icon: Icon(
-              controller.donationType == DonationType.cash
+              controller.donationType == ManualDonationType.cash
                   ? Icons.inventory_2_outlined
                   : Icons.payments_outlined,
             ),
@@ -150,7 +123,7 @@ class _ManualDonationState extends State<ManualDonation> {
               style: TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
-            DropdownButtonFormField<DonationType>(
+            DropdownButtonFormField<ManualDonationType>(
               value: controller.donationType,
               decoration: InputDecoration(
                 prefixIcon: const Icon(
@@ -162,9 +135,12 @@ class _ManualDonationState extends State<ManualDonation> {
                 ),
               ),
               items: const [
-                DropdownMenuItem(value: DonationType.cash, child: Text("Cash")),
                 DropdownMenuItem(
-                  value: DonationType.inKind,
+                  value: ManualDonationType.cash,
+                  child: Text("Cash"),
+                ),
+                DropdownMenuItem(
+                  value: ManualDonationType.inKind,
                   child: Text("In Kind"),
                 ),
               ],
@@ -172,7 +148,7 @@ class _ManualDonationState extends State<ManualDonation> {
                 if (value == null) return;
                 setState(() {
                   controller.donationType = value;
-                  if (value == DonationType.cash) {
+                  if (value == ManualDonationType.cash) {
                     controller.itemCtl.clear();
                     controller.qtyCtl.clear();
                   } else {
@@ -185,7 +161,7 @@ class _ManualDonationState extends State<ManualDonation> {
 
             const SizedBox(height: 20),
 
-            if (controller.donationType == DonationType.cash) ...[
+            if (controller.donationType == ManualDonationType.cash) ...[
               const Text(
                 "Payment Method",
                 style: TextStyle(fontWeight: FontWeight.bold),

@@ -1,65 +1,48 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/route/route.dart' as route;
+import 'package:pawlytics/views/admin/controllers/dropoff-controller.dart';
+import 'package:pawlytics/views/admin/model/dropoff-model.dart';
 
-class DropoffLocation extends StatefulWidget {
-  const DropoffLocation({super.key});
+class DropoffLocationPage extends StatefulWidget {
+  const DropoffLocationPage({super.key});
 
   @override
-  State<DropoffLocation> createState() => _DropoffLocationState();
+  State<DropoffLocationPage> createState() => _DropoffLocationPageState();
 }
 
-class _DropoffLocationState extends State<DropoffLocation> {
-  // Theme
+class _DropoffLocationPageState extends State<DropoffLocationPage> {
   static const brand = Color(0xFF27374D);
   static const softGrey = Color(0xFFE9EEF3);
-  static const textMuted = Color(0xFF6A7886);
-  static const green = Color(0xFF25AE5F);
-  static const red = Color(0xFFE85C5C);
 
   final _searchCtrl = TextEditingController();
+  final DropoffLocationController _controller = DropoffLocationController();
 
-  final _all = <_Location>[
-    const _Location(
-      name: 'Law Office',
-      address: 'Mac Arthur Highway, Davao City',
-      hours: '9:00AM - 8:00PM',
-      phone: '09123456789',
-      active: true,
-    ),
-    const _Location(
-      name: 'Davao Vets',
-      address: 'Bajada, Davao City',
-      hours: '9:00AM - 8:00PM',
-      phone: '09123456789',
-      active: true,
-    ),
-    const _Location(
-      name: 'Dog Pound',
-      address: 'Bajada, Davao City',
-      hours: '9:00AM - 8:00PM',
-      phone: '09123456789',
-      active: false,
-    ),
-    const _Location(
-      name: 'Panacan Barangay Hall',
-      address: 'Panacan, Davao City',
-      hours: '9:00AM - 8:00PM',
-      phone: '09123456789',
-      active: false,
-    ),
-  ];
+  List<DropoffLocation> _all = [];
+  bool _loading = true;
 
   @override
-  void dispose() {
-    _searchCtrl.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _loadLocations();
   }
 
-  List<_Location> get _filtered {
+  Future<void> _loadLocations() async {
+    setState(() => _loading = true);
+    try {
+      final data = await _controller.getAll();
+      setState(() => _all = data);
+    } catch (e) {
+      debugPrint("Error loading locations: $e");
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  List<DropoffLocation> get _filtered {
     final q = _searchCtrl.text.trim().toLowerCase();
     if (q.isEmpty) return _all;
     return _all.where((l) {
-      return l.name.toLowerCase().contains(q) ||
+      return l.organization.toLowerCase().contains(q) ||
           l.address.toLowerCase().contains(q) ||
           l.phone.contains(q);
     }).toList();
@@ -69,6 +52,12 @@ class _DropoffLocationState extends State<DropoffLocation> {
     borderRadius: BorderRadius.circular(12),
     borderSide: BorderSide(color: c ?? Colors.transparent, width: 0),
   );
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -109,26 +98,36 @@ class _DropoffLocationState extends State<DropoffLocation> {
 
             // List of locations
             Expanded(
-              child: ListView.separated(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                itemCount: _filtered.length,
-                separatorBuilder: (_, __) => const SizedBox(height: 12),
-                itemBuilder: (context, i) {
-                  final loc = _filtered[i];
-                  return _LocationCard(
-                    data: loc,
-                    onTap: () {
-                      // TODO: navigate to details / edit
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(content: Text('Open "${loc.name}"')),
-                      );
-                    },
-                  );
-                },
-              ),
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator())
+                  : _filtered.isEmpty
+                  ? const Center(
+                      child: Text(
+                        "No drop-off locations found",
+                        style: TextStyle(color: Colors.grey),
+                      ),
+                    )
+                  : ListView.separated(
+                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                      itemCount: _filtered.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, i) {
+                        final loc = _filtered[i];
+                        return _LocationCard(
+                          data: loc,
+                          onTap: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text('Open "${loc.organization}"'),
+                              ),
+                            );
+                          },
+                        );
+                      },
+                    ),
             ),
 
-            // Add button pinned above nav bar
+            // Add button pinned
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: SizedBox(
@@ -143,8 +142,15 @@ class _DropoffLocationState extends State<DropoffLocation> {
                       borderRadius: BorderRadius.circular(14),
                     ),
                   ),
-                  onPressed: () =>
-                      Navigator.pushNamed(context, route.createDropoff),
+                  onPressed: () async {
+                    final result = await Navigator.pushNamed(
+                      context,
+                      route.createDropoff,
+                    );
+                    if (result == true) {
+                      _loadLocations(); // ✅ Refresh list after adding
+                    }
+                  },
                   child: const Text('Add Location'),
                 ),
               ),
@@ -156,32 +162,13 @@ class _DropoffLocationState extends State<DropoffLocation> {
   }
 }
 
-// ---- Data model ----
-class _Location {
-  final String name;
-  final String address;
-  final String hours;
-  final String phone;
-  final bool active;
-
-  const _Location({
-    required this.name,
-    required this.address,
-    required this.hours,
-    required this.phone,
-    required this.active,
-  });
-}
-
 // ---- Card widget ----
 class _LocationCard extends StatelessWidget {
   static const brand = Color(0xFF27374D);
-  static const softGrey = Color(0xFFE9EEF3);
-  static const textMuted = Color(0xFF6A7886);
   static const green = Color(0xFF25AE5F);
   static const red = Color(0xFFE85C5C);
 
-  final _Location data;
+  final DropoffLocation data;
   final VoidCallback? onTap;
 
   const _LocationCard({required this.data, this.onTap});
@@ -189,9 +176,10 @@ class _LocationCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final border = Border.all(color: Colors.blueGrey.shade200, width: 1);
-    final chipBg = data.active ? green.withOpacity(.14) : red.withOpacity(.12);
-    final chipColor = data.active ? green : red;
-    final chipText = data.active ? 'Active' : 'Inactive';
+    final chipBg = data.status == 'Active'
+        ? green.withOpacity(.14)
+        : red.withOpacity(.12);
+    final chipColor = data.status == 'Active' ? green : red;
 
     return Material(
       color: Colors.white,
@@ -214,7 +202,7 @@ class _LocationCard extends StatelessWidget {
                 children: [
                   Expanded(
                     child: Text(
-                      data.name,
+                      data.organization,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                       style: const TextStyle(
@@ -236,7 +224,7 @@ class _LocationCard extends StatelessWidget {
                       border: Border.all(color: chipColor, width: 1.2),
                     ),
                     child: Text(
-                      chipText,
+                      data.status,
                       style: TextStyle(
                         color: chipColor,
                         fontWeight: FontWeight.w800,
@@ -256,8 +244,11 @@ class _LocationCard extends StatelessWidget {
               ),
               const SizedBox(height: 6),
 
-              // Hours
-              _RowIconText(icon: Icons.schedule_rounded, text: data.hours),
+              // Scheduled Date
+              _RowIconText(
+                icon: Icons.schedule_rounded,
+                text: data.scheduledAt.toString(), // format if needed
+              ),
               const SizedBox(height: 6),
 
               // Phone

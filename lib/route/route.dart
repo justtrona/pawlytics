@@ -106,7 +106,7 @@ Route<dynamic> controller(RouteSettings settings) {
     case createCampaign:
       return MaterialPageRoute(builder: (context) => CreateCampaign());
     case dropoffLocation:
-      return MaterialPageRoute(builder: (context) => DropoffLocation());
+      return MaterialPageRoute(builder: (context) => DropoffLocationPage());
     case createDropoff:
       return MaterialPageRoute(builder: (context) => CreateDropoff());
     case addPetProfile:
@@ -148,7 +148,7 @@ Route<dynamic> controller(RouteSettings settings) {
     case userManage:
       return MaterialPageRoute(builder: (context) => ManageUserPage());
     case manualDonation:
-      return MaterialPageRoute(builder: (context) => ManualDonation());
+      return MaterialPageRoute(builder: (context) => ManualDonationPage());
     // case menuBar:
     //   \return MaterialPageRoute(builder: (context) => MenuBar());
     // donors

@@ -515,12 +515,6 @@ class _CampaignTile extends StatelessWidget {
                       fontSize: 12,
                     ),
                   ),
-                  if (data.notifyAt75)
-                    const Chip(
-                      label: Text("Notify @ 75%"),
-                      backgroundColor: Colors.red,
-                      labelStyle: TextStyle(color: Colors.white, fontSize: 11),
-                    ),
                 ],
               ),
 
