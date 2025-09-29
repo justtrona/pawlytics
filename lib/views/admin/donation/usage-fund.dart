@@ -8,12 +8,11 @@ class FundUsage extends StatefulWidget {
 }
 
 class _FundState extends State<FundUsage> {
-  // Theme
   static const brand = Color(0xFF27374D);
 
   final _formKey = GlobalKey<FormState>();
 
-  // Controllers / state
+  // Controllers
   String _treatment = 'Vaccination';
   final _petCtrl = TextEditingController(text: 'Peter');
   final _amountCtrl = TextEditingController(text: 'PHP 800.00');

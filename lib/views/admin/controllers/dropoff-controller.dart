@@ -3,7 +3,7 @@ import 'package:pawlytics/views/admin/model/dropoff-model.dart';
 
 class DropoffLocationController {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final String table = "dropoff_locations"; // ✅ Supabase table name
+  final String table = "dropoff_locations";
 
   /// Create a new dropoff location
   Future<void> create(DropoffLocation location) async {
