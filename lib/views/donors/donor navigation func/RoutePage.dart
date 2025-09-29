@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/FavoritePage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/HomePage.dart';
-import 'package:pawlytics/views/donors/donors%20navigation%20bar/ProfilePage.dart';
+import 'package:pawlytics/views/donors/donors%20navigation%20bar/MenuPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/TransactionPage.dart';
 
 class RoutePage extends StatefulWidget {

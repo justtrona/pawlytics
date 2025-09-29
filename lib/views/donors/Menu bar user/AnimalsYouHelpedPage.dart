@@ -1,32 +1,43 @@
 import 'package:flutter/material.dart';
 
-class AnimalsYouHelpedPage extends StatelessWidget {
+class AnimalsYouHelpedPage extends StatefulWidget {
   const AnimalsYouHelpedPage({super.key});
 
   @override
+  State<AnimalsYouHelpedPage> createState() => _AnimalsYouHelpedPageState();
+}
+
+class _AnimalsYouHelpedPageState extends State<AnimalsYouHelpedPage> {
+  final List<Map<String, String>> animals = [
+    {
+      "name": "Peter",
+      "status": "Donated May. 15",
+      "image": "assets/images/donors/peter.png",
+    },
+    {
+      "name": "Max",
+      "status": "Adopted May. 15",
+      "image": "assets/images/donors/max.png",
+    },
+    {
+      "name": "Luna",
+      "status": "Adopted May. 15",
+      "image": "assets/images/donors/luna.png",
+    },
+    {
+      "name": "Buboy",
+      "status": "Donated May. 15",
+      "image": "assets/images/donors/peter.png",
+    },
+  ];
+
+  String searchQuery = "";
+
+  @override
   Widget build(BuildContext context) {
-    final animals = [
-      {
-        "name": "Peter",
-        "status": "Donated May. 15",
-        "image": "assets/images/donors/peter.png",
-      },
-      {
-        "name": "Max",
-        "status": "Adopted May. 15",
-        "image": "assets/images/donors/max.png",
-      },
-      {
-        "name": "Luna",
-        "status": "Adopted May. 15",
-        "image": "assets/images/donors/luna.png",
-      },
-      {
-        "name": "Buboy",
-        "status": "Donated May. 15",
-        "image": "assets/images/donors/peter.png",
-      },
-    ];
+    final filteredAnimals = animals.where((animal) {
+      return animal["name"]!.toLowerCase().contains(searchQuery.toLowerCase());
+    }).toList();
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -49,10 +60,10 @@ class AnimalsYouHelpedPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text(
-              "You’ve supported 4 animals so far.\nThank you for making a difference!",
+            Text(
+              "You’ve supported ${animals.length} animals so far.\nThank you for making a difference!",
               textAlign: TextAlign.center,
-              style: TextStyle(fontSize: 15, color: Colors.black87),
+              style: const TextStyle(fontSize: 15, color: Colors.black87),
             ),
             const SizedBox(height: 20),
 
@@ -60,10 +71,20 @@ class AnimalsYouHelpedPage extends StatelessWidget {
               children: [
                 Expanded(
                   child: TextField(
+                    onChanged: (value) {
+                      setState(() {
+                        searchQuery = value;
+                      });
+                    },
                     decoration: InputDecoration(
-                      hintText: "Search",
+                      hintText: "Search pets by name",
                       hintStyle: TextStyle(
-                        color: Colors.black54.withOpacity(0.3),
+                        color: Colors.black54.withOpacity(0.4),
+                        fontSize: 14,
+                      ),
+                      prefixIcon: const Icon(
+                        Icons.search,
+                        color: Colors.black54,
                       ),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(35),
@@ -75,42 +96,24 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                ElevatedButton(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1F2C47),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 21,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(35),
-                    ),
-                  ),
-                  onPressed: () {},
-                  child: const Text(
-                    "Search",
-                    style: TextStyle(color: Colors.white, fontSize: 14),
-                  ),
-                ),
               ],
             ),
             const SizedBox(height: 20),
 
             Expanded(
               child: GridView.builder(
-                itemCount: animals.length,
+                itemCount: filteredAnimals.length,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
                   crossAxisSpacing: 16,
                   mainAxisSpacing: 16,
-                  childAspectRatio: 0.8,
+                  childAspectRatio: 0.75,
                 ),
                 itemBuilder: (context, index) {
-                  final animal = animals[index];
+                  final animal = filteredAnimals[index];
                   return Container(
                     decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
+                      color: Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     padding: const EdgeInsets.all(12),
@@ -118,7 +121,7 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
                         CircleAvatar(
-                          radius: 45,
+                          radius: 55,
                           backgroundImage: AssetImage(animal["image"]!),
                         ),
                         const SizedBox(height: 12),
@@ -126,8 +129,8 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                           animal["name"]!,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
-                            fontSize: 18,
-                            color: Colors.black87,
+                            fontSize: 20,
+                            color: Color(0xFF1F2C47),
                           ),
                         ),
                         const SizedBox(height: 6),
@@ -135,7 +138,7 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                           animal["status"]!,
                           style: const TextStyle(
                             color: Colors.black54,
-                            fontSize: 14,
+                            fontSize: 15,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -143,24 +146,6 @@ class AnimalsYouHelpedPage extends StatelessWidget {
                     ),
                   );
                 },
-              ),
-            ),
-
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1F2C47),
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                ),
-                onPressed: () {},
-                child: const Text(
-                  "View More",
-                  style: TextStyle(fontSize: 16, color: Colors.white),
-                ),
               ),
             ),
           ],

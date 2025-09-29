@@ -73,7 +73,6 @@ class _ContactUsPageState extends State<ContactUsPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Contact info row
                       Row(
                         children: [
                           Expanded(
@@ -184,7 +183,6 @@ class _ContactUsPageState extends State<ContactUsPage> {
                       ),
                       const SizedBox(height: 20),
 
-                      // Name fields
                       Row(
                         children: [
                           Expanded(
@@ -204,14 +202,12 @@ class _ContactUsPageState extends State<ContactUsPage> {
                       ),
                       const SizedBox(height: 10),
 
-                      // Email field
                       _buildTextField(
                         controller: emailController,
                         hint: "Email Address",
                       ),
                       const SizedBox(height: 10),
 
-                      // Message field
                       _buildTextField(
                         controller: messageController,
                         hint: "Leave a message",
@@ -232,7 +228,51 @@ class _ContactUsPageState extends State<ContactUsPage> {
                           ),
                           onPressed: () {
                             if (_formKey.currentState!.validate()) {
-                              // Handle form submit
+                              firstNameController.clear();
+                              lastNameController.clear();
+                              emailController.clear();
+                              messageController.clear();
+
+                              showDialog(
+                                context: context,
+                                barrierDismissible: false,
+                                builder: (context) {
+                                  return AlertDialog(
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    title: const Text(
+                                      "Message Sent",
+                                      style: TextStyle(
+                                        color: Color(0xFF1F2C47),
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    content: const Text(
+                                      "Your message has been successfully sent. We’ll get back to you soon!",
+                                      style: TextStyle(fontSize: 14),
+                                    ),
+                                    actions: [
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.of(
+                                            context,
+                                          ).pop(); // close dialog
+                                          Navigator.of(
+                                            context,
+                                          ).pop(); // go back
+                                        },
+                                        child: const Text(
+                                          "Close",
+                                          style: TextStyle(
+                                            color: Color(0xFF1F2C47),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  );
+                                },
+                              );
                             }
                           },
                           child: const Text(

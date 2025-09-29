@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class NotificationPreferencePage extends StatefulWidget {
   const NotificationPreferencePage({super.key});
@@ -13,6 +14,57 @@ class _NotificationPreferencePageState
   bool emailNotification = true;
   bool smsAlert = false;
   bool dailySummary = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPreferences();
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      emailNotification = prefs.getBool('emailNotification') ?? true;
+      smsAlert = prefs.getBool('smsAlert') ?? false;
+      dailySummary = prefs.getBool('dailySummary') ?? true;
+    });
+  }
+
+  Future<void> _savePreferences() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool('emailNotification', emailNotification);
+    await prefs.setBool('smsAlert', smsAlert);
+    await prefs.setBool('dailySummary', dailySummary);
+  }
+
+  void _showSavedDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text(
+          "Preferences Saved",
+          style: TextStyle(
+            fontWeight: FontWeight.bold,
+            color: Color(0xFF1F2C47),
+          ),
+        ),
+        content: const Text(
+          "Your notification preferences have been updated successfully.",
+          style: TextStyle(fontSize: 14, color: Colors.black87),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context); // close dialog
+              Navigator.pop(context); // return to previous page
+            },
+            child: const Text("OK", style: TextStyle(color: Color(0xFF1F2C47))),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -73,7 +125,7 @@ class _NotificationPreferencePageState
                   _buildSwitchTile(
                     title: "Email Notification",
                     description:
-                        "Turn on email notifications to receive updates about your donations, reports, and payments. Stay informed and never miss a thing!",
+                        "Turn on email notifications to receive updates about your donations, reports, and payments.",
                     value: emailNotification,
                     onChanged: (val) {
                       setState(() => emailNotification = val);
@@ -105,44 +157,25 @@ class _NotificationPreferencePageState
                   ),
                   const Spacer(),
 
-                  Column(
-                    children: [
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF1F2C47),
-                            padding: const EdgeInsets.symmetric(vertical: 15),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          onPressed: () {},
-                          child: const Text(
-                            "Save",
-                            style: TextStyle(fontSize: 16, color: Colors.white),
-                          ),
+                  SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton(
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF1F2C47),
+                        padding: const EdgeInsets.symmetric(vertical: 15),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(30),
                         ),
                       ),
-                      const SizedBox(height: 10),
-                      SizedBox(
-                        width: double.infinity,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Colors.grey.shade400,
-                            padding: const EdgeInsets.symmetric(vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30),
-                            ),
-                          ),
-                          onPressed: () {},
-                          child: const Text(
-                            "Not now",
-                            style: TextStyle(fontSize: 16, color: Colors.white),
-                          ),
-                        ),
+                      onPressed: () async {
+                        await _savePreferences();
+                        _showSavedDialog(); // show dialog when saved
+                      },
+                      child: const Text(
+                        "Save",
+                        style: TextStyle(fontSize: 16, color: Colors.white),
                       ),
-                    ],
+                    ),
                   ),
                 ],
               ),

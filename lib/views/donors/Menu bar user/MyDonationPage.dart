@@ -16,8 +16,40 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class MyDonationPage extends StatelessWidget {
+class MyDonationPage extends StatefulWidget {
   const MyDonationPage({super.key});
+
+  @override
+  State<MyDonationPage> createState() => _MyDonationPageState();
+}
+
+class _MyDonationPageState extends State<MyDonationPage> {
+  String selectedFilter = "Weekly";
+
+  final List<Map<String, String>> donations = [
+    {"type": "Cash", "amount": "2000.00", "date": "06/22/25"},
+    {"type": "Cash", "amount": "500.00", "date": "06/03/25"},
+    {"type": "Cash", "amount": "1000.00", "date": "05/15/25"},
+    {"type": "Cash", "amount": "1500.00", "date": "01/10/25"},
+  ];
+
+  List<Map<String, String>> get filteredDonations {
+    if (selectedFilter == "Weekly") {
+      return donations.where((d) => d["date"]!.startsWith("06/22")).toList();
+    } else if (selectedFilter == "Monthly") {
+      return donations.where((d) => d["date"]!.startsWith("06/")).toList();
+    } else if (selectedFilter == "Yearly") {
+      return donations.where((d) => d["date"]!.endsWith("/25")).toList();
+    }
+    return donations;
+  }
+
+  double get totalBalance {
+    return filteredDonations.fold(
+      0.0,
+      (sum, d) => sum + double.parse(d["amount"]!),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -46,32 +78,33 @@ class MyDonationPage extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                filterButton("Weekly", true),
+                filterButton("Weekly"),
                 const SizedBox(width: 8),
-                filterButton("Monthly", false),
+                filterButton("Monthly"),
                 const SizedBox(width: 8),
-                filterButton("Yearly", false),
+                filterButton("Yearly"),
               ],
             ),
             const SizedBox(height: 16),
 
+            // Total Balance
             Container(
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 20),
               decoration: BoxDecoration(
-                color: Color(0xFF1F2C47),
+                color: const Color(0xFF1F2C47),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Column(
+              child: Column(
                 children: [
-                  Text(
+                  const Text(
                     "Total Balance",
                     style: TextStyle(color: Colors.white, fontSize: 16),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
-                    "PHP 2,500.00",
-                    style: TextStyle(
+                    "PHP ${totalBalance.toStringAsFixed(2)}",
+                    style: const TextStyle(
                       color: Colors.white,
                       fontSize: 22,
                       fontWeight: FontWeight.bold,
@@ -82,14 +115,22 @@ class MyDonationPage extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
+            // Donations List
             Expanded(
-              child: ListView(
-                children: [
-                  donationCard("Cash", "PHP 2,000.00", "06/22/25"),
-                  const SizedBox(height: 12),
-                  donationCard("Cash", "PHP 500.00", "06/03/25"),
-                ],
-              ),
+              child: filteredDonations.isEmpty
+                  ? const Center(child: Text("No donations found."))
+                  : ListView.separated(
+                      itemCount: filteredDonations.length,
+                      separatorBuilder: (_, __) => const SizedBox(height: 12),
+                      itemBuilder: (context, index) {
+                        final donation = filteredDonations[index];
+                        return donationCard(
+                          donation["type"]!,
+                          "PHP ${donation["amount"]!}",
+                          donation["date"]!,
+                        );
+                      },
+                    ),
             ),
           ],
         ),
@@ -97,22 +138,29 @@ class MyDonationPage extends StatelessWidget {
     );
   }
 
-  Widget filterButton(String label, bool isSelected) {
+  Widget filterButton(String label) {
+    final bool isSelected = selectedFilter == label;
     return Expanded(
       child: ElevatedButton(
         style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected ? Color(0xFF1F2C47) : Colors.grey[200],
+          backgroundColor: isSelected
+              ? const Color(0xFF1F2C47)
+              : Colors.grey[200],
           foregroundColor: isSelected ? Colors.white : Colors.black,
           padding: const EdgeInsets.symmetric(vertical: 10),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
         ),
-        onPressed: () {},
+        onPressed: () {
+          setState(() {
+            selectedFilter = label;
+          });
+        },
         child: Text(label),
       ),
     );
   }
 
-  static Widget donationCard(String type, String amount, String date) {
+  Widget donationCard(String type, String amount, String date) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
@@ -129,32 +177,12 @@ class MyDonationPage extends StatelessWidget {
           rowText("Amount Donated", amount),
           const SizedBox(height: 4),
           rowText("Date Donated", date),
-          const SizedBox(height: 12),
-          Center(
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Color(0xFF1F2C47),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 24,
-                  vertical: 10,
-                ),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
-                ),
-              ),
-              onPressed: () {},
-              child: const Text(
-                "View Attachment",
-                style: TextStyle(color: Colors.white),
-              ),
-            ),
-          ),
         ],
       ),
     );
   }
 
-  static Widget rowText(String label, String value) {
+  Widget rowText(String label, String value) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
