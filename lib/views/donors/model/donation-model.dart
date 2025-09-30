@@ -1,175 +1,64 @@
-import 'package:flutter/foundation.dart';
-
-enum DonationModel { cash, inKind }
-
-@immutable
-class Donation {
-  // Common
+class DonationModel {
   final String donorName;
-  final String
-  donorPhone;
+  final String donorPhone;
   final DateTime donationDate;
-  final DonationModel type;
-
-  // Cash
-  final String? paymentMethod; 
   final double? amount;
-
-  // In-Kind
+  final String? paymentMethod;
+  final String? notes;
   final String? item;
   final int? quantity;
-  final String? notes;
+  final String? dropOffLocation;
+  final String donationType; // "Cash" or "InKind"
 
-  const Donation({
+  DonationModel.cash({
     required this.donorName,
     required this.donorPhone,
     required this.donationDate,
-    required this.type,
-    this.paymentMethod,
-    this.amount,
-    this.item,
-    this.quantity,
+    required this.amount,
+    required this.paymentMethod,
     this.notes,
-  });
+  }) : item = null,
+       quantity = null,
+       dropOffLocation = null,
+       donationType = "Cash";
 
-  // constructors for each type
-  factory Donation.cash({
-    required String donorName,
-    required String donorPhone,
-    required DateTime donationDate,
-    required double amount,
-    String? paymentMethod,
-    String? notes,
-  }) {
-    return Donation(
-      donorName: donorName,
-      donorPhone: donorPhone,
-      donationDate: donationDate,
-      type: DonationModel.cash,
-      amount: amount,
-      paymentMethod: paymentMethod,
-      notes: notes,
-    );
-  }
-
-  factory Donation.inKind({
-    required String donorName,
-    required String donorPhone,
-    required DateTime donationDate,
-    required String item,
-    required int quantity,
-    String? notes,
-  }) {
-    return Donation(
-      donorName: donorName,
-      donorPhone: donorPhone,
-      donationDate: donationDate,
-      type: DonationModel.inKind,
-      item: item,
-      quantity: quantity,
-      notes: notes,
-    );
-  }
-
-  List<String> validate() {
-    final issues = <String>[];
-    if (donorName.trim().isEmpty) issues.add('Donor name is required.');
-    if (donorPhone.trim().isEmpty) issues.add('Donor number is required.');
-
-    if (type == DonationModel.cash) {
-      if (amount == null || amount! <= 0) issues.add('Amount must be > 0.');
-    } else {
-      if (item == null || item!.trim().isEmpty) issues.add('Item is required.');
-      if (quantity == null || quantity! <= 0) {
-        issues.add('Quantity must be a positive integer.');
-      }
-    }
-    return issues;
-  }
-
-  bool get isCash => type == DonationModel.cash;
-  bool get isInKind => type == DonationModel.inKind;
-
-  Donation copyWith({
-    String? donorName,
-    String? donorPhone,
-    DateTime? donationDate,
-    DonationModel? type,
-    String? paymentMethod,
-    double? amount,
-    String? item,
-    int? quantity,
-    String? notes,
-    // helpers when switching type:
-    bool clearCashFields = false,
-    bool clearInKindFields = false,
-  }) {
-    return Donation(
-      donorName: donorName ?? this.donorName,
-      donorPhone: donorPhone ?? this.donorPhone,
-      donationDate: donationDate ?? this.donationDate,
-      type: type ?? this.type,
-      paymentMethod: clearCashFields
-          ? null
-          : (paymentMethod ?? this.paymentMethod),
-      amount: clearCashFields ? null : (amount ?? this.amount),
-      item: clearInKindFields ? null : (item ?? this.item),
-      quantity: clearInKindFields ? null : (quantity ?? this.quantity),
-      notes: notes ?? this.notes,
-    );
-  }
+  DonationModel.inKind({
+    required this.donorName,
+    required this.donorPhone,
+    required this.donationDate,
+    required this.item,
+    required this.quantity,
+    this.notes,
+    this.dropOffLocation,
+  }) : amount = null,
+       paymentMethod = null,
+       donationType = "InKind";
 
   Map<String, dynamic> toMap() {
     return {
-      'donorName': donorName,
-      'donorPhone': donorPhone,
-      'donationDate': donationDate.toIso8601String(),
-      'type': _typeToString(type),
-      'paymentMethod': paymentMethod,
+      'donor_name': donorName,
+      'donor_phone': donorPhone,
+      'donation_date': donationDate.toIso8601String(),
       'amount': amount,
+      'payment_method': paymentMethod,
+      'notes': notes,
       'item': item,
       'quantity': quantity,
-      'notes': notes,
+      'drop_off_location': dropOffLocation,
+      'donation_type': donationType,
     };
   }
 
-  factory Donation.fromMap(Map<String, dynamic> map) {
-    final typeStr = (map['type'] as String?) ?? 'Cash';
-    final dateStr = (map['donationDate'] as String?) ?? '';
-    return Donation(
-      donorName: (map['donorName'] as String? ?? '').trim(),
-      donorPhone: (map['donorPhone'] as String? ?? '').trim(),
-      donationDate: DateTime.tryParse(dateStr) ?? DateTime.now(),
-      type: _typeFromString(typeStr),
-      paymentMethod: map['paymentMethod'] as String?,
-      amount: _toDoubleOrNull(map['amount']),
-      item: map['item'] as String?,
-      quantity: _toIntOrNull(map['quantity']),
-      notes: map['notes'] as String?,
-    );
+  // validations
+  List<String> validate() {
+    final issues = <String>[];
+    if (donorName.isEmpty) issues.add("Donor name is required.");
+    if (donationType == "Cash" && (amount == null || amount! <= 0)) {
+      issues.add("Cash amount must be greater than zero.");
+    }
+    if (donationType == "InKind" && (item == null || item!.isEmpty)) {
+      issues.add("In-kind donation item is required.");
+    }
+    return issues;
   }
-
-  static String _typeToString(DonationModel t) =>
-      t == DonationModel.cash ? 'Cash' : 'In Kind';
-
-  static DonationModel _typeFromString(String s) {
-    final n = s.toLowerCase().replaceAll('_', '').replaceAll(' ', '');
-    return n == 'inkind' ? DonationModel.inKind : DonationModel.cash;
-  }
-
-  static double? _toDoubleOrNull(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString());
-  }
-
-  static int? _toIntOrNull(dynamic v) {
-    if (v == null) return null;
-    if (v is num) return v.toInt();
-    return int.tryParse(v.toString());
-  }
-
-  @override
-  String toString() =>
-      'Donation(${_typeToString(type)}, donor: $donorName, phone: $donorPhone)';
 }

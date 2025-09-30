@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/connections/CampaignDetailsPage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class CampaignPage extends StatefulWidget {
   const CampaignPage({super.key});
@@ -10,6 +11,22 @@ class CampaignPage extends StatefulWidget {
 
 class _CampaignPageState extends State<CampaignPage> {
   String selectedFilter = "All";
+  final supabase = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> _campaigns;
+
+  @override
+  void initState() {
+    super.initState();
+    _campaigns = fetchCampaigns();
+  }
+
+  Future<List<Map<String, dynamic>>> fetchCampaigns() async {
+    final response = await supabase
+        .from('campaigns')
+        .select()
+        .order('created_at', ascending: false);
+    return (response as List).cast<Map<String, dynamic>>();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -30,91 +47,19 @@ class _CampaignPageState extends State<CampaignPage> {
         centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
       ),
       body: Column(
         children: [
+          // Filters and search (unchanged UI)
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Center(
-                  child: Container(
-                    
-                    padding: const EdgeInsets.all(4),
-                    // child: ToggleButtons(
-                    //   borderRadius: BorderRadius.circular(30),
-                    //   borderColor: Colors.transparent,
-                    //   selectedBorderColor: Colors.transparent,
-                    //   fillColor: Colors.transparent,
-                    //   selectedColor: Colors.black,
-                    //   color: Colors.grey,
-                    //   isSelected: [
-                    //     selectedFilter == "All",
-                    //     selectedFilter == "Pets",
-                    //     selectedFilter == "Campaigns",
-                    //   ],
-                    //   onPressed: (index) {
-                    //     setState(() {
-                    //       if (index == 0) selectedFilter = "All";
-                    //       if (index == 1) selectedFilter = "Pets";
-                    //       if (index == 2) selectedFilter = "Campaigns";
-                    //     });
-                    //   },
-                    //   children: const [
-                    //     Padding(
-                    //       padding: EdgeInsets.symmetric(
-                    //         horizontal: 16,
-                    //         vertical: 8,
-                    //       ),
-                    //       child: Text(
-                    //         "All",
-                    //         style: TextStyle(
-                    //           fontSize: 16,
-                    //           fontWeight: FontWeight.bold,
-                    //           color: Color(0xFF23344E),
-                    //         ),
-                    //       ),
-                    //     ),
-                    //     Padding(
-                    //       padding: EdgeInsets.symmetric(
-                    //         horizontal: 16,
-                    //         vertical: 8,
-                    //       ),
-                    //       child: Text(
-                    //         "Pets",
-                    //         style: TextStyle(
-                    //           fontSize: 16,
-                    //           fontWeight: FontWeight.bold,
-                    //           color: Color(0xFF23344E),
-                    //         ),
-                    //       ),
-                    //     ),
-                    //     Padding(
-                    //       padding: EdgeInsets.symmetric(
-                    //         horizontal: 16,
-                    //         vertical: 8,
-                    //       ),
-                    //       child: Text(
-                    //         "Campaigns",
-                    //         style: TextStyle(
-                    //           fontSize: 16,
-                    //           fontWeight: FontWeight.bold,
-                    //           color: Color(0xFF23344E),
-                    //         ),
-                    //       ),
-                    //     ),
-                    //   ],
-                    // ),
-                  ),
-                ),
-
+                Center(child: Container(padding: const EdgeInsets.all(4))),
                 const SizedBox(height: 12),
-
                 Row(
                   children: [
                     Expanded(
@@ -160,9 +105,7 @@ class _CampaignPageState extends State<CampaignPage> {
                     ),
                   ],
                 ),
-
                 const SizedBox(height: 12),
-
                 TextField(
                   decoration: InputDecoration(
                     hintText: "Search Campaign",
@@ -181,36 +124,97 @@ class _CampaignPageState extends State<CampaignPage> {
 
           const Divider(height: 0),
 
+          // Campaign list loaded from Supabase
           Expanded(
-            child: ListView.builder(
-              padding: const EdgeInsets.all(20),
-              itemCount: 3,
-              itemBuilder: (context, index) {
-                final List<List<String>> allTags = [
-                  ["Medical Supplies", "Dogs", "Urgent", "Food"],
-                  ["Honorarium", "Weekly Funds", "Urgent", "Shelter"],
-                  ["Medical Supplies", "Dogs", "Urgent", "Food"],
-                ];
+            child: FutureBuilder<List<Map<String, dynamic>>>(
+              future: _campaigns,
+              builder: (context, snapshot) {
+                if (snapshot.connectionState == ConnectionState.waiting) {
+                  return const Center(child: CircularProgressIndicator());
+                }
+                if (snapshot.hasError) {
+                  return Center(child: Text("Error: ${snapshot.error}"));
+                }
+                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                  return const Center(child: Text("No campaigns found"));
+                }
 
-                final List<String> allImages = [
-                  "assets/images/donors/virus.png",
-                  "assets/images/donors/rescue.png",
-                  "assets/images/donors/virus.png",
-                ];
+                final campaigns = snapshot.data!;
+                return ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: campaigns.length,
+                  itemBuilder: (context, index) {
+                    final c = campaigns[index];
 
-                final List<String> allDescriptions = [
-                  "We are raising fund for dog food. Your help can save our shelter dogs...",
-                  "We are gathering weekly funds to support vet honorarium and shelter needs...",
-                  "We are raising fund for CDV test kits once again. CDV test kits give us peace of mind...",
-                ];
+                    // --- Robust tags handling (FIX) ---
+                    // Possible shapes:
+                    // - c['tags'] as List<dynamic> -> convert to List<String>
+                    // - c['tags'] as String -> comma separated
+                    // - no tags field -> fallback to category or ["General"]
+                    final dynamic tagsRaw = c['tags'] ?? c['category'] ?? null;
+                    List<String> tagsList = [];
 
-                return CampaignCard(
-                  description: allDescriptions[index],
-                  tags: allTags[index],
-                  image: allImages[index],
-                  progress: 0.4,
-                  raised: "₱10,750.00",
-                  goal: "₱15,000.00",
+                    if (tagsRaw == null) {
+                      tagsList = [c['category']?.toString() ?? 'General'];
+                    } else if (tagsRaw is List) {
+                      tagsList = tagsRaw
+                          .map((e) => e == null ? '' : e.toString().trim())
+                          .where((s) => s.isNotEmpty)
+                          .toList();
+                    } else if (tagsRaw is String) {
+                      // Support comma-separated string like "Dogs, Urgent"
+                      tagsList = tagsRaw
+                          .split(',')
+                          .map((s) => s.trim())
+                          .where((s) => s.isNotEmpty)
+                          .toList();
+                      if (tagsList.isEmpty) {
+                        tagsList = [tagsRaw];
+                      }
+                    } else {
+                      // single value of other type -> toString
+                      tagsList = [tagsRaw.toString()];
+                    }
+                    // If still empty, provide fallback
+                    if (tagsList.isEmpty) {
+                      tagsList = [c['category']?.toString() ?? 'General'];
+                    }
+                    // --- end tags handling ---
+
+                    final title =
+                        c['program']?.toString() ?? "Untitled Campaign";
+                    final description =
+                        c['description']?.toString() ??
+                        "No description available";
+
+                    // parse fundraising_goal and raised safely
+                    final double goalVal =
+                        double.tryParse(
+                          c['fundraising_goal']?.toString() ?? '',
+                        ) ??
+                        0.0;
+                    final double raisedVal =
+                        double.tryParse(c['raised']?.toString() ?? '') ?? 0.0;
+
+                    final double progress = goalVal > 0
+                        ? ((raisedVal / goalVal).clamp(0.0, 1.0) as double)
+                        : 0.0;
+
+                    // image fallback (you can replace with URL from DB and use Image.network)
+                    final String image =
+                        c['image_url']?.toString() ??
+                        "assets/images/donors/rescue.png";
+
+                    return CampaignCard(
+                      title: title,
+                      description: description,
+                      tags: tagsList,
+                      image: image,
+                      progress: progress,
+                      raised: "₱${raisedVal.toStringAsFixed(2)}",
+                      goal: "₱${goalVal.toStringAsFixed(2)}",
+                    );
+                  },
                 );
               },
             ),
@@ -222,6 +226,7 @@ class _CampaignPageState extends State<CampaignPage> {
 }
 
 class CampaignCard extends StatelessWidget {
+  final String title;
   final String description;
   final List<String> tags;
   final String image;
@@ -231,6 +236,7 @@ class CampaignCard extends StatelessWidget {
 
   const CampaignCard({
     super.key,
+    required this.title,
     required this.description,
     required this.tags,
     required this.image,
@@ -262,12 +268,19 @@ class CampaignCard extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: Image.asset(
-                      image,
-                      height: 160,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                    ),
+                    child: image.startsWith('http')
+                        ? Image.network(
+                            image,
+                            height: 160,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          )
+                        : Image.asset(
+                            image,
+                            height: 160,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                          ),
                   ),
                 ),
                 Positioned(
@@ -285,7 +298,15 @@ class CampaignCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 8),
-
+            Text(
+              title,
+              style: const TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF23344E),
+              ),
+            ),
+            const SizedBox(height: 6),
             Wrap(
               spacing: 6,
               children: tags
@@ -298,7 +319,6 @@ class CampaignCard extends StatelessWidget {
                   .toList(),
             ),
             const SizedBox(height: 6),
-
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
@@ -309,7 +329,6 @@ class CampaignCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 6),
-
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -325,23 +344,19 @@ class CampaignCard extends StatelessWidget {
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
-                    color: Color.fromARGB(255, 2, 5, 10),
+                    color: Color(0xFF02050A),
                   ),
                 ),
               ],
             ),
-
             const SizedBox(height: 6),
-
             Text(
               description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Color(0xFF23344E)),
             ),
-
             const SizedBox(height: 12),
-
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -350,13 +365,12 @@ class CampaignCard extends StatelessWidget {
                     context,
                     MaterialPageRoute(
                       builder: (context) => CampaignDetailsPage(
-                        title: "We Don’t Have Dog Food Anymore",
+                        title: title,
                         image: image,
                         raised: raised,
                         goal: goal,
                         progress: progress,
-                        description:
-                            "Lorem Ipsum is simply dummy text of the printing and typesetting industry...",
+                        description: description,
                       ),
                     ),
                   );

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/DonationSuccessPage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/PayQrCodePage.dart';
+import 'package:pawlytics/views/donors/model/donation-model.dart'; // ✅ Donation model
 
 class DonatePage extends StatefulWidget {
-  final bool allowInKind; // 👈 new flag
+  final bool allowInKind;
 
   const DonatePage({super.key, this.allowInKind = true});
 
@@ -55,6 +57,25 @@ class _DonatePageState extends State<DonatePage>
     super.dispose();
   }
 
+  /// ✅ Save donation to Supabase
+  Future<void> _saveDonation(DonationModel donation) async {
+    final supabase = Supabase.instance.client;
+    try {
+      await supabase
+          .from('donations')
+          .insert(donation.toMap()); // use model mapper
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(builder: (context) => const DonationSuccessPage()),
+      );
+    } catch (error) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text("Error saving donation: $error")));
+    }
+  }
+
   void _updateAmount(String value) {
     double current =
         double.tryParse(_amountController.text.replaceAll(",", "")) ?? 0.0;
@@ -73,6 +94,7 @@ class _DonatePageState extends State<DonatePage>
   void _resetCashFields() {
     setState(() {
       _amountController.text = "0.00";
+      _notesController.clear();
     });
   }
 
@@ -209,16 +231,33 @@ class _DonatePageState extends State<DonatePage>
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
-                    _resetCashFields();
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => const DonationSuccessPage(),
-                      ),
+                    final amount =
+                        double.tryParse(_amountController.text) ?? 0.0;
+
+                    final donation = DonationModel.cash(
+                      donorName: "Anonymous",
+                      donorPhone: "N/A",
+                      donationDate: DateTime.now(),
+                      amount: amount,
+                      paymentMethod: "QR",
+                      notes: _notesController.text.isEmpty
+                          ? null
+                          : _notesController.text,
                     );
+
+                    final issues = donation.validate();
+                    if (issues.isNotEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text(issues.join("\n"))),
+                      );
+                      return;
+                    }
+
+                    _saveDonation(donation); // ✅ Save to Supabase
+                    _resetCashFields();
                   },
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: Color(0xFF1F2C47),
+                    backgroundColor: const Color(0xFF1F2C47),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(30),
@@ -372,16 +411,33 @@ class _DonatePageState extends State<DonatePage>
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
-                  _resetInKindFields();
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const DonationSuccessPage(),
-                    ),
+                  final quantity = int.tryParse(_quantityController.text) ?? 0;
+
+                  final donation = DonationModel.inKind(
+                    donorName: "Anonymous",
+                    donorPhone: "N/A",
+                    donationDate: selectedDate ?? DateTime.now(),
+                    item: selectedItem ?? "",
+                    quantity: quantity,
+                    notes: _notesController.text.isEmpty
+                        ? null
+                        : _notesController.text,
+                    dropOffLocation: selectedLocation ?? "",
                   );
+
+                  final issues = donation.validate();
+                  if (issues.isNotEmpty) {
+                    ScaffoldMessenger.of(
+                      context,
+                    ).showSnackBar(SnackBar(content: Text(issues.join("\n"))));
+                    return;
+                  }
+
+                  _saveDonation(donation); // ✅ Save to Supabase
+                  _resetInKindFields();
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: Color(0xFF1F2C47),
+                  backgroundColor: const Color(0xFF1F2C47),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(30),

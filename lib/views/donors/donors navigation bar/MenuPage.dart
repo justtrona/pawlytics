@@ -3,7 +3,6 @@ import 'package:pawlytics/views/donors/Menu%20bar%20user/AnimalsYouHelpedPage.da
 import 'package:pawlytics/views/donors/Menu%20bar%20user/CampaignOutcomesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/CertificatesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/ContactUsPage.dart';
-// import 'package:pawlytics/views/donors/Menu%20bar%20user/ManualDonationPage.txt';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/MyDonationPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/NotificationPreferencePage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/PaymentMethodPage.dart';
@@ -11,6 +10,7 @@ import 'package:pawlytics/views/donors/Menu%20bar%20user/PrivacySettingsPage.dar
 import 'package:pawlytics/views/donors/Menu%20bar%20user/ShelterUpdatesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/TermsConditionsPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/ProfileEdit.dart';
+import 'package:pawlytics/auth/auth_service.dart'; // ✅ import your auth service
 
 class ProfilePage extends StatelessWidget {
   const ProfilePage({super.key});
@@ -46,6 +46,20 @@ class ProfilePage extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  Future<void> _handleLogout(BuildContext context) async {
+    final authService = AuthService();
+    await authService.signOut();
+
+    if (context.mounted) {
+      // Navigate back to login page (replace with your actual login route)
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        '/login', // ✅ make sure this matches your login route name
+        (route) => false,
+      );
+    }
   }
 
   @override
@@ -92,7 +106,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
@@ -117,20 +130,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
-            // buildMenuButton(
-            //   context,
-            //   icon: Icons.receipt_long,
-            //   title: "Manual Donation",
-            //   onTap: () {
-            //     Navigator.push(
-            //       context,
-            //       MaterialPageRoute(
-            //         builder: (context) => const ManualDonationPage(),
-            //       ),
-            //     );
-            //   },
-            // ),
             buildMenuButton(
               context,
               icon: Icons.campaign,
@@ -149,7 +148,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
@@ -174,7 +172,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
             buildMenuButton(
               context,
               icon: Icons.update,
@@ -188,7 +185,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
             buildMenuButton(
               context,
               icon: Icons.bar_chart,
@@ -202,7 +198,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
             const Padding(
               padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               child: Text(
@@ -214,7 +209,6 @@ class ProfilePage extends StatelessWidget {
                 ),
               ),
             ),
-
             buildMenuButton(
               context,
               icon: Icons.lock,
@@ -241,7 +235,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
             buildMenuButton(
               context,
               icon: Icons.notifications,
@@ -255,7 +248,6 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
             buildMenuButton(
               context,
               icon: Icons.mail,
@@ -269,8 +261,13 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-
-            buildMenuButton(context, icon: Icons.logout, title: "Logout"),
+            // ✅ Logout button wired up
+            buildMenuButton(
+              context,
+              icon: Icons.logout,
+              title: "Logout",
+              onTap: () => _handleLogout(context),
+            ),
           ],
         ),
       ),
