@@ -10,7 +10,10 @@ import 'package:pawlytics/views/donors/donors scrollable/RecommendationPage.dart
 import 'package:pawlytics/views/donors/donors scrollable/connections/PetDetailsPage.dart';
 
 class HomePage extends StatelessWidget {
-  const HomePage({super.key}); // removed unused `title`
+  const HomePage({super.key});
+
+  /// Use your real “All Campaigns / General Fund” id here
+  static const int defaultCampaignId = 26; // TODO: replace with your actual id
 
   @override
   Widget build(BuildContext context) {
@@ -61,6 +64,7 @@ class HomePage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Featured banner
             Container(
               margin: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -98,7 +102,21 @@ class HomePage extends StatelessWidget {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      onPressed: () {},
+                      onPressed: () {
+                        // Example featured pet → details (pass campaignId)
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => PetDetailPage(
+                              campaignId: defaultCampaignId,
+                              name: "Buddy",
+                              image: "assets/images/donors/peter.png",
+                              breed: "Aspin",
+                              type: "Dog",
+                            ),
+                          ),
+                        );
+                      },
                       child: const Text(
                         "Meet Me",
                         style: TextStyle(
@@ -113,6 +131,7 @@ class HomePage extends StatelessWidget {
               ),
             ),
 
+            // Quick nav
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Row(
@@ -122,9 +141,7 @@ class HomePage extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const CampaignPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const CampaignPage()),
                       );
                     },
                     child: buildCircleIcon(Icons.campaign, "Campaigns"),
@@ -133,9 +150,7 @@ class HomePage extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const PetPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const PetPage()),
                       );
                     },
                     child: buildCircleIcon(Icons.pets, "Pets"),
@@ -144,9 +159,7 @@ class HomePage extends StatelessWidget {
                     onTap: () {
                       Navigator.push(
                         context,
-                        MaterialPageRoute(
-                          builder: (context) => const GoalPage(),
-                        ),
+                        MaterialPageRoute(builder: (_) => const GoalPage()),
                       );
                     },
                     child: buildCircleIcon(Icons.flag, "Goals"),
@@ -158,6 +171,7 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 15),
             const Divider(thickness: 2, indent: 10, endIndent: 10),
 
+            // Recommended carousel
             sectionHeader(context, "Recommended"),
             SizedBox(
               height: 230,
@@ -166,31 +180,35 @@ class HomePage extends StatelessWidget {
                 children: [
                   petCard(
                     context,
-                    "Buddy",
-                    "Aspin",
-                    "Dog",
-                    "assets/images/donors/peter.png",
+                    name: "Buddy",
+                    breed: "Aspin",
+                    type: "Dog",
+                    imagePath: "assets/images/donors/peter.png",
+                    campaignId: defaultCampaignId,
                   ),
                   petCard(
                     context,
-                    "Ming",
-                    "Puspin",
-                    "Cat",
-                    "assets/images/donors/dog3.png",
+                    name: "Ming",
+                    breed: "Puspin",
+                    type: "Cat",
+                    imagePath: "assets/images/donors/dog3.png",
+                    campaignId: defaultCampaignId,
                   ),
                   petCard(
                     context,
-                    "Luna",
-                    "Aspin",
-                    "Dog",
-                    "assets/images/donors/dog3.png",
+                    name: "Luna",
+                    breed: "Aspin",
+                    type: "Dog",
+                    imagePath: "assets/images/donors/dog3.png",
+                    campaignId: defaultCampaignId,
                   ),
                   petCard(
                     context,
-                    "Whiskers",
-                    "Puspin",
-                    "Cat",
-                    "assets/images/donors/luna.png",
+                    name: "Whiskers",
+                    breed: "Puspin",
+                    type: "Cat",
+                    imagePath: "assets/images/donors/luna.png",
+                    campaignId: defaultCampaignId,
                   ),
                 ],
               ),
@@ -210,6 +228,7 @@ class HomePage extends StatelessWidget {
         ),
       ),
 
+      // Global donate button → donate to general fund (defaultCampaignId)
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: SafeArea(
         minimum: const EdgeInsets.all(16),
@@ -218,7 +237,7 @@ class HomePage extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)], // warm, friendly
+              colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)],
             ),
             borderRadius: BorderRadius.circular(36),
             boxShadow: const [
@@ -238,7 +257,12 @@ class HomePage extends StatelessWidget {
                 HapticFeedback.lightImpact();
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DonatePage()),
+                  MaterialPageRoute(
+                    builder: (_) => DonatePage(
+                      campaignId: defaultCampaignId, // 👈 required
+                      campaignTitle: 'General Fund', // optional
+                    ),
+                  ),
                 );
               },
               icon: const Icon(Icons.volunteer_activism_rounded),
@@ -305,7 +329,7 @@ class HomePage extends StatelessWidget {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => RecommendationPage()),
+                MaterialPageRoute(builder: (_) => RecommendationPage()),
               );
             },
             child: const Text(
@@ -323,12 +347,13 @@ class HomePage extends StatelessWidget {
   }
 
   Widget petCard(
-    BuildContext context,
-    String name,
-    String breed,
-    String type,
-    String imagePath,
-  ) {
+    BuildContext context, {
+    required String name,
+    required String breed,
+    required String type,
+    required String imagePath,
+    required int campaignId,
+  }) {
     return Container(
       width: 160,
       margin: const EdgeInsets.only(left: 16, right: 6),
@@ -365,7 +390,8 @@ class HomePage extends StatelessWidget {
                     Navigator.push(
                       context,
                       MaterialPageRoute(
-                        builder: (context) => PetDetailPage(
+                        builder: (_) => PetDetailPage(
+                          campaignId: campaignId, // 👈 pass it
                           name: name,
                           image: imagePath,
                           breed: breed,
@@ -442,9 +468,7 @@ class HomePage extends StatelessWidget {
                 onTap: () {
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const ViewMorePage(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const ViewMorePage()),
                   );
                 },
                 child: const Text(

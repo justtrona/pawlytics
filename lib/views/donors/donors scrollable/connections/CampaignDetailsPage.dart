@@ -3,6 +3,9 @@ import 'package:flutter/services.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 
 class CampaignDetailsPage extends StatelessWidget {
+  // NEW: we need this to attach donations to the correct campaign
+  final int campaignId;
+
   final String title;
   final String image;
   final String raised;
@@ -12,6 +15,7 @@ class CampaignDetailsPage extends StatelessWidget {
 
   const CampaignDetailsPage({
     super.key,
+    required this.campaignId, // <-- add this
     required this.title,
     required this.image,
     required this.raised,
@@ -84,7 +88,7 @@ class CampaignDetailsPage extends StatelessWidget {
                     color: Color(0xFF1F2C47),
                   ),
                 ),
-                const SizedBox(width: 230),
+                const Spacer(), // nicer than a hard-coded width
                 IconButton(
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -143,7 +147,7 @@ class CampaignDetailsPage extends StatelessWidget {
             gradient: const LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
-              colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)], // warm, friendly
+              colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)],
             ),
             borderRadius: BorderRadius.circular(36),
             boxShadow: const [
@@ -163,7 +167,14 @@ class CampaignDetailsPage extends StatelessWidget {
                 HapticFeedback.lightImpact();
                 await Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (context) => const DonatePage()),
+                  MaterialPageRoute(
+                    builder: (context) => DonatePage(
+                      campaignId: campaignId, // <-- pass the id
+                      campaignTitle:
+                          title, // optional, nice for the DonatePage header
+                      // allowInKind: true,     // optional: set if you want to restrict tabs
+                    ),
+                  ),
                 );
               },
               icon: const Icon(Icons.volunteer_activism_rounded),

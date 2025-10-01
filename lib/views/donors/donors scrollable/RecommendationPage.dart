@@ -2,64 +2,77 @@ import 'package:flutter/material.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/connections/PetDetailsPage.dart';
 
 class RecommendationPage extends StatelessWidget {
-  final List<Map<String, String>> recommendedPets = [
+  RecommendationPage({super.key});
+
+  /// If you don’t have per-pet campaigns yet, map to an “All Campaigns” id.
+  static const int defaultCampaignId = 26; // TODO: replace with your real id
+
+  // Use dynamic to allow an int for campaignId
+  final List<Map<String, dynamic>> recommendedPets = [
     {
       "name": "Max",
       "breed": "Aspin",
       "type": "Dog",
       "image": "assets/images/donors/max.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Mingming",
       "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Buddy",
       "breed": "Shih Tzu",
       "type": "Dog",
       "image": "assets/images/donors/peter.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Kuting",
       "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/max.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Chowee",
       "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Princess",
       "breed": "Aspins",
       "type": "Dog",
       "image": "assets/images/donors/peter.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Luna",
       "breed": "Persian Mix",
       "type": "Cat",
       "image": "assets/images/donors/max.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Bantay",
       "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Snow",
       "breed": "Aspin",
       "type": "Dog",
       "image": "assets/images/donors/peter.png",
+      "campaignId": defaultCampaignId,
     },
   ];
-
-  RecommendationPage({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -76,12 +89,11 @@ class RecommendationPage extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        centerTitle: true, // 👈 keeps title centered between back + actions
+        centerTitle: true,
       ),
       body: ListView(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
         children: [
-          // Description
           const Text(
             "Matched with your interest in small breeds\nand recent donation activity.",
             textAlign: TextAlign.center,
@@ -89,7 +101,6 @@ class RecommendationPage extends StatelessWidget {
           ),
           const SizedBox(height: 14),
 
-          // Preferences Row
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: const [
@@ -107,7 +118,6 @@ class RecommendationPage extends StatelessWidget {
           ),
           const SizedBox(height: 20),
 
-          // Pet List
           ...recommendedPets.map((pet) {
             return Container(
               margin: const EdgeInsets.only(bottom: 14),
@@ -123,13 +133,12 @@ class RecommendationPage extends StatelessWidget {
                       topRight: Radius.circular(10),
                     ),
                     child: Image.asset(
-                      pet["image"]!,
+                      pet["image"] as String,
                       height: 180,
                       width: double.infinity,
                       fit: BoxFit.cover,
                     ),
                   ),
-
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.symmetric(
@@ -160,7 +169,7 @@ class RecommendationPage extends StatelessWidget {
                             ),
                             const SizedBox(height: 4),
                             Text(
-                              pet["name"]!,
+                              pet["name"] as String,
                               style: const TextStyle(
                                 fontSize: 18,
                                 fontWeight: FontWeight.bold,
@@ -169,7 +178,6 @@ class RecommendationPage extends StatelessWidget {
                             ),
                           ],
                         ),
-
                         IconButton(
                           icon: const Icon(
                             Icons.info_outline,
@@ -181,10 +189,12 @@ class RecommendationPage extends StatelessWidget {
                               context,
                               MaterialPageRoute(
                                 builder: (context) => PetDetailPage(
-                                  name: pet["name"]!,
-                                  image: pet["image"]!,
-                                  breed: pet["breed"]!,
-                                  type: pet["type"]!,
+                                  campaignId:
+                                      pet["campaignId"] as int, // 👈 PASS IT
+                                  name: pet["name"] as String,
+                                  image: pet["image"] as String,
+                                  breed: pet["breed"] as String,
+                                  type: pet["type"] as String,
                                 ),
                               ),
                             );

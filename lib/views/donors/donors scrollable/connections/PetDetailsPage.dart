@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 
 class PetDetailPage extends StatefulWidget {
+  final int campaignId; // 👈 NEW: which campaign this pet’s donations go to
   final String name;
   final String image;
   final String breed;
@@ -9,6 +10,7 @@ class PetDetailPage extends StatefulWidget {
 
   const PetDetailPage({
     super.key,
+    required this.campaignId, // 👈 require it
     required this.name,
     required this.image,
     required this.breed,
@@ -67,9 +69,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                   const SizedBox(height: 16),
 
                   Container(
-                    margin: const EdgeInsets.symmetric(
-                      horizontal: 25,
-                    ), // 👈 same as image
+                    margin: const EdgeInsets.symmetric(horizontal: 25),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.center,
                       children: [
@@ -87,7 +87,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
                           icon: Icon(
                             isFavorite ? Icons.star : Icons.star_border,
                             size: 30,
-                            color: Color(0xFF1F2C47),
+                            color: const Color(0xFF1F2C47),
                           ),
                           onPressed: () {
                             setState(() {
@@ -103,9 +103,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
 
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                    children: petInfo.entries.map((entry) {
-                      return _buildMainTag(entry.key, entry.value);
-                    }).toList(),
+                    children: petInfo.entries
+                        .map((entry) => _buildMainTag(entry.key, entry.value))
+                        .toList(),
                   ),
                   const SizedBox(height: 20),
 
@@ -183,15 +183,18 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       ),
                     ),
                     onPressed: () {
+                      // 👇 Pass campaignId (and optional title) to DonatePage
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) =>
-                              const DonatePage(allowInKind: false),
+                          builder: (context) => DonatePage(
+                            campaignId: widget.campaignId,
+                            campaignTitle: widget.name, // optional
+                            allowInKind: false, // as you had
+                          ),
                         ),
                       );
                     },
-
                     child: const Text(
                       "Donate Me",
                       style: TextStyle(

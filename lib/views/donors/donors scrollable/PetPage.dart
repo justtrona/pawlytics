@@ -12,61 +12,74 @@ class _PetPageState extends State<PetPage> {
   String searchQuery = "";
   String selectedFilter = "All"; // All, Dog, Cat
 
-  final List<Map<String, String>> pets = [
+  /// If you don’t have specific campaigns per pet yet, you can map them all
+  /// to an “All Campaigns” row (replace 26 with your real id).
+  static const int defaultCampaignId = 26;
+
+  /// Include a `campaignId` per pet (use specific ids if you have them).
+  final List<Map<String, dynamic>> pets = [
     {
       "name": "Peter",
       "breed": "Aspin",
       "type": "Dog",
       "image": "assets/images/donors/peter.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Max",
       "breed": "Aspin",
       "type": "Dog",
       "image": "assets/images/donors/max.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Luna",
       "breed": "Persian",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Buddy",
       "breed": "Shih Tzu",
       "type": "Dog",
       "image": "assets/images/donors/peter.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Milo",
       "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Rocky",
       "breed": "Labrador Retriever",
       "type": "Dog",
       "image": "assets/images/donors/max.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Cleo",
       "breed": "Puspin",
       "type": "Cat",
       "image": "assets/images/donors/luna.png",
+      "campaignId": defaultCampaignId,
     },
     {
       "name": "Charlie",
       "breed": "Aspin",
       "type": "Dog",
       "image": "assets/images/donors/peter.png",
+      "campaignId": defaultCampaignId,
     },
   ];
 
   @override
   Widget build(BuildContext context) {
-    List<Map<String, String>> filteredPets = pets.where((pet) {
-      final matchesSearch = pet["breed"]!.toLowerCase().contains(
+    final List<Map<String, dynamic>> filteredPets = pets.where((pet) {
+      final matchesSearch = (pet["breed"] as String).toLowerCase().contains(
         searchQuery.toLowerCase(),
       );
       final matchesFilter =
@@ -82,9 +95,7 @@ class _PetPageState extends State<PetPage> {
         foregroundColor: Colors.black,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
           "Pets",
@@ -118,18 +129,13 @@ class _PetPageState extends State<PetPage> {
                 ],
               ),
             ),
-
             const SizedBox(height: 10),
 
             Row(
               children: [
                 Expanded(
                   child: TextField(
-                    onChanged: (value) {
-                      setState(() {
-                        searchQuery = value;
-                      });
-                    },
+                    onChanged: (value) => setState(() => searchQuery = value),
                     decoration: InputDecoration(
                       hintText: "Search breed",
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
@@ -145,9 +151,7 @@ class _PetPageState extends State<PetPage> {
                 ),
                 const SizedBox(width: 12),
                 GestureDetector(
-                  onTap: () {
-                    _showFilterDialog();
-                  },
+                  onTap: _showFilterDialog,
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -190,10 +194,11 @@ class _PetPageState extends State<PetPage> {
                 itemBuilder: (context, index) {
                   final pet = filteredPets[index];
                   return _buildPetCard(
-                    pet["image"]!,
-                    pet["name"]!,
-                    pet["breed"]!,
-                    pet["type"]!,
+                    imagePath: pet["image"] as String,
+                    name: pet["name"] as String,
+                    breed: pet["breed"] as String,
+                    type: pet["type"] as String,
+                    campaignId: pet["campaignId"] as int,
                   );
                 },
               ),
@@ -204,12 +209,13 @@ class _PetPageState extends State<PetPage> {
     );
   }
 
-  Widget _buildPetCard(
-    String imagePath,
-    String name,
-    String breed,
-    String type,
-  ) {
+  Widget _buildPetCard({
+    required String imagePath,
+    required String name,
+    required String breed,
+    required String type,
+    required int campaignId,
+  }) {
     return Container(
       decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
       child: Column(
@@ -226,7 +232,6 @@ class _PetPageState extends State<PetPage> {
               fit: BoxFit.cover,
             ),
           ),
-
           Container(
             width: double.infinity,
             height: 70,
@@ -250,6 +255,7 @@ class _PetPageState extends State<PetPage> {
                         context,
                         MaterialPageRoute(
                           builder: (context) => PetDetailPage(
+                            campaignId: campaignId, // 👈 pass it to detail page
                             name: name,
                             image: imagePath,
                             breed: breed,
@@ -260,7 +266,6 @@ class _PetPageState extends State<PetPage> {
                     },
                   ),
                 ),
-
                 Positioned(
                   left: 8,
                   bottom: 6,
@@ -299,43 +304,35 @@ class _PetPageState extends State<PetPage> {
   void _showFilterDialog() {
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text("Filter by"),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              ListTile(
-                title: const Text("All"),
-                onTap: () {
-                  setState(() {
-                    selectedFilter = "All";
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text("Dog"),
-                onTap: () {
-                  setState(() {
-                    selectedFilter = "Dog";
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-              ListTile(
-                title: const Text("Cat"),
-                onTap: () {
-                  setState(() {
-                    selectedFilter = "Cat";
-                  });
-                  Navigator.pop(context);
-                },
-              ),
-            ],
-          ),
-        );
-      },
+      builder: (context) => AlertDialog(
+        title: const Text("Filter by"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              title: const Text("All"),
+              onTap: () {
+                setState(() => selectedFilter = "All");
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text("Dog"),
+              onTap: () {
+                setState(() => selectedFilter = "Dog");
+                Navigator.pop(context);
+              },
+            ),
+            ListTile(
+              title: const Text("Cat"),
+              onTap: () {
+                setState(() => selectedFilter = "Cat");
+                Navigator.pop(context);
+              },
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

@@ -19,8 +19,13 @@ class _CreateCampaignState extends State<CreateCampaign> {
 
   final CampaignController _controller = CampaignController();
 
+  // Base table rows
   List<Campaign> _campaigns = [];
   bool _loading = true;
+
+  // Totals (from view) keyed by campaign id
+  final Map<int, double> _raisedById = {};
+  final Map<int, double> _progressById = {};
 
   String _statusFilter = 'All Statuses';
   String _sortBy = 'Date Created';
@@ -31,7 +36,7 @@ class _CreateCampaignState extends State<CreateCampaign> {
   void initState() {
     super.initState();
     _fetchCampaigns();
-    _subscribeToCampaigns();
+    _subscribeToChanges();
   }
 
   @override
@@ -42,10 +47,33 @@ class _CreateCampaignState extends State<CreateCampaign> {
 
   Future<void> _fetchCampaigns() async {
     try {
-      final data = await _controller.fetchCampaigns();
+      final campaigns = await _controller.fetchCampaigns();
+
+      // fetch totals (id, raised_amount, progress_ratio) from the view
+      final totals = await _controller.fetchCampaignTotals();
+
+      // merge into maps
+      _raisedById.clear();
+      _progressById.clear();
+      for (final t in totals) {
+        final id = (t['id'] as num?)?.toInt();
+        if (id == null) continue;
+
+        final raised = t['raised_amount'] is num
+            ? (t['raised_amount'] as num).toDouble()
+            : double.tryParse('${t['raised_amount']}') ?? 0.0;
+
+        final progress = t['progress_ratio'] is num
+            ? (t['progress_ratio'] as num).toDouble()
+            : double.tryParse('${t['progress_ratio']}') ?? 0.0;
+
+        _raisedById[id] = raised;
+        _progressById[id] = progress.clamp(0.0, 1.0);
+      }
+
       if (!mounted) return;
       setState(() {
-        _campaigns = data;
+        _campaigns = campaigns;
         _loading = false;
       });
     } catch (e) {
@@ -57,18 +85,22 @@ class _CreateCampaignState extends State<CreateCampaign> {
     }
   }
 
-  void _subscribeToCampaigns() {
+  void _subscribeToChanges() {
     final supabase = Supabase.instance.client;
 
     _campaignsChannel = supabase
-        .channel('campaigns-changes')
+        .channel('admin-campaigns-and-donations')
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
           table: 'campaigns',
-          callback: (payload) {
-            _fetchCampaigns();
-          },
+          callback: (_) => _fetchCampaigns(),
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'donations', // refresh when donations change
+          callback: (_) => _fetchCampaigns(),
         )
         .subscribe();
   }
@@ -76,6 +108,12 @@ class _CreateCampaignState extends State<CreateCampaign> {
   List<Campaign> get _filtered {
     var list = _campaigns.where((c) {
       if (_statusFilter == 'All Statuses') return true;
+
+      // If your Campaign model has a status field, prefer that:
+      // final k = (c.status is String) ? (c.status as String).toLowerCase() : (c.status as dynamic).name.toLowerCase();
+      // switch (_statusFilter) { ... }
+
+      // Fallback using deadline only:
       if (_statusFilter == 'Active') return c.deadline.isAfter(DateTime.now());
       if (_statusFilter == 'Ended') return c.deadline.isBefore(DateTime.now());
       return true;
@@ -91,16 +129,27 @@ class _CreateCampaignState extends State<CreateCampaign> {
       case 'Goal Amount':
         list.sort((a, b) => b.fundraisingGoal.compareTo(a.fundraisingGoal));
         break;
+      case 'Progress':
+        double p(Campaign c) => _progressById[c.id] ?? _safeProgressFor(c);
+        list.sort((a, b) => p(b).compareTo(p(a)));
+        break;
     }
     return list;
   }
 
+  // Aggregate stats
   int get _activeCount =>
       _campaigns.where((c) => c.deadline.isAfter(DateTime.now())).length;
+
   int get _totalCampaigns => _campaigns.length;
+
   num get _totalGoal =>
       _campaigns.fold<num>(0, (sum, c) => sum + c.fundraisingGoal);
 
+  num get _totalRaised =>
+      _campaigns.fold<num>(0, (sum, c) => sum + (_raisedById[c.id] ?? 0));
+
+  // Helpers
   String _fmtMoney(num v) {
     final s = v.toStringAsFixed(0);
     final re = RegExp(r'\B(?=(\d{3})+(?!\d))');
@@ -124,6 +173,12 @@ class _CreateCampaignState extends State<CreateCampaign> {
       'December',
     ];
     return '${months[d.month]} ${d.day}, ${d.year}';
+  }
+
+  double _safeProgressFor(Campaign c) {
+    final raised = _raisedById[c.id] ?? 0.0;
+    final goal = c.fundraisingGoal;
+    return goal > 0 ? (raised / goal).clamp(0.0, 1.0) : 0.0;
   }
 
   @override
@@ -168,8 +223,8 @@ class _CreateCampaignState extends State<CreateCampaign> {
                         const SizedBox(width: 8),
                         Expanded(
                           child: _StatPill(
-                            label: 'Total Goal Amount',
-                            value: _fmtMoney(_totalGoal),
+                            label: 'Total Raised',
+                            value: _fmtMoney(_totalRaised),
                             emphasize: true,
                           ),
                         ),
@@ -230,6 +285,7 @@ class _CreateCampaignState extends State<CreateCampaign> {
                                   'Date Created',
                                   'Deadline',
                                   'Goal Amount',
+                                  'Progress',
                                 ],
                                 current: _sortBy,
                               );
@@ -250,16 +306,22 @@ class _CreateCampaignState extends State<CreateCampaign> {
                         ),
                       )
                     else
-                      ..._filtered.map(
-                        (c) => Padding(
+                      ..._filtered.map((c) {
+                        final raised = _raisedById[c.id] ?? 0.0;
+                        final progress =
+                            _progressById[c.id] ?? _safeProgressFor(c);
+
+                        return Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: _CampaignTile(
                             data: c,
+                            raised: raised,
+                            progress: progress,
                             money: _fmtMoney,
                             dateFmt: _fmtDate,
                           ),
-                        ),
-                      ),
+                        );
+                      }),
                   ],
                 ),
               ),
@@ -417,31 +479,95 @@ class _FilterPill extends StatelessWidget {
 
 class _CampaignTile extends StatelessWidget {
   final Campaign data;
+  final double raised; // from view
+  final double progress; // from view 0..1
   final String Function(num) money;
   final String Function(DateTime) dateFmt;
 
   const _CampaignTile({
     required this.data,
+    required this.raised,
+    required this.progress,
     required this.money,
     required this.dateFmt,
   });
 
+  // ---- Status helpers that accept String OR enum ----
+  // ---- Normalizers that accept String OR enum ----
+  String _statusKey(dynamic status) {
+    // 1) prefer enum.name if present
+    try {
+      final n = (status as dynamic).name;
+      if (n is String && n.isNotEmpty) return n.toLowerCase();
+    } catch (_) {}
+
+    // 2) fallback to string, trim "CampaignStatus.xxx" or "X.yyy"
+    var s = status?.toString() ?? '';
+    final dot = s.lastIndexOf('.');
+    if (dot != -1) s = s.substring(dot + 1);
+    return s.trim().toLowerCase();
+  }
+
+  String _statusLabel(dynamic status) {
+    switch (_statusKey(status)) {
+      case 'active':
+        return 'ACTIVE';
+      case 'inactive':
+        return 'INACTIVE';
+      case 'due':
+        return 'DUE';
+      default:
+        final k = _statusKey(status);
+        return k.isEmpty ? '' : k.toUpperCase();
+    }
+  }
+
+  Color _statusBorder(dynamic status) {
+    switch (_statusKey(status)) {
+      case 'active':
+        return _CreateCampaignState.brand;
+      case 'due':
+        return const Color(0xFFB45309); // amber
+      case 'inactive':
+        return Colors.blueGrey.shade300;
+      default:
+        return Colors.blueGrey.shade300;
+    }
+  }
+
+  Color _statusText(dynamic status) {
+    switch (_statusKey(status)) {
+      case 'active':
+        return _CreateCampaignState.brand;
+      case 'due':
+        return const Color(0xFF92400E);
+      case 'inactive':
+        return Colors.blueGrey.shade600;
+      default:
+        return Colors.blueGrey.shade600;
+    }
+  }
+
+  // ---------------------------------------------------
+
   @override
   Widget build(BuildContext context) {
+    final raisedLabel = '${money(raised)} of ${money(data.fundraisingGoal)}';
+
     return Material(
       color: _CreateCampaignState.tileGrey,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
         onTap: () {
-          // TODO: Navigate to details
+          // TODO: Navigate to admin campaign details if you have one
         },
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Program + category + goal
+              // Program + category + goal + status chip
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -483,13 +609,52 @@ class _CampaignTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  _StatusChip(isActive: data.deadline.isAfter(DateTime.now())),
+
+                  // Status chip (uses data.status if present; otherwise derive)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: _statusBorder(
+                          // prefer status field if your model has it; else fallback
+                          (data as dynamic).status ?? //
+                              (data.deadline.isBefore(DateTime.now())
+                                  ? 'due'
+                                  : 'active'),
+                        ),
+                        width: 1.2,
+                      ),
+                    ),
+                    child: Text(
+                      _statusLabel(
+                        (data as dynamic).status ??
+                            (data.deadline.isBefore(DateTime.now())
+                                ? 'due'
+                                : 'active'),
+                      ),
+                      style: TextStyle(
+                        color: _statusText(
+                          (data as dynamic).status ??
+                              (data.deadline.isBefore(DateTime.now())
+                                  ? 'due'
+                                  : 'active'),
+                        ),
+                        fontWeight: FontWeight.w800,
+                        fontSize: 11,
+                        letterSpacing: .2,
+                      ),
+                    ),
+                  ),
                 ],
               ),
 
               const SizedBox(height: 10),
 
-              // Description
               if (data.description.isNotEmpty)
                 Text(
                   data.description,
@@ -502,11 +667,30 @@ class _CampaignTile extends StatelessWidget {
                   ),
                 ),
 
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
 
+              // Progress bar + amounts
+              ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: LinearProgressIndicator(
+                  value: progress, // 0..1
+                  minHeight: 10,
+                  backgroundColor: Colors.white,
+                  color: _CreateCampaignState.brand,
+                ),
+              ),
+              const SizedBox(height: 6),
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
+                  Text(
+                    raisedLabel,
+                    style: const TextStyle(
+                      color: _CreateCampaignState.brand,
+                      fontWeight: FontWeight.w800,
+                      fontSize: 12.5,
+                    ),
+                  ),
                   Text(
                     'Deadline: ${dateFmt(data.deadline)}',
                     style: const TextStyle(
@@ -530,40 +714,6 @@ class _CampaignTile extends StatelessWidget {
               ),
             ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  final bool isActive;
-
-  const _StatusChip({required this.isActive});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(
-          color: isActive
-              ? _CreateCampaignState.brand
-              : Colors.blueGrey.shade300,
-          width: 1.2,
-        ),
-      ),
-      child: Text(
-        isActive ? 'Active' : 'Ended',
-        style: TextStyle(
-          color: isActive
-              ? _CreateCampaignState.brand
-              : Colors.blueGrey.shade600,
-          fontWeight: FontWeight.w800,
-          fontSize: 11,
-          letterSpacing: .2,
         ),
       ),
     );

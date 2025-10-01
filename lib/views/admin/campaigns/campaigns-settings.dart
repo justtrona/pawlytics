@@ -6,8 +6,7 @@ class CampaignSettingsScreen extends StatefulWidget {
   const CampaignSettingsScreen({super.key});
 
   @override
-  State<CampaignSettingsScreen> createState() =>
-      _CampaignSettingsScreenState();
+  State<CampaignSettingsScreen> createState() => _CampaignSettingsScreenState();
 }
 
 class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
@@ -16,19 +15,21 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   static const double kSectionGap = 20;
   static const double kFieldGap = 12;
   static const double kControlHeight = 48;
-  static const EdgeInsets kScreenPadding =
-      EdgeInsets.fromLTRB(16, 12, 16, 24);
+  static const EdgeInsets kScreenPadding = EdgeInsets.fromLTRB(16, 12, 16, 24);
 
   String _program = 'Shelters Improvement';
   String _category = 'Urgent';
   String _currency = 'PHP';
   bool _notifyAt75 = true;
 
+  // NEW: editable status (Active/Inactive). "Due" is computed from deadline.
+  String _status = 'Active'; // Active | Inactive
+
   final _goalCtrl = TextEditingController(text: '12,500.00');
   final _deadlineCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
 
-  DateTime? _deadline; // para sa actual
+  DateTime? _deadline;
 
   @override
   void dispose() {
@@ -39,10 +40,9 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   }
 
   OutlineInputBorder _border([Color? c]) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide:
-            BorderSide(color: c ?? Colors.blueGrey.shade200, width: 1),
-      );
+    borderRadius: BorderRadius.circular(12),
+    borderSide: BorderSide(color: c ?? Colors.blueGrey.shade200, width: 1),
+  );
 
   InputDecoration _dec({
     String? label,
@@ -59,33 +59,31 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
       prefix: prefix,
       filled: true,
       fillColor: Colors.blueGrey.shade50,
-      contentPadding:
-          const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
       enabledBorder: _border(),
       focusedBorder: _border(Colors.blueGrey.shade400),
     );
   }
 
   Widget _sectionLabel(String text) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontWeight: FontWeight.w700,
-            color: Colors.black87,
-          ),
-        ),
-      );
+    padding: const EdgeInsets.only(bottom: 8),
+    child: Text(
+      text,
+      style: const TextStyle(
+        fontWeight: FontWeight.w700,
+        color: Colors.black87,
+      ),
+    ),
+  );
 
   ButtonStyle get _primaryBtn => ElevatedButton.styleFrom(
-        backgroundColor: brand,
-        foregroundColor: Colors.white,
-        elevation: 0,
-        padding: const EdgeInsets.symmetric(horizontal: 18),
-        minimumSize: const Size(120, kControlHeight),
-        shape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      );
+    backgroundColor: brand,
+    foregroundColor: Colors.white,
+    elevation: 0,
+    padding: const EdgeInsets.symmetric(horizontal: 18),
+    minimumSize: const Size(120, kControlHeight),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+  );
 
   Future<void> _pickDeadline() async {
     final now = DateTime.now();
@@ -95,13 +93,14 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
       lastDate: DateTime(now.year + 5),
       initialDate: now,
       builder: (context, child) => Theme(
-        data: Theme.of(context)
-            .copyWith(colorScheme: ColorScheme.fromSeed(seedColor: brand)),
+        data: Theme.of(
+          context,
+        ).copyWith(colorScheme: ColorScheme.fromSeed(seedColor: brand)),
         child: child!,
       ),
     );
     if (picked != null) {
-      _deadline = picked; // store actual date
+      _deadline = picked;
       _deadlineCtrl.text = DateFormat('MM/dd/yyyy').format(picked);
       setState(() {});
     }
@@ -110,18 +109,38 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
   SizedBox get _vGap => const SizedBox(height: kSectionGap);
   SizedBox get _hGap => const SizedBox(width: kFieldGap);
 
+  String get _computedStatus {
+    if (_deadline != null && _deadline!.isBefore(DateTime.now())) return 'Due';
+    return _status; // Active/Inactive from dropdown
+  }
+
   Future<void> _postCampaign() async {
+    // basic validations
+    final goal = double.tryParse(_goalCtrl.text.replaceAll(',', '')) ?? 0;
+    if (goal <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Please set a valid fundraising goal.')),
+      );
+      return;
+    }
+    if (_deadline == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Please pick a deadline.')));
+      return;
+    }
+
     try {
-      final response =
-          await Supabase.instance.client.from('campaigns').insert({
+      final isActive = (_status == 'Active'); // what we persist
+      final response = await Supabase.instance.client.from('campaigns').insert({
         'program': _program,
         'category': _category,
-        'fundraising_goal':
-            double.tryParse(_goalCtrl.text.replaceAll(',', '')) ?? 0,
-        'deadline': _deadline?.toIso8601String(),
+        'fundraising_goal': goal,
+        'deadline': _deadline!.toIso8601String(),
         'currency': _currency,
         'description': _descCtrl.text,
         'notify_at_75': _notifyAt75,
+        'is_active': isActive, // NEW: persist status
         'created_at': DateTime.now().toIso8601String(),
       }).select();
 
@@ -136,14 +155,16 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
         );
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error posting campaign: $e')),
-      );
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error posting campaign: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final effectiveStatus = _computedStatus; // Active / Inactive / Due
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
@@ -164,24 +185,14 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
               borderRadius: BorderRadius.circular(12),
               decoration: _dec(),
               items: const [
-                // DropdownMenuItem(
-                //   value: 'All Campaigns',
-                //   child: Text('All Campaigns'),
-                // ),
-                 DropdownMenuItem(
+                DropdownMenuItem(
                   value: 'Shelters Improvement',
                   child: Text('Shelters Improvement'),
                 ),
-                DropdownMenuItem(
-                  value: 'Surgery',
-                  child: Text('Surgery'),
-                ),
-                  DropdownMenuItem(
-                  value: 'Dog Pound',
-                  child: Text('Dog Pound'),
-                ),
+                DropdownMenuItem(value: 'Surgery', child: Text('Surgery')),
+                DropdownMenuItem(value: 'Dog Pound', child: Text('Dog Pound')),
                 DropdownMenuItem(value: 'Rescue', child: Text('Rescue')),
-                 DropdownMenuItem(
+                DropdownMenuItem(
                   value: 'Stray Animals',
                   child: Text('Stray Animals'),
                 ),
@@ -193,15 +204,12 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                   value: 'Spay/Neuter',
                   child: Text('Spay/Neuter'),
                 ),
-                 DropdownMenuItem(
-                  value: 'Pet Food',
-                  child: Text('Pet Food'),
-                ),
+                DropdownMenuItem(value: 'Pet Food', child: Text('Pet Food')),
                 DropdownMenuItem(
                   value: 'Medical Supplies',
                   child: Text('Medical Supplies'),
                 ),
-                 DropdownMenuItem(
+                DropdownMenuItem(
                   value: 'Outreach and Awareness',
                   child: Text('Outreach and Awareness'),
                 ),
@@ -218,12 +226,74 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
               decoration: _dec(),
               items: const [
                 DropdownMenuItem(value: 'Urgent', child: Text('Urgent')),
-                DropdownMenuItem(value: 'Medical Care', child: Text('Medical Care')),
-                DropdownMenuItem(value: 'Food and Care', child: Text('Food and Care')),
-                DropdownMenuItem(value: 'Emergency Care', child: Text('Emergency Care')),
-                DropdownMenuItem(value: 'Community and Advocacy', child: Text('Community and Advocacy')),
+                DropdownMenuItem(
+                  value: 'Medical Care',
+                  child: Text('Medical Care'),
+                ),
+                DropdownMenuItem(
+                  value: 'Food and Care',
+                  child: Text('Food and Care'),
+                ),
+                DropdownMenuItem(
+                  value: 'Emergency Care',
+                  child: Text('Emergency Care'),
+                ),
+                DropdownMenuItem(
+                  value: 'Community and Advocacy',
+                  child: Text('Community and Advocacy'),
+                ),
               ],
               onChanged: (v) => setState(() => _category = v!),
+            ),
+
+            _vGap,
+
+            // NEW: status field
+            _sectionLabel('Status'),
+            Row(
+              children: [
+                Expanded(
+                  child: DropdownButtonFormField<String>(
+                    value: _status,
+                    decoration: _dec(
+                      hint: 'Select status',
+                      prefixIcon: const Icon(Icons.flag_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'Active', child: Text('Active')),
+                      DropdownMenuItem(
+                        value: 'Inactive',
+                        child: Text('Inactive'),
+                      ),
+                    ],
+                    onChanged: (v) => setState(() => _status = v!),
+                  ),
+                ),
+                _hGap,
+                // shows computed effective status including "Due"
+                Container(
+                  height: kControlHeight,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.blueGrey.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blueGrey.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, size: 18, color: brand),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Current: $effectiveStatus',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w600,
+                          color: brand,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
 
             _vGap,
@@ -236,16 +306,16 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                     height: kControlHeight,
                     child: TextField(
                       controller: _goalCtrl,
-                      keyboardType:
-                          const TextInputType.numberWithOptions(decimal: true),
+                      keyboardType: const TextInputType.numberWithOptions(
+                        decimal: true,
+                      ),
                       decoration: _dec(
                         prefixIcon: const Icon(Icons.payments_outlined),
                         prefix: Padding(
                           padding: const EdgeInsets.only(left: 8, right: 4),
                           child: Text(
                             '$_currency ',
-                            style: const TextStyle(
-                                fontWeight: FontWeight.w600),
+                            style: const TextStyle(fontWeight: FontWeight.w600),
                           ),
                         ),
                       ),
@@ -255,11 +325,9 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                 _hGap,
                 ElevatedButton(
                   style: _primaryBtn,
-                  onPressed: () =>
-                      ScaffoldMessenger.of(context).showSnackBar(
+                  onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content:
-                          Text('Goal set to $_currency ${_goalCtrl.text}'),
+                      content: Text('Goal set to $_currency ${_goalCtrl.text}'),
                     ),
                   ),
                   child: const Text('Set Goal'),
@@ -281,8 +349,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                       decoration: _dec(
                         label: 'Deadline',
                         hint: 'MM/DD/YYYY',
-                        prefixIcon:
-                            const Icon(Icons.calendar_today_outlined),
+                        prefixIcon: const Icon(Icons.calendar_today_outlined),
                       ),
                     ),
                   ),
@@ -341,8 +408,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                     dense: true,
                     controlAffinity: ListTileControlAffinity.leading,
                     value: _notifyAt75,
-                    onChanged: (v) =>
-                        setState(() => _notifyAt75 = v ?? false),
+                    onChanged: (v) => setState(() => _notifyAt75 = v ?? false),
                     title: const Text(
                       'Notify When 75% Goal Reached: Enable goal notifications',
                       style: TextStyle(height: 1.2),
@@ -353,7 +419,7 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
             ),
 
             _vGap,
-            
+
             SizedBox(
               height: kControlHeight,
               child: ElevatedButton(

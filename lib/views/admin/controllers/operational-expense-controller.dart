@@ -1,32 +1,26 @@
+// lib/views/admin/controllers/operational-expense-controller.dart
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pawlytics/views/admin/model/operational-expense-model.dart';
 import 'package:pawlytics/views/admin/model/donation-model.dart';
-// If your path is `lib/models/donation_model.dart`, use:
-// import 'package:pawlytics/models/donation_model.dart';
 
 class OperationalExpenseController extends ChangeNotifier {
-  // --- Seed allocations (admin can CRUD these) ---
-  final List<OperationalExpenseModel> _operationalExpenseList = [
-    OperationalExpenseModel(category: 'Drinking Water', amount: 5000),
-    OperationalExpenseModel(category: 'Utility Water', amount: 3000),
-    OperationalExpenseModel(category: 'Electricity', amount: 5000),
-  ];
+  final SupabaseClient _sb = Supabase.instance.client;
 
-  // --- Donations captured via ManageDonation/Admin form ---
-  final List<DonationModel> _donations = [];
+  // In-memory state
+  final List<OperationalExpenseModel> _operationalExpenseList = [];
+  final List<DonationModel> _donations = []; // keep your existing type
+  bool _loading = false;
 
-  // === Goals / Progress ===
-
-  /// Total expense goal (sum of allocation amounts)
-  double get expenseGoal =>
-      _operationalExpenseList.fold(0.0, (sum, e) => sum + (e.amount));
-
-  /// Unmodifiable views
+  bool get loading => _loading;
   List<OperationalExpenseModel> get operationalExpenseList =>
       List.unmodifiable(_operationalExpenseList);
   List<DonationModel> get donations => List.unmodifiable(_donations);
 
-  /// Only CASH donations contribute to meeting the peso goal
+  // ----- Derived -----
+  double get expenseGoal =>
+      _operationalExpenseList.fold(0.0, (sum, e) => sum + e.amount);
+
   double get totalDonationsCash => _donations.fold(0.0, (sum, d) {
     if (d.type == DonationType.cash && (d.amount ?? 0) > 0) {
       return sum + (d.amount ?? 0);
@@ -34,56 +28,93 @@ class OperationalExpenseController extends ChangeNotifier {
     return sum;
   });
 
-  /// Optional: track total quantity of in-kind items (across all items)
-  int get totalInKindQuantity => _donations.fold(0, (sum, d) {
-    if (d.type == DonationType.inKind && (d.quantity ?? 0) > 0) {
-      return sum + (d.quantity ?? 0);
-    }
-    return sum;
-  });
-
-  /// Optional: a quick grouping of in-kind item counts by item name
-  Map<String, int> get inKindItemBreakdown {
-    final map = <String, int>{};
-    for (final d in _donations) {
-      if (d.type == DonationType.inKind && (d.item ?? '').trim().isNotEmpty) {
-        final key = d.item!.trim();
-        final qty = d.quantity ?? 0;
-        map[key] = (map[key] ?? 0) + qty;
-      }
-    }
-    return map;
-  }
-
-  /// Progress toward meeting the operational expense goal (0..1)
   double get progress =>
       expenseGoal == 0 ? 0 : (totalDonationsCash / expenseGoal);
 
-  // Convenience slices
-  List<DonationModel> get cashDonations =>
-      _donations.where((d) => d.type == DonationType.cash).toList();
-  List<DonationModel> get inKindDonations =>
-      _donations.where((d) => d.type == DonationType.inKind).toList();
+  double allocationPercent(int index) {
+    if (expenseGoal == 0 ||
+        index < 0 ||
+        index >= _operationalExpenseList.length) {
+      return 0;
+    }
+    return _operationalExpenseList[index].amount / expenseGoal;
+  }
 
-  // === Allocation CRUD ===
-  void addAllocation(OperationalExpenseModel expense) {
-    _operationalExpenseList.add(expense);
+  // ---------- Remote CRUD for allocations ----------
+  static const _table = 'operational_expense_allocations';
+
+  Future<void> loadAllocations() async {
+    _loading = true;
+    notifyListeners();
+    try {
+      final rows = await _sb
+          .from(_table)
+          .select()
+          .order('created_at', ascending: false);
+
+      _operationalExpenseList
+        ..clear()
+        ..addAll(
+          (rows as List).map(
+            (e) => OperationalExpenseModel.fromMap(e as Map<String, dynamic>),
+          ),
+        );
+    } finally {
+      _loading = false;
+      notifyListeners();
+    }
+  }
+
+  /// CREATE (called by your Add dialog)
+  Future<void> addAllocation(OperationalExpenseModel input) async {
+    final inserted = await _sb
+        .from(_table)
+        .insert(input.toInsert())
+        .select()
+        .single(); // returns the created row
+
+    _operationalExpenseList.insert(
+      0,
+      OperationalExpenseModel.fromMap(inserted as Map<String, dynamic>),
+    );
     notifyListeners();
   }
 
-  void updateAllocation(int index, OperationalExpenseModel updatedExpense) {
-    if (index < 0 || index >= _operationalExpenseList.length) return;
-    _operationalExpenseList[index] = updatedExpense;
+  /// UPDATE by index (uses row id)
+  Future<void> updateAllocation(
+    int index,
+    OperationalExpenseModel updated,
+  ) async {
+    final item = _operationalExpenseList[index];
+    if (item.id == null) return;
+
+    final updatedRow = await _sb
+        .from(_table)
+        .update(updated.toUpdate())
+        .eq('id', item.id!)
+        .select()
+        .single();
+
+    _operationalExpenseList[index] = OperationalExpenseModel.fromMap(
+      updatedRow as Map<String, dynamic>,
+    );
     notifyListeners();
   }
 
-  void removeAllocation(int index) {
-    if (index < 0 || index >= _operationalExpenseList.length) return;
+  /// DELETE by index (uses row id)
+  Future<void> removeAllocation(int index) async {
+    final item = _operationalExpenseList[index];
+    if (item.id != null) {
+      await _sb.from(_table).delete().eq('id', item.id!);
+    }
     _operationalExpenseList.removeAt(index);
     notifyListeners();
   }
 
-  // === Donation CRUD ===
+  // ---------- Donations (in-memory for now) ----------
+  // These match how your UI currently calls the controller.
+  // Later, if you want donations persisted to Supabase, we can
+  // swap these out for real inserts/updates/deletes.
   void addDonation(DonationModel donation) {
     _donations.add(donation);
     notifyListeners();
@@ -98,25 +129,6 @@ class OperationalExpenseController extends ChangeNotifier {
   void removeDonation(int index) {
     if (index < 0 || index >= _donations.length) return;
     _donations.removeAt(index);
-    notifyListeners();
-  }
-
-  // === UI helpers ===
-
-  /// Percent share (0..1) of a given allocation versus total goal
-  double allocationPercent(int index) {
-    if (expenseGoal == 0 ||
-        index < 0 ||
-        index >= _operationalExpenseList.length) {
-      return 0;
-    }
-    return _operationalExpenseList[index].amount / expenseGoal;
-  }
-
-  /// (Optional) Reset everything (useful for tests/admin tools)
-  void clearAll() {
-    _operationalExpenseList.clear();
-    _donations.clear();
     notifyListeners();
   }
 }

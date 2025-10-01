@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/controller/campaign-controller.dart';
 import 'package:pawlytics/views/donors/donors%20scrollable/connections/CampaignDetailsPage.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:pawlytics/views/donors/model/campaign-card-model.dart';
 
 class CampaignPage extends StatefulWidget {
   const CampaignPage({super.key});
@@ -10,22 +11,15 @@ class CampaignPage extends StatefulWidget {
 }
 
 class _CampaignPageState extends State<CampaignPage> {
-  String selectedFilter = "All";
-  final supabase = Supabase.instance.client;
-  late Future<List<Map<String, dynamic>>> _campaigns;
+  final controller = CampaignsController();
+  late Future<List<CampaignCardModel>> _campaigns;
 
   @override
   void initState() {
     super.initState();
-    _campaigns = fetchCampaigns();
-  }
-
-  Future<List<Map<String, dynamic>>> fetchCampaigns() async {
-    final response = await supabase
-        .from('campaigns')
-        .select()
-        .order('created_at', ascending: false);
-    return (response as List).cast<Map<String, dynamic>>();
+    _campaigns = controller.fetchCampaigns(
+      useView: true,
+    ); // reads campaigns_with_totals
   }
 
   @override
@@ -52,7 +46,7 @@ class _CampaignPageState extends State<CampaignPage> {
       ),
       body: Column(
         children: [
-          // Filters and search (unchanged UI)
+          // Filters & search (UI only)
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
@@ -74,7 +68,7 @@ class _CampaignPageState extends State<CampaignPage> {
                           ),
                         ),
                         dropdownColor: Colors.white,
-                        items: ["All Campaigns", "Ongoing", "Completed"]
+                        items: const ["All Campaigns", "Ongoing", "Completed"]
                             .map(
                               (e) => DropdownMenuItem(value: e, child: Text(e)),
                             )
@@ -95,7 +89,7 @@ class _CampaignPageState extends State<CampaignPage> {
                           ),
                         ),
                         dropdownColor: Colors.white,
-                        items: ["Last 30 Days", "This Month", "This Year"]
+                        items: const ["Last 30 Days", "This Month", "This Year"]
                             .map(
                               (e) => DropdownMenuItem(value: e, child: Text(e)),
                             )
@@ -124,9 +118,9 @@ class _CampaignPageState extends State<CampaignPage> {
 
           const Divider(height: 0),
 
-          // Campaign list loaded from Supabase
+          // Campaign list
           Expanded(
-            child: FutureBuilder<List<Map<String, dynamic>>>(
+            child: FutureBuilder<List<CampaignCardModel>>(
               future: _campaigns,
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -135,84 +129,35 @@ class _CampaignPageState extends State<CampaignPage> {
                 if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}"));
                 }
-                if (!snapshot.hasData || snapshot.data!.isEmpty) {
+                final campaigns = snapshot.data;
+                if (campaigns == null || campaigns.isEmpty) {
                   return const Center(child: Text("No campaigns found"));
                 }
 
-                final campaigns = snapshot.data!;
                 return ListView.builder(
                   padding: const EdgeInsets.all(20),
                   itemCount: campaigns.length,
                   itemBuilder: (context, index) {
                     final c = campaigns[index];
-
-                    // --- Robust tags handling (FIX) ---
-                    // Possible shapes:
-                    // - c['tags'] as List<dynamic> -> convert to List<String>
-                    // - c['tags'] as String -> comma separated
-                    // - no tags field -> fallback to category or ["General"]
-                    final dynamic tagsRaw = c['tags'] ?? c['category'] ?? null;
-                    List<String> tagsList = [];
-
-                    if (tagsRaw == null) {
-                      tagsList = [c['category']?.toString() ?? 'General'];
-                    } else if (tagsRaw is List) {
-                      tagsList = tagsRaw
-                          .map((e) => e == null ? '' : e.toString().trim())
-                          .where((s) => s.isNotEmpty)
-                          .toList();
-                    } else if (tagsRaw is String) {
-                      // Support comma-separated string like "Dogs, Urgent"
-                      tagsList = tagsRaw
-                          .split(',')
-                          .map((s) => s.trim())
-                          .where((s) => s.isNotEmpty)
-                          .toList();
-                      if (tagsList.isEmpty) {
-                        tagsList = [tagsRaw];
-                      }
-                    } else {
-                      // single value of other type -> toString
-                      tagsList = [tagsRaw.toString()];
-                    }
-                    // If still empty, provide fallback
-                    if (tagsList.isEmpty) {
-                      tagsList = [c['category']?.toString() ?? 'General'];
-                    }
-                    // --- end tags handling ---
-
-                    final title =
-                        c['program']?.toString() ?? "Untitled Campaign";
-                    final description =
-                        c['description']?.toString() ??
-                        "No description available";
-
-                    // parse fundraising_goal and raised safely
-                    final double goalVal =
-                        double.tryParse(
-                          c['fundraising_goal']?.toString() ?? '',
-                        ) ??
-                        0.0;
-                    final double raisedVal =
-                        double.tryParse(c['raised']?.toString() ?? '') ?? 0.0;
-
-                    final double progress = goalVal > 0
-                        ? ((raisedVal / goalVal).clamp(0.0, 1.0) as double)
-                        : 0.0;
-
-                    // image fallback (you can replace with URL from DB and use Image.network)
-                    final String image =
-                        c['image_url']?.toString() ??
-                        "assets/images/donors/rescue.png";
-
                     return CampaignCard(
-                      title: title,
-                      description: description,
-                      tags: tagsList,
-                      image: image,
-                      progress: progress,
-                      raised: "₱${raisedVal.toStringAsFixed(2)}",
-                      goal: "₱${goalVal.toStringAsFixed(2)}",
+                      model: c,
+                      onDonate: () {
+                        // Pass the campaignId so DonatePage will record it
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CampaignDetailsPage(
+                              campaignId: c.id,
+                              title: c.title,
+                              image: c.image,
+                              raised: "₱${c.raised.toStringAsFixed(2)}",
+                              goal: "₱${c.goal.toStringAsFixed(2)}",
+                              progress: c.progress,
+                              description: c.description,
+                            ),
+                          ),
+                        );
+                      },
                     );
                   },
                 );
@@ -226,27 +171,68 @@ class _CampaignPageState extends State<CampaignPage> {
 }
 
 class CampaignCard extends StatelessWidget {
-  final String title;
-  final String description;
-  final List<String> tags;
-  final String image;
-  final double progress;
-  final String raised;
-  final String goal;
+  final CampaignCardModel model;
+  final VoidCallback onDonate;
 
-  const CampaignCard({
-    super.key,
-    required this.title,
-    required this.description,
-    required this.tags,
-    required this.image,
-    required this.progress,
-    required this.raised,
-    required this.goal,
-  });
+  const CampaignCard({super.key, required this.model, required this.onDonate});
+
+  // ---------- Status helpers (accept enum or string and render nice chip) ----------
+  String _statusKey(dynamic status) {
+    try {
+      final n = (status as dynamic).name; // enum.name on Dart >= 2.15
+      if (n is String && n.isNotEmpty) return n.toLowerCase();
+    } catch (_) {}
+    var s = status?.toString() ?? '';
+    final dot = s.lastIndexOf('.');
+    if (dot != -1) s = s.substring(dot + 1);
+    return s.trim().toLowerCase();
+  }
+
+  String _statusLabel(dynamic status) {
+    switch (_statusKey(status)) {
+      case 'active':
+        return 'ACTIVE';
+      case 'inactive':
+        return 'INACTIVE';
+      case 'due':
+        return 'DUE';
+      default:
+        final k = _statusKey(status);
+        return k.isEmpty ? '' : k.toUpperCase();
+    }
+  }
+
+  Color _statusBorder(dynamic status) {
+    switch (_statusKey(status)) {
+      case 'active':
+        return const Color(0xFF23344E);
+      case 'due':
+        return const Color(0xFFB45309); // amber
+      case 'inactive':
+        return Colors.blueGrey.shade300;
+      default:
+        return Colors.blueGrey.shade300;
+    }
+  }
+
+  Color _statusText(dynamic status) {
+    switch (_statusKey(status)) {
+      case 'active':
+        return const Color(0xFF23344E);
+      case 'due':
+        return const Color(0xFF92400E);
+      case 'inactive':
+        return Colors.blueGrey.shade600;
+      default:
+        return Colors.blueGrey.shade600;
+    }
+  }
+  // -------------------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
+    final status = model.status; // make sure your model exposes this
+
     return Card(
       color: const Color.fromARGB(255, 195, 216, 231),
       margin: const EdgeInsets.only(bottom: 16),
@@ -268,38 +254,56 @@ class CampaignCard extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(12),
-                    child: image.startsWith('http')
+                    child: model.image.startsWith('http')
                         ? Image.network(
-                            image,
+                            model.image,
                             height: 160,
                             width: double.infinity,
                             fit: BoxFit.cover,
                           )
                         : Image.asset(
-                            image,
+                            model.image,
                             height: 160,
                             width: double.infinity,
                             fit: BoxFit.cover,
                           ),
                   ),
                 ),
-                Positioned(
-                  top: 8,
-                  right: 8,
-                  child: IconButton(
-                    icon: const Icon(
-                      Icons.star_border,
-                      size: 35,
-                      color: Color(0xFF1F2C47),
+
+                // Status chip (top-right)
+                if (status != null && _statusKey(status).isNotEmpty)
+                  Positioned(
+                    top: 8,
+                    right: 8,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(
+                          color: _statusBorder(status),
+                          width: 1.2,
+                        ),
+                      ),
+                      child: Text(
+                        _statusLabel(status),
+                        style: TextStyle(
+                          color: _statusText(status),
+                          fontWeight: FontWeight.w800,
+                          fontSize: 11,
+                          letterSpacing: .2,
+                        ),
+                      ),
                     ),
-                    onPressed: () {},
                   ),
-                ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              title,
+              model.title,
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -309,7 +313,7 @@ class CampaignCard extends StatelessWidget {
             const SizedBox(height: 6),
             Wrap(
               spacing: 6,
-              children: tags
+              children: model.tags
                   .map(
                     (t) => Chip(
                       label: Text(t),
@@ -322,7 +326,7 @@ class CampaignCard extends StatelessWidget {
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
-                value: progress,
+                value: model.progress,
                 minHeight: 8,
                 color: const Color(0xFF23344E),
                 backgroundColor: Colors.grey.shade300,
@@ -333,14 +337,14 @@ class CampaignCard extends StatelessWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  "Raised: $raised",
+                  "Raised: ₱${model.raised.toStringAsFixed(2)}",
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 Text(
-                  "Goal: $goal",
+                  "Goal: ₱${model.goal.toStringAsFixed(2)}",
                   style: const TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.bold,
@@ -351,7 +355,7 @@ class CampaignCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              description,
+              model.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Color(0xFF23344E)),
@@ -360,21 +364,7 @@ class CampaignCard extends StatelessWidget {
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => CampaignDetailsPage(
-                        title: title,
-                        image: image,
-                        raised: raised,
-                        goal: goal,
-                        progress: progress,
-                        description: description,
-                      ),
-                    ),
-                  );
-                },
+                onPressed: onDonate,
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF23344E),
                   shape: RoundedRectangleBorder(

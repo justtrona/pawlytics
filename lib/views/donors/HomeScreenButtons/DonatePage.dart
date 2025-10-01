@@ -1,14 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/DonationSuccessPage.dart';
-import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction%20Process/PayQrCodePage.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction Process/DonationSuccessPage.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction Process/PayQrCodePage.dart';
 import 'package:pawlytics/views/donors/model/donation-model.dart'; // ✅ Donation model
 
 class DonatePage extends StatefulWidget {
+  /// REQUIRED: campaign id to attach this donation to
+  final int campaignId;
+
+  /// Optional: show campaign title somewhere in this page if you want
+  final String? campaignTitle;
+
+  /// Whether to show the In-Kind tab
   final bool allowInKind;
 
-  const DonatePage({super.key, this.allowInKind = true});
+  const DonatePage({
+    super.key,
+    required this.campaignId,
+    this.campaignTitle,
+    this.allowInKind = true,
+  });
 
   @override
   State<DonatePage> createState() => _DonatePageState();
@@ -40,8 +52,8 @@ class _DonatePageState extends State<DonatePage>
   @override
   void initState() {
     super.initState();
+    assert(widget.campaignId != 0, 'campaignId must be provided');
     _amountController.text = "0.00";
-
     _tabController = TabController(
       length: widget.allowInKind ? 2 : 1,
       vsync: this,
@@ -57,19 +69,24 @@ class _DonatePageState extends State<DonatePage>
     super.dispose();
   }
 
-  /// ✅ Save donation to Supabase
+  /// ✅ Save donation to Supabase (always injects campaign_id)
   Future<void> _saveDonation(DonationModel donation) async {
     final supabase = Supabase.instance.client;
     try {
-      await supabase
-          .from('donations')
-          .insert(donation.toMap()); // use model mapper
+      final payload = {
+        ...donation.toMap(),
+        'campaign_id': widget.campaignId, // 👈 CRITICAL
+      };
 
-      Navigator.push(
+      await supabase.from('donations').insert(payload);
+
+      if (!mounted) return;
+      Navigator.pushReplacement(
         context,
         MaterialPageRoute(builder: (context) => const DonationSuccessPage()),
       );
     } catch (error) {
+      if (!mounted) return;
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text("Error saving donation: $error")));
@@ -77,18 +94,15 @@ class _DonatePageState extends State<DonatePage>
   }
 
   void _updateAmount(String value) {
-    double current =
+    final current =
         double.tryParse(_amountController.text.replaceAll(",", "")) ?? 0.0;
-    current += double.parse(value);
-    setState(() {
-      _amountController.text = current.toStringAsFixed(2);
-    });
+    final add = double.tryParse(value) ?? 0.0;
+    final next = (current + add).clamp(0, 999999999).toDouble();
+    setState(() => _amountController.text = next.toStringAsFixed(2));
   }
 
   void _clearAmount() {
-    setState(() {
-      _amountController.text = "0.00";
-    });
+    setState(() => _amountController.text = "0.00");
   }
 
   void _resetCashFields() {
@@ -113,6 +127,14 @@ class _DonatePageState extends State<DonatePage>
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: [
+          if (widget.campaignTitle != null) ...[
+            Text(
+              widget.campaignTitle!,
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+          ],
           const Align(
             alignment: Alignment.centerLeft,
             child: Text(
@@ -141,9 +163,13 @@ class _DonatePageState extends State<DonatePage>
                       fontSize: 28,
                       fontWeight: FontWeight.bold,
                     ),
-                    keyboardType: TextInputType.number,
+                    keyboardType: const TextInputType.numberWithOptions(
+                      decimal: true,
+                    ),
                     inputFormatters: [
-                      FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d*')),
+                      FilteringTextInputFormatter.allow(
+                        RegExp(r'^\d*\.?\d{0,2}'),
+                      ),
                     ],
                     decoration: const InputDecoration(
                       border: InputBorder.none,
@@ -167,8 +193,7 @@ class _DonatePageState extends State<DonatePage>
                 childAspectRatio: 2.2,
               ),
               itemBuilder: (context, index) {
-                String value = amounts[index];
-
+                final value = amounts[index];
                 if (value == "1000") {
                   return ElevatedButton(
                     onPressed: _clearAmount,
@@ -183,7 +208,6 @@ class _DonatePageState extends State<DonatePage>
                     child: const Text("Clear", style: TextStyle(fontSize: 16)),
                   );
                 }
-
                 return ElevatedButton(
                   onPressed: () => _updateAmount(value),
                   style: ElevatedButton.styleFrom(
@@ -204,6 +228,7 @@ class _DonatePageState extends State<DonatePage>
             children: [
               InkWell(
                 onTap: () {
+                  HapticFeedback.selectionClick();
                   Navigator.push(
                     context,
                     MaterialPageRoute(
@@ -231,21 +256,28 @@ class _DonatePageState extends State<DonatePage>
                 width: double.infinity,
                 child: ElevatedButton(
                   onPressed: () {
+                    HapticFeedback.lightImpact();
                     final amount =
-                        double.tryParse(_amountController.text) ?? 0.0;
+                        double.tryParse(
+                          _amountController.text.replaceAll(",", ""),
+                        ) ??
+                        0.0;
 
                     final donation = DonationModel.cash(
                       donorName: "Anonymous",
                       donorPhone: "N/A",
                       donationDate: DateTime.now(),
                       amount: amount,
-                      paymentMethod: "QR",
+                      paymentMethod: "QR", // or map from your flow
                       notes: _notesController.text.isEmpty
                           ? null
                           : _notesController.text,
                     );
 
                     final issues = donation.validate();
+                    if (amount <= 0) {
+                      issues.add("Amount must be greater than 0.");
+                    }
                     if (issues.isNotEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(issues.join("\n"))),
@@ -253,7 +285,9 @@ class _DonatePageState extends State<DonatePage>
                       return;
                     }
 
-                    _saveDonation(donation); // ✅ Save to Supabase
+                    _saveDonation(
+                      donation,
+                    ); // ✅ Save to Supabase with campaign_id
                     _resetCashFields();
                   },
                   style: ElevatedButton.styleFrom(
@@ -284,12 +318,7 @@ class _DonatePageState extends State<DonatePage>
         firstDate: DateTime.now(),
         lastDate: DateTime(2100),
       );
-
-      if (date != null) {
-        setState(() {
-          selectedDate = date;
-        });
-      }
+      if (date != null) setState(() => selectedDate = date);
     }
 
     return Padding(
@@ -298,6 +327,17 @@ class _DonatePageState extends State<DonatePage>
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            if (widget.campaignTitle != null) ...[
+              Text(
+                widget.campaignTitle!,
+                style: const TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 8),
+            ],
             const Text("Item", style: TextStyle(fontWeight: FontWeight.w500)),
             const SizedBox(height: 8),
             DropdownButtonFormField<String>(
@@ -314,11 +354,7 @@ class _DonatePageState extends State<DonatePage>
                     (item) => DropdownMenuItem(value: item, child: Text(item)),
                   )
                   .toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedItem = value;
-                });
-              },
+              onChanged: (value) => setState(() => selectedItem = value),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -354,11 +390,7 @@ class _DonatePageState extends State<DonatePage>
               items: ["Shelter A", "Shelter B", "Main Office"]
                   .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
                   .toList(),
-              onChanged: (value) {
-                setState(() {
-                  selectedLocation = value;
-                });
-              },
+              onChanged: (value) => setState(() => selectedLocation = value),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -367,9 +399,7 @@ class _DonatePageState extends State<DonatePage>
             ),
             const SizedBox(height: 8),
             InkWell(
-              onTap: () async {
-                await _pickDate(context);
-              },
+              onTap: () async => _pickDate(context),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -411,6 +441,7 @@ class _DonatePageState extends State<DonatePage>
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: () {
+                  HapticFeedback.lightImpact();
                   final quantity = int.tryParse(_quantityController.text) ?? 0;
 
                   final donation = DonationModel.inKind(
@@ -426,6 +457,16 @@ class _DonatePageState extends State<DonatePage>
                   );
 
                   final issues = donation.validate();
+                  if ((selectedItem ?? '').isEmpty) {
+                    issues.add("Please select an item.");
+                  }
+                  if (quantity <= 0) {
+                    issues.add("Quantity must be greater than 0.");
+                  }
+                  if ((selectedLocation ?? '').isEmpty) {
+                    issues.add("Please select a drop-off location.");
+                  }
+
                   if (issues.isNotEmpty) {
                     ScaffoldMessenger.of(
                       context,
@@ -433,7 +474,9 @@ class _DonatePageState extends State<DonatePage>
                     return;
                   }
 
-                  _saveDonation(donation); // ✅ Save to Supabase
+                  _saveDonation(
+                    donation,
+                  ); // ✅ Save to Supabase with campaign_id
                   _resetInKindFields();
                 },
                 style: ElevatedButton.styleFrom(
@@ -457,6 +500,10 @@ class _DonatePageState extends State<DonatePage>
 
   @override
   Widget build(BuildContext context) {
+    final tabs = widget.allowInKind
+        ? const [Tab(text: "Cash"), Tab(text: "In-Kind")]
+        : const [Tab(text: "Cash")];
+
     return Scaffold(
       appBar: AppBar(
         title: const Text(
@@ -469,9 +516,7 @@ class _DonatePageState extends State<DonatePage>
         foregroundColor: Colors.black,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
-          onPressed: () {
-            Navigator.pop(context);
-          },
+          onPressed: () => Navigator.pop(context),
         ),
         bottom: TabBar(
           controller: _tabController,
@@ -486,9 +531,7 @@ class _DonatePageState extends State<DonatePage>
             fontSize: 15,
             fontWeight: FontWeight.w400,
           ),
-          tabs: widget.allowInKind
-              ? const [Tab(text: "Cash"), Tab(text: "In-Kind")]
-              : const [Tab(text: "Cash")],
+          tabs: tabs,
         ),
       ),
       body: TabBarView(
