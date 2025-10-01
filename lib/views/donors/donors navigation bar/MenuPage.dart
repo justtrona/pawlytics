@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/route/route.dart' as route; // <-- use named routes
 import 'package:pawlytics/views/donors/Menu%20bar%20user/AnimalsYouHelpedPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/CampaignOutcomesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/CertificatesPage.dart';
@@ -10,10 +11,72 @@ import 'package:pawlytics/views/donors/Menu%20bar%20user/PrivacySettingsPage.dar
 import 'package:pawlytics/views/donors/Menu%20bar%20user/ShelterUpdatesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/TermsConditionsPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/ProfileEdit.dart';
-import 'package:pawlytics/auth/auth_service.dart'; // ✅ import your auth service
+import 'package:pawlytics/views/get_start/get_started_main.dart';
+import 'package:pawlytics/views/get_start/login_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-class ProfilePage extends StatelessWidget {
+class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
+
+  @override
+  State<ProfilePage> createState() => _ProfilePageState();
+}
+
+class _ProfilePageState extends State<ProfilePage> {
+  bool _signingOut = false;
+
+  Future<void> _confirmAndLogout() async {
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Are you sure you want to log out?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.red,
+              foregroundColor: Colors.white,
+            ),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true || _signingOut) return;
+
+    _signingOut = true;
+    try {
+      await Supabase.instance.client.auth.signOut();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Signed out successfully')));
+
+      // Option A: go to app root that shows AuthGate
+      // Navigator.of(context, rootNavigator: true)
+      //     .pushNamedAndRemoveUntil('/', (_) => false);
+
+      // Option B: go directly to your named login page
+      Navigator.of(
+        context,
+        rootNavigator: true,
+      ).pushNamedAndRemoveUntil(route.login, (_) => false);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+    } finally {
+      _signingOut = false;
+    }
+  }
 
   Widget buildMenuButton(
     BuildContext context, {
@@ -46,20 +109,6 @@ class ProfilePage extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Future<void> _handleLogout(BuildContext context) async {
-    final authService = AuthService();
-    await authService.signOut();
-
-    if (context.mounted) {
-      // Navigate back to login page (replace with your actual login route)
-      Navigator.pushNamedAndRemoveUntil(
-        context,
-        '/login', // ✅ make sure this matches your login route name
-        (route) => false,
-      );
-    }
   }
 
   @override
@@ -261,12 +310,33 @@ class ProfilePage extends StatelessWidget {
                 );
               },
             ),
-            // ✅ Logout button wired up
             buildMenuButton(
               context,
               icon: Icons.logout,
               title: "Logout",
-              onTap: () => _handleLogout(context),
+              onTap: () async {
+                try {
+                  await Supabase.instance.client.auth.signOut(
+                    scope: SignOutScope.global,
+                  ); // stronger, revokes on server too
+                  if (!context.mounted) return;
+
+                  // Optional: quick sanity print
+                  // debugPrint('After signOut, session: ${Supabase.instance.client.auth.currentSession}');
+
+                  // Go straight to the LoginPage and clear the entire stack.
+                  Navigator.of(context, rootNavigator: true).pushAndRemoveUntil(
+                    MaterialPageRoute(builder: (_) => const GetStartedMain()),
+                    (_) => false,
+                  );
+                } catch (e) {
+                  if (!context.mounted) return;
+                  ScaffoldMessenger.of(
+                    context,
+                  ).showSnackBar(SnackBar(content: Text('Logout failed: $e')));
+                }
+              },
+              // <-- same logic as Admin menuBar
             ),
           ],
         ),

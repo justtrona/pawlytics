@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 
 class CampaignDetailsPage extends StatelessWidget {
   final String title;
@@ -133,26 +135,45 @@ class CampaignDetailsPage extends StatelessWidget {
         ),
       ),
 
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 0, 16, 32),
-        child: SizedBox(
-          width: double.infinity,
-          height: 50,
-          child: ElevatedButton(
-            onPressed: () {},
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF23344E),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
-              ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: SafeArea(
+        minimum: const EdgeInsets.all(16),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)], // warm, friendly
             ),
-            child: const Text(
-              "Donate Now",
-              style: TextStyle(
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
-                color: Colors.white,
+            borderRadius: BorderRadius.circular(36),
+            boxShadow: const [
+              BoxShadow(
+                blurRadius: 14,
+                offset: Offset(0, 8),
+                color: Colors.black26,
               ),
+            ],
+          ),
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(36),
+            child: FloatingActionButton.extended(
+              heroTag: 'donateFab',
+              tooltip: 'Support the animals',
+              onPressed: () async {
+                HapticFeedback.lightImpact();
+                await Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const DonatePage()),
+                );
+              },
+              icon: const Icon(Icons.volunteer_activism_rounded),
+              label: const Text(
+                'Donate Now',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+              backgroundColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              elevation: 0,
             ),
           ),
         ),

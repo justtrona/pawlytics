@@ -75,7 +75,6 @@ class AuthService {
 
   User? get currentUser => _supabase.auth.currentUser;
 
-  /// 🔥 Stream of auth state changes
   Stream<User?> get currentUserStream =>
       _supabase.auth.onAuthStateChange.map((event) => event.session?.user);
 }
