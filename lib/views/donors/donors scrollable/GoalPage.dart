@@ -40,6 +40,7 @@ class _GoalPageState extends State<GoalPage> {
     if (mounted) setState(() {});
   }
 
+  //okayed sana palarin
   IconData _iconFor(String name) {
     final s = name.toLowerCase();
     if (s.contains('electric')) return Icons.flash_on_outlined;
