@@ -141,7 +141,7 @@ class _ProfilePageState extends State<ProfilePage> {
                 );
               },
             ),
-            buildMenuButton(context, icon: Icons.star, title: "Favorites"),
+            //buildMenuButton(context, icon: Icons.star, title: "Favorites"),
             buildMenuButton(
               context,
               icon: Icons.payment,
