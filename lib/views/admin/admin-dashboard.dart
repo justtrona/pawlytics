@@ -3,13 +3,12 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:pawlytics/views/admin/admin_widgets/stats-grid.dart';
 import 'package:pawlytics/route/route.dart' as route;
 
-// Make sure this file exports the MenuBar widget you showed.
 import 'package:pawlytics/views/admin/admin-menu.dart';
 
 class AdminDashboard extends StatefulWidget {
   const AdminDashboard({super.key});
 
-  static const brandColor = Color(0xA627374D);
+  static const brandColor = Color.fromARGB(255, 15, 45, 80);
 
   @override
   State<AdminDashboard> createState() => _AdminDashboardState();
@@ -21,8 +20,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
     return Scaffold(
       backgroundColor: Colors.white,
 
-      // ✅ Mount MenuBar directly. No `children:` param.
+      // ✅ Mount MenuBar directly
       endDrawer: Drawer(child: menuBar()),
+
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.only(bottom: 90),
@@ -133,35 +133,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 10),
-
-                    Center(
-                      child: SizedBox(
-                        width: 200,
-                        height: 50,
-                        child: ElevatedButton(
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: Color(0xff27374d),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                          ),
-                          onPressed: () => Navigator.pushNamed(
-                            context,
-                            route.donationReports,
-                          ),
-                          child: const Text(
-                            "Manage Donations",
-                            style: TextStyle(
-                              fontSize: 17,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
                   ],
                 ),
               ),
@@ -256,12 +227,57 @@ class _AdminDashboardState extends State<AdminDashboard> {
           ),
         ),
       ),
+
+      // ✅ Floating style button at bottom
+      floatingActionButton: SizedBox(
+        width: 200,
+        height: 55,
+        child: Container(
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)],
+              begin: Alignment.centerLeft,
+              end: Alignment.centerRight,
+              stops: [0.3, 1.0],
+            ),
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.2),
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: ElevatedButton(
+            style: ElevatedButton.styleFrom(
+              backgroundColor: Colors.transparent,
+              shadowColor: Colors.transparent,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
+            ),
+            onPressed: () =>
+                Navigator.pushNamed(context, route.donationReports),
+            child: const Text(
+              "Manage Donations",
+              style: TextStyle(
+                fontSize: 17,
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }
 
 // -------------------------------------------------------------------
-// Helper widgets (unchanged from your original, just kept in one file)
+// Helper widgets
 // -------------------------------------------------------------------
 
 class _KeyValueSmall extends StatefulWidget {

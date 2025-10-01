@@ -33,7 +33,7 @@ class _StatCard extends StatelessWidget {
   final String title;
   final String value;
 
-  static const brandColor = Color(0xA627374D);
+  static const brandColor = Color(0xFFEC8C69);
 
   const _StatCard(this.icon, this.title, this.value);
 

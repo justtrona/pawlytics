@@ -348,7 +348,7 @@ class _SectionCard extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
-        color: const Color(0xFF6D7884),
+        //color: const Color(0xFF6D7884),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -376,7 +376,7 @@ class _MenuItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: const Color(0xFF6D7884),
+      color: const Color(0xFF5E6B7F),
       borderRadius: BorderRadius.circular(12),
       child: InkWell(
         borderRadius: BorderRadius.circular(12),
@@ -388,7 +388,7 @@ class _MenuItem extends StatelessWidget {
             child: Row(
               children: [
                 const Icon(Icons.circle, size: 0),
-                Icon(icon, color: Colors.white, size: 20),
+                Icon(icon, color: const Color(0xFFEC8C69), size: 20),
                 const SizedBox(width: 8),
                 Expanded(
                   child: Text(

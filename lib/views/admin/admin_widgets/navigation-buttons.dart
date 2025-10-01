@@ -32,7 +32,7 @@ class _NavigationButtonAdminState extends State<NavigationButtonAdmin> {
         top: false,
         child: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
-          backgroundColor: brandColor,
+          backgroundColor: Color.fromARGB(255, 15, 45, 80),
           selectedItemColor: Colors.white,
           unselectedItemColor: Colors.white70,
           currentIndex: _currentIndex,
