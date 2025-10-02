@@ -1,64 +1,122 @@
+// lib/views/donors/model/donation-model.dart
+
+enum DonationType { cash, inKind }
+
+extension DonationTypeDb on DonationType {
+  String get db => this == DonationType.cash ? 'Cash' : 'InKind';
+  static DonationType fromDb(String v) =>
+      v.toLowerCase() == 'cash' ? DonationType.cash : DonationType.inKind;
+}
+
 class DonationModel {
   final String donorName;
   final String donorPhone;
   final DateTime donationDate;
-  final double? amount;
-  final String? paymentMethod;
-  final String? notes;
-  final String? item;
-  final int? quantity;
+
+  final double? amount; // cash or in-kind fair value
+  final String? paymentMethod; // cash-only
+  final String? item; // in-kind-only
+  final int? quantity; // in-kind-only
   final String? dropOffLocation;
-  final String donationType; // "Cash" or "InKind"
+  final String? notes;
 
-  DonationModel.cash({
+  final DonationType donationType;
+
+  /// FK → your schema column `public.donations.opex_id`
+  final int? opexId;
+
+  DonationModel._({
     required this.donorName,
     required this.donorPhone,
     required this.donationDate,
-    required this.amount,
-    required this.paymentMethod,
-    this.notes,
-  }) : item = null,
-       quantity = null,
-       dropOffLocation = null,
-       donationType = "Cash";
-
-  DonationModel.inKind({
-    required this.donorName,
-    required this.donorPhone,
-    required this.donationDate,
-    required this.item,
-    required this.quantity,
-    this.notes,
+    required this.donationType,
+    this.amount,
+    this.paymentMethod,
+    this.item,
+    this.quantity,
     this.dropOffLocation,
-  }) : amount = null,
-       paymentMethod = null,
-       donationType = "InKind";
+    this.notes,
+    this.opexId,
+  });
 
-  Map<String, dynamic> toMap() {
-    return {
-      'donor_name': donorName,
-      'donor_phone': donorPhone,
-      'donation_date': donationDate.toIso8601String(),
-      'amount': amount,
-      'payment_method': paymentMethod,
-      'notes': notes,
-      'item': item,
-      'quantity': quantity,
-      'drop_off_location': dropOffLocation,
-      'donation_type': donationType,
-    };
+  factory DonationModel.cash({
+    required String donorName,
+    required String donorPhone,
+    required DateTime donationDate,
+    required double amount,
+    String? paymentMethod,
+    String? notes,
+    int? opexId, // <-- note the name
+  }) {
+    return DonationModel._(
+      donorName: donorName,
+      donorPhone: donorPhone,
+      donationDate: donationDate,
+      donationType: DonationType.cash,
+      amount: amount,
+      paymentMethod: paymentMethod,
+      notes: notes,
+      opexId: opexId,
+    );
   }
 
-  // validations
+  factory DonationModel.inKind({
+    required String donorName,
+    required String donorPhone,
+    required DateTime donationDate,
+    required String item,
+    int? quantity,
+    double? fairValueAmount,
+    String? dropOffLocation,
+    String? notes,
+    int? opexId, // <-- note the name
+  }) {
+    return DonationModel._(
+      donorName: donorName,
+      donorPhone: donorPhone,
+      donationDate: donationDate,
+      donationType: DonationType.inKind,
+      item: item,
+      quantity: quantity,
+      amount: fairValueAmount,
+      dropOffLocation: dropOffLocation,
+      notes: notes,
+      opexId: opexId,
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'donor_name': donorName,
+    'donor_phone': donorPhone,
+    'donation_date': donationDate.toIso8601String(),
+    'donation_type': donationType.db,
+    'amount': amount,
+    'payment_method': paymentMethod,
+    'item': item,
+    'quantity': quantity,
+    'drop_off_location': dropOffLocation,
+    'notes': notes,
+    // IMPORTANT: matches DB column name
+    'opex_id': opexId,
+  };
+
+  Map<String, dynamic> toInsertMap({bool stripNulls = true}) {
+    final m = toMap();
+    if (stripNulls) m.removeWhere((_, v) => v == null);
+    return m;
+  }
+
   List<String> validate() {
-    final issues = <String>[];
-    if (donorName.isEmpty) issues.add("Donor name is required.");
-    if (donationType == "Cash" && (amount == null || amount! <= 0)) {
-      issues.add("Cash amount must be greater than zero.");
+    final errs = <String>[];
+    if (donationType == DonationType.cash) {
+      if (amount == null || amount! <= 0)
+        errs.add('Cash amount must be greater than zero.');
+    } else {
+      if (item == null || item!.trim().isEmpty)
+        errs.add('In-kind item is required.');
+      if (quantity != null && quantity! < 0)
+        errs.add('Quantity cannot be negative.');
     }
-    if (donationType == "InKind" && (item == null || item!.isEmpty)) {
-      issues.add("In-kind donation item is required.");
-    }
-    return issues;
+    return errs;
   }
 }

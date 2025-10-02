@@ -1,9 +1,9 @@
+// lib/views/donors/controller/donation_controller.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pawlytics/views/donors/model/donation-model.dart';
 
 class DonationController {
-  // Text Controllers (reused in UI)
   final nameCtl = TextEditingController();
   final phoneCtl = TextEditingController();
   final amountCtl = TextEditingController();
@@ -11,15 +11,16 @@ class DonationController {
   final qtyCtl = TextEditingController();
   final notesCtl = TextEditingController();
 
-  // Dropdown + Selections
-  String donationType = "Cash";
+  DonationType donationType = DonationType.cash;
   DateTime? selectedDate;
   String? selectedPaymentMethod;
   String? selectedLocation;
 
-  final paymentOptions = const ['Gcash', 'Maya'];
+  /// FK → donations.opex_id
+  int? selectedOpexId;
 
-  // Dispose controllers
+  final paymentOptions = const ['GCash', 'Maya'];
+
   void dispose() {
     nameCtl.dispose();
     phoneCtl.dispose();
@@ -29,7 +30,20 @@ class DonationController {
     notesCtl.dispose();
   }
 
-  // Date picker
+  void reset() {
+    nameCtl.clear();
+    phoneCtl.clear();
+    amountCtl.clear();
+    itemCtl.clear();
+    qtyCtl.clear();
+    notesCtl.clear();
+    donationType = DonationType.cash;
+    selectedDate = null;
+    selectedPaymentMethod = null;
+    selectedLocation = null;
+    selectedOpexId = null;
+  }
+
   Future<void> pickDate(BuildContext context, VoidCallback refresh) async {
     final now = DateTime.now();
     final picked = await showDatePicker(
@@ -44,34 +58,56 @@ class DonationController {
     }
   }
 
-  // Date formatting
-  String get formattedDate {
-    if (selectedDate == null) return 'Select Date';
-    return DateFormat.yMMMMd().format(selectedDate!);
-  }
+  String get formattedDate => selectedDate == null
+      ? 'Select Date'
+      : DateFormat.yMMMMd().format(selectedDate!);
 
-  // Build donation object (unified entry point)
+  void setOpexId(int? id) => selectedOpexId = id;
+  void clearOpexId() => selectedOpexId = null;
+
   DonationModel buildDonation() {
     final date = selectedDate ?? DateTime.now();
+    final donorName = nameCtl.text.trim().isEmpty
+        ? "Anonymous"
+        : nameCtl.text.trim();
+    final donorPhone = phoneCtl.text.trim().isEmpty
+        ? "N/A"
+        : phoneCtl.text.trim();
 
-    if (donationType == 'Cash') {
+    if (donationType == DonationType.cash) {
+      final amt =
+          double.tryParse(amountCtl.text.trim().replaceAll(',', '')) ?? 0;
       return DonationModel.cash(
-        donorName: nameCtl.text.isEmpty ? "Anonymous" : nameCtl.text,
-        donorPhone: phoneCtl.text.isEmpty ? "N/A" : phoneCtl.text,
+        donorName: donorName,
+        donorPhone: donorPhone,
         donationDate: date,
-        amount: double.tryParse(amountCtl.text) ?? 0,
-        paymentMethod: selectedPaymentMethod ?? "",
-        notes: notesCtl.text.isEmpty ? null : notesCtl.text,
+        amount: amt,
+        paymentMethod: (selectedPaymentMethod ?? '').trim().isEmpty
+            ? null
+            : selectedPaymentMethod!.trim(),
+        notes: notesCtl.text.trim().isEmpty ? null : notesCtl.text.trim(),
+        opexId: selectedOpexId, // <-- here
       );
     } else {
+      final qty = int.tryParse(qtyCtl.text.trim());
+      final fairValue = double.tryParse(
+        amountCtl.text.trim().replaceAll(',', ''),
+      );
       return DonationModel.inKind(
-        donorName: nameCtl.text.isEmpty ? "Anonymous" : nameCtl.text,
-        donorPhone: phoneCtl.text.isEmpty ? "N/A" : phoneCtl.text,
+        donorName: donorName,
+        donorPhone: donorPhone,
         donationDate: date,
-        item: itemCtl.text,
-        quantity: int.tryParse(qtyCtl.text) ?? 0,
-        notes: notesCtl.text.isEmpty ? null : notesCtl.text,
+        item: itemCtl.text.trim(),
+        quantity: qty,
+        fairValueAmount: fairValue,
+        dropOffLocation: (selectedLocation ?? '').trim().isEmpty
+            ? null
+            : selectedLocation!.trim(),
+        notes: notesCtl.text.trim().isEmpty ? null : notesCtl.text.trim(),
+        opexId: selectedOpexId, // <-- here
       );
     }
   }
+
+  List<String> validateCurrent() => buildDonation().validate();
 }

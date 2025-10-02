@@ -1,26 +1,39 @@
+// lib/views/donors/HomeScreenButtons/DonatePage.dart
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction Process/DonationSuccessPage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction Process/PayQrCodePage.dart';
-import 'package:pawlytics/views/donors/model/donation-model.dart'; // ✅ Donation model
+import 'package:pawlytics/views/donors/model/donation-model.dart';
 
 class DonatePage extends StatefulWidget {
-  /// REQUIRED: campaign id to attach this donation to
-  final int campaignId;
+  /// Provide either a campaign or an OPEX target. If both are null,
+  /// set [autoAssignOpex] to true to allow a generic donation.
+  final int? campaignId; // normal campaign flow
+  final int? opexId; // FK -> donations.opex_id (monthly OPEX target)
 
-  /// Optional: show campaign title somewhere in this page if you want
+  /// If true and [opexId] is null, we just insert a generic donation
+  /// (no OPEX linkage).
+  final bool autoAssignOpex;
+
+  /// Optional title to show in the UI.
   final String? campaignTitle;
 
-  /// Whether to show the In-Kind tab
+  /// Show the In-Kind tab?
   final bool allowInKind;
 
   const DonatePage({
     super.key,
-    required this.campaignId,
+    this.campaignId,
+    this.opexId,
     this.campaignTitle,
     this.allowInKind = true,
-  });
+    this.autoAssignOpex = false,
+  }) : assert(
+         campaignId != null || opexId != null || autoAssignOpex == true,
+         'Provide campaignId, opexId, or set autoAssignOpex to true.',
+       );
 
   @override
   State<DonatePage> createState() => _DonatePageState();
@@ -29,10 +42,10 @@ class DonatePage extends StatefulWidget {
 class _DonatePageState extends State<DonatePage>
     with SingleTickerProviderStateMixin {
   final TextEditingController _amountController = TextEditingController();
-  late TabController _tabController;
-
   final TextEditingController _quantityController = TextEditingController();
   final TextEditingController _notesController = TextEditingController();
+  late TabController _tabController;
+
   String? selectedItem;
   String? selectedLocation;
   DateTime? selectedDate;
@@ -46,13 +59,12 @@ class _DonatePageState extends State<DonatePage>
     "300",
     "400",
     "500",
-    "1000",
+    "1000", // used as "Clear"
   ];
 
   @override
   void initState() {
     super.initState();
-    assert(widget.campaignId != 0, 'campaignId must be provided');
     _amountController.text = "0.00";
     _tabController = TabController(
       length: widget.allowInKind ? 2 : 1,
@@ -69,27 +81,35 @@ class _DonatePageState extends State<DonatePage>
     super.dispose();
   }
 
-  /// ✅ Save donation to Supabase (always injects campaign_id)
+  /// Save donation to Supabase.
+  /// - Adds `campaign_id` if provided.
+  /// - For OPEX linkage we rely on DonationModel -> `opex_id` (already serialized by `toInsertMap()`).
   Future<void> _saveDonation(DonationModel donation) async {
-    final supabase = Supabase.instance.client;
+    final sb = Supabase.instance.client;
     try {
-      final payload = {
-        ...donation.toMap(),
-        'campaign_id': widget.campaignId, // 👈 CRITICAL
-      };
+      final payload = donation.toInsertMap();
+      if (widget.campaignId != null) {
+        payload['campaign_id'] = widget.campaignId;
+      }
+      // Do NOT add any 'opex_allocation_id' here. Model already adds 'opex_id' when set.
 
-      await supabase.from('donations').insert(payload);
+      await sb.from('donations').insert(payload);
 
       if (!mounted) return;
       Navigator.pushReplacement(
         context,
-        MaterialPageRoute(builder: (context) => const DonationSuccessPage()),
+        MaterialPageRoute(builder: (_) => const DonationSuccessPage()),
       );
-    } catch (error) {
+    } on PostgrestException catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving donation: ${e.message}')),
+      );
+    } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(
         context,
-      ).showSnackBar(SnackBar(content: Text("Error saving donation: $error")));
+      ).showSnackBar(SnackBar(content: Text('Error saving donation: $e')));
     }
   }
 
@@ -101,9 +121,7 @@ class _DonatePageState extends State<DonatePage>
     setState(() => _amountController.text = next.toStringAsFixed(2));
   }
 
-  void _clearAmount() {
-    setState(() => _amountController.text = "0.00");
-  }
+  void _clearAmount() => setState(() => _amountController.text = "0.00");
 
   void _resetCashFields() {
     setState(() {
@@ -124,7 +142,7 @@ class _DonatePageState extends State<DonatePage>
 
   Widget _buildCashTab() {
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.all(16),
       child: Column(
         children: [
           if (widget.campaignTitle != null) ...[
@@ -182,6 +200,8 @@ class _DonatePageState extends State<DonatePage>
             ),
           ),
           const SizedBox(height: 20),
+
+          // quick amount grid
           Expanded(
             child: GridView.builder(
               physics: const NeverScrollableScrollPhysics(),
@@ -224,6 +244,8 @@ class _DonatePageState extends State<DonatePage>
             ),
           ),
           const SizedBox(height: 20),
+
+          // actions
           Column(
             children: [
               InkWell(
@@ -231,9 +253,7 @@ class _DonatePageState extends State<DonatePage>
                   HapticFeedback.selectionClick();
                   Navigator.push(
                     context,
-                    MaterialPageRoute(
-                      builder: (context) => const PayQrCodePage(),
-                    ),
+                    MaterialPageRoute(builder: (_) => const PayQrCodePage()),
                   );
                 },
                 borderRadius: BorderRadius.circular(12),
@@ -268,16 +288,17 @@ class _DonatePageState extends State<DonatePage>
                       donorPhone: "N/A",
                       donationDate: DateTime.now(),
                       amount: amount,
-                      paymentMethod: "QR", // or map from your flow
+                      paymentMethod: "QR",
                       notes: _notesController.text.isEmpty
                           ? null
                           : _notesController.text,
+                      opexId: widget
+                          .opexId, // attach if provided (serializes to 'opex_id')
                     );
 
                     final issues = donation.validate();
-                    if (amount <= 0) {
+                    if (amount <= 0)
                       issues.add("Amount must be greater than 0.");
-                    }
                     if (issues.isNotEmpty) {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(content: Text(issues.join("\n"))),
@@ -285,9 +306,7 @@ class _DonatePageState extends State<DonatePage>
                       return;
                     }
 
-                    _saveDonation(
-                      donation,
-                    ); // ✅ Save to Supabase with campaign_id
+                    _saveDonation(donation);
                     _resetCashFields();
                   },
                   style: ElevatedButton.styleFrom(
@@ -349,12 +368,13 @@ class _DonatePageState extends State<DonatePage>
               ),
               hint: const Text("Select Item"),
               value: selectedItem,
-              items: ["Dog Food", "Cat Food", "Medicine", "Others"]
-                  .map(
-                    (item) => DropdownMenuItem(value: item, child: Text(item)),
-                  )
-                  .toList(),
-              onChanged: (value) => setState(() => selectedItem = value),
+              items: [
+                "Dog Food",
+                "Cat Food",
+                "Medicine",
+                "Others",
+              ].map((v) => DropdownMenuItem(value: v, child: Text(v))).toList(),
+              onChanged: (v) => setState(() => selectedItem = v),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -387,10 +407,12 @@ class _DonatePageState extends State<DonatePage>
               ),
               hint: const Text("Select Drop-Off Location"),
               value: selectedLocation,
-              items: ["Shelter A", "Shelter B", "Main Office"]
-                  .map((loc) => DropdownMenuItem(value: loc, child: Text(loc)))
-                  .toList(),
-              onChanged: (value) => setState(() => selectedLocation = value),
+              items: [
+                "Shelter A",
+                "Shelter B",
+                "Main Office",
+              ].map((l) => DropdownMenuItem(value: l, child: Text(l))).toList(),
+              onChanged: (v) => setState(() => selectedLocation = v),
             ),
             const SizedBox(height: 16),
             const Text(
@@ -399,7 +421,7 @@ class _DonatePageState extends State<DonatePage>
             ),
             const SizedBox(height: 8),
             InkWell(
-              onTap: () async => _pickDate(context),
+              onTap: () => _pickDate(context),
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -454,6 +476,8 @@ class _DonatePageState extends State<DonatePage>
                         ? null
                         : _notesController.text,
                     dropOffLocation: selectedLocation ?? "",
+                    opexId: widget
+                        .opexId, // attach if provided (serializes to 'opex_id')
                   );
 
                   final issues = donation.validate();
@@ -466,7 +490,6 @@ class _DonatePageState extends State<DonatePage>
                   if ((selectedLocation ?? '').isEmpty) {
                     issues.add("Please select a drop-off location.");
                   }
-
                   if (issues.isNotEmpty) {
                     ScaffoldMessenger.of(
                       context,
@@ -474,9 +497,7 @@ class _DonatePageState extends State<DonatePage>
                     return;
                   }
 
-                  _saveDonation(
-                    donation,
-                  ); // ✅ Save to Supabase with campaign_id
+                  _saveDonation(donation);
                   _resetInKindFields();
                 },
                 style: ElevatedButton.styleFrom(
