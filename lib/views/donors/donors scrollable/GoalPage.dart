@@ -2,6 +2,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
+
 import 'package:pawlytics/views/donors/controller/goal-opex-controller.dart';
 import 'package:pawlytics/views/donors/model/goal-opex-model.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
@@ -16,11 +17,14 @@ class GoalPage extends StatefulWidget {
 class _GoalPageState extends State<GoalPage> {
   final _controller = OpexAllocationsController();
   final _searchController = TextEditingController();
+
   final _php = NumberFormat.currency(
     locale: 'en_PH',
     symbol: '₱',
     decimalDigits: 0,
   );
+  final _dateFmt = DateFormat('MMM d, yyyy');
+  final _monthFmt = DateFormat('MMMM yyyy');
 
   String _searchQuery = "";
 
@@ -28,7 +32,7 @@ class _GoalPageState extends State<GoalPage> {
   void initState() {
     super.initState();
     _controller.addListener(_onChange);
-    _controller.loadAllocations(); // loads items for the current month
+    _controller.loadAllocations();
   }
 
   void _onChange() {
@@ -59,6 +63,17 @@ class _GoalPageState extends State<GoalPage> {
   String _percent(double value) =>
       '${(value * 100).clamp(0, 100).toStringAsFixed(0)}%';
 
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'completed':
+        return Colors.green;
+      case 'closed':
+        return Colors.grey;
+      default:
+        return const Color(0xFF1F2C47); // active
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Filtered list for the allocations section only
@@ -68,14 +83,19 @@ class _GoalPageState extends State<GoalPage> {
         )
         .toList();
 
-    // ✅ Header totals must NOT use the filtered list.
-    // Use all items so the header always shows the full month status.
+    // Header totals should use ALL items
     final allItems = _controller.items;
     final headerGoal = allItems.fold<double>(0, (s, e) => s + e.amount);
     final headerRaised = allItems.fold<double>(0, (s, e) => s + e.raised);
     final headerProg = headerGoal > 0
         ? (headerRaised / headerGoal).clamp(0.0, 1.0)
         : 0.0;
+
+    // Month status
+    final isClosed = _controller.isClosed; // provided by controller
+    final dueStr = _controller.monthEnd == null
+        ? '—'
+        : _dateFmt.format(_controller.monthEnd!);
 
     const brand = Color(0xFF1F2C47);
     const peach = Color(0xFFEC8C69);
@@ -116,7 +136,7 @@ class _GoalPageState extends State<GoalPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Summary Card — now decoupled from search
+                    // Summary Card — decoupled from search
                     _SummaryCard(
                       brand: brand,
                       peach: peach,
@@ -126,6 +146,12 @@ class _GoalPageState extends State<GoalPage> {
                       goalLabel: _php.format(headerGoal),
                       progress: headerProg,
                       percentText: _percent(headerProg),
+                      statusChip: _StatusChip(
+                        label: isClosed ? 'Closed' : 'Active',
+                        color: isClosed ? Colors.grey : brand,
+                      ),
+                      dueText: 'Due: $dueStr',
+                      showClosedNote: isClosed,
                     ),
                     const SizedBox(height: 16),
 
@@ -162,12 +188,119 @@ class _GoalPageState extends State<GoalPage> {
                           brand: brand,
                         );
                       }),
+
+                    // ------- Previous Months -------
+                    if ((_controller.history ?? []).isNotEmpty) ...[
+                      const SizedBox(height: 24),
+                      Text(
+                        "Previous Months",
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      ..._controller.history!.map((m) {
+                        final c = _statusColor(m.state);
+                        return Container(
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: Colors.grey.shade300),
+                            boxShadow: const [
+                              BoxShadow(
+                                color: Colors.black12,
+                                blurRadius: 8,
+                                offset: Offset(0, 3),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Icon(Icons.history, color: c),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      _monthFmt.format(m.monthStart),
+                                      style: const TextStyle(
+                                        fontWeight: FontWeight.w800,
+                                      ),
+                                    ),
+                                  ),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: c.withOpacity(.1),
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      m.state,
+                                      style: TextStyle(
+                                        color: c,
+                                        fontWeight: FontWeight.w700,
+                                        fontSize: 12,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 10),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(8),
+                                child: LinearProgressIndicator(
+                                  value: m.progressRatio.clamp(0.0, 1.0),
+                                  minHeight: 10,
+                                  backgroundColor: Colors.grey.shade200,
+                                  valueColor: AlwaysStoppedAnimation(c),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Row(
+                                children: [
+                                  const Icon(
+                                    Icons.payments_outlined,
+                                    size: 16,
+                                    color: Colors.black54,
+                                  ),
+                                  const SizedBox(width: 6),
+                                  Expanded(
+                                    child: Text(
+                                      '${_php.format(m.cashRaised)} of ${_php.format(m.goalAmount)} • ${(m.progressRatio * 100).toStringAsFixed(0)}%',
+                                      style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                'Period: ${_dateFmt.format(m.monthStart)} — ${_dateFmt.format(m.monthEnd)}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.black54,
+                                ),
+                              ),
+                            ],
+                          ),
+                        );
+                      }),
+                    ],
                   ],
                 ),
               ),
       ),
 
-      // Donate FAB — still targets most underfunded allocation
+      // Donate FAB — disabled when the month is closed
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: _controller.items.isEmpty
           ? null
@@ -193,39 +326,45 @@ class _GoalPageState extends State<GoalPage> {
                   borderRadius: BorderRadius.circular(36),
                   child: FloatingActionButton.extended(
                     heroTag: 'donateFab',
-                    backgroundColor: Colors.transparent,
+                    backgroundColor: _controller.isClosed
+                        ? Colors.grey
+                        : Colors.transparent,
                     foregroundColor: Colors.white,
                     elevation: 0,
                     icon: const Icon(Icons.volunteer_activism_rounded),
-                    label: const Text(
-                      'Donate Now',
-                      style: TextStyle(fontWeight: FontWeight.w700),
+                    label: Text(
+                      _controller.isClosed ? 'Donations Closed' : 'Donate Now',
+                      style: const TextStyle(fontWeight: FontWeight.w700),
                     ),
-                    tooltip: 'Support the animals',
-                    onPressed: () async {
-                      HapticFeedback.lightImpact();
-                      final target = _controller.items.reduce((a, b) {
-                        final aRem = (a.amount - a.raised).clamp(
-                          0,
-                          double.infinity,
-                        );
-                        final bRem = (b.amount - b.raised).clamp(
-                          0,
-                          double.infinity,
-                        );
-                        return aRem >= bRem ? a : b;
-                      });
-                      await Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => DonatePage(
-                            opexId: target.id,
-                            campaignTitle: 'General Fund',
-                          ),
-                        ),
-                      );
-                      await _controller.loadAllocations();
-                    },
+                    tooltip: _controller.isClosed
+                        ? 'This goal month is closed'
+                        : 'Support the animals',
+                    onPressed: _controller.isClosed
+                        ? null
+                        : () async {
+                            HapticFeedback.lightImpact();
+                            final target = _controller.items.reduce((a, b) {
+                              final aRem = (a.amount - a.raised).clamp(
+                                0,
+                                double.infinity,
+                              );
+                              final bRem = (b.amount - b.raised).clamp(
+                                0,
+                                double.infinity,
+                              );
+                              return aRem >= bRem ? a : b;
+                            });
+                            await Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => DonatePage(
+                                  opexId: target.id,
+                                  campaignTitle: 'General Fund',
+                                ),
+                              ),
+                            );
+                            await _controller.loadAllocations();
+                          },
                   ),
                 ),
               ),
@@ -235,6 +374,32 @@ class _GoalPageState extends State<GoalPage> {
 }
 
 /* ---------- UI Pieces ---------- */
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withOpacity(.08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withOpacity(.25)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: color,
+          fontSize: 12,
+        ),
+      ),
+    );
+  }
+}
 
 class _SearchBar extends StatelessWidget {
   const _SearchBar({required this.controller, required this.onChanged});
@@ -286,6 +451,9 @@ class _SummaryCard extends StatelessWidget {
     required this.goalLabel,
     required this.progress,
     required this.percentText,
+    required this.statusChip,
+    required this.dueText,
+    required this.showClosedNote,
   });
 
   final Color brand;
@@ -296,6 +464,9 @@ class _SummaryCard extends StatelessWidget {
   final String goalLabel;
   final double progress;
   final String percentText;
+  final Widget statusChip;
+  final String dueText;
+  final bool showClosedNote;
 
   @override
   Widget build(BuildContext context) {
@@ -312,13 +483,26 @@ class _SummaryCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // title + status
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: brand,
+                  ),
+                ),
+              ),
+              statusChip,
+            ],
+          ),
+          const SizedBox(height: 6),
           Text(
-            title,
-            style: TextStyle(
-              fontSize: 18,
-              fontWeight: FontWeight.w800,
-              color: brand,
-            ),
+            dueText,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
           ),
           const SizedBox(height: 12),
           Row(
@@ -384,6 +568,13 @@ class _SummaryCard extends StatelessWidget {
               valueColor: AlwaysStoppedAnimation(brand),
             ),
           ),
+          if (showClosedNote) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'This month is closed. New donations are not accepted.',
+              style: TextStyle(fontSize: 12, color: Colors.redAccent),
+            ),
+          ],
         ],
       ),
     );

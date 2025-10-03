@@ -1,6 +1,8 @@
+// lib/views/admin/pages/operational-expense.dart
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import 'package:pawlytics/views/admin/controllers/operational-expense-controller.dart';
 import 'package:pawlytics/views/admin/model/operational-expense-model.dart';
 import 'package:pawlytics/views/admin/model/donation-model.dart';
@@ -14,6 +16,8 @@ class OperationalExpense extends StatefulWidget {
 
 class _OperationalExpenseState extends State<OperationalExpense> {
   final _dateFmt = DateFormat('MMM d, yyyy');
+  final _monthFmt = DateFormat('MMMM yyyy');
+  final _php = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
 
   @override
   void initState() {
@@ -27,9 +31,54 @@ class _OperationalExpenseState extends State<OperationalExpense> {
     await context.read<OperationalExpenseController>().loadAllocations();
   }
 
+  double _clamp01(double v) => (v.isFinite ? v.clamp(0.0, 1.0) : 0.0);
+
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'completed':
+        return Colors.green;
+      case 'closed':
+        return Colors.grey;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  Future<bool> _confirm({
+    required String title,
+    required String message,
+    String confirmText = 'Delete',
+    String cancelText = 'Cancel',
+  }) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(title),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(cancelText, style: const TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(confirmText),
+          ),
+        ],
+      ),
+    );
+    return ok == true;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final controller = context.watch<OperationalExpenseController>();
+    final c = context.watch<OperationalExpenseController>();
+
+    final isClosed = c.isCurrentMonthClosed;
+    final isCompleted = c.isCurrentMonthCompleted;
+    final dueStr = c.currentMonthEnd == null
+        ? '—'
+        : _dateFmt.format(c.currentMonthEnd!);
 
     return Scaffold(
       appBar: AppBar(
@@ -47,7 +96,7 @@ class _OperationalExpenseState extends State<OperationalExpense> {
         ],
       ),
       body: SafeArea(
-        child: controller.loading
+        child: c.loading
             ? const Center(child: CircularProgressIndicator())
             : RefreshIndicator(
                 onRefresh: _refresh,
@@ -55,46 +104,133 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
-                    const SizedBox(height: 12),
-                    Center(
-                      child: Text(
-                        "Monthly Goal",
-                        style: Theme.of(context).textTheme.titleMedium,
+                    // ------- HEADER CARD -------
+                    Container(
+                      margin: const EdgeInsets.only(top: 8, bottom: 8),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 16,
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    Center(
-                      child: Text(
-                        "₱${controller.expenseGoal.toStringAsFixed(2)}",
-                        style: Theme.of(context).textTheme.headlineSmall
-                            ?.copyWith(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF8F4FF),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Text(
+                                "Monthly Goal",
+                                style: Theme.of(context).textTheme.titleMedium
+                                    ?.copyWith(color: Colors.black87),
+                              ),
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: isCompleted
+                                      ? Colors.green.withOpacity(.12)
+                                      : (isClosed
+                                            ? Colors.black26
+                                            : Colors.blue.withOpacity(.12)),
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      isCompleted
+                                          ? Icons.check_circle
+                                          : (isClosed
+                                                ? Icons.lock_clock
+                                                : Icons.bolt),
+                                      size: 16,
+                                      color: isCompleted
+                                          ? Colors.green
+                                          : (isClosed
+                                                ? Colors.black54
+                                                : Colors.blue),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text(
+                                      isCompleted
+                                          ? 'Completed'
+                                          : (isClosed ? 'Closed' : 'Active'),
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600,
+                                        color: isCompleted
+                                            ? Colors.green
+                                            : (isClosed
+                                                  ? Colors.black54
+                                                  : Colors.blue),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            _php.format(c.expenseGoal),
+                            style: Theme.of(context).textTheme.headlineSmall
+                                ?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: Colors.blue.shade600,
+                                  letterSpacing: 0.2,
+                                ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            'Due: $dueStr',
+                            style: Theme.of(context).textTheme.labelMedium
+                                ?.copyWith(color: Colors.black54),
+                          ),
+                          const SizedBox(height: 12),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: LinearProgressIndicator(
+                              value: _clamp01(c.progress),
+                              minHeight: 14,
+                              backgroundColor: Colors.grey.shade300,
+                              color: c.progress < 1.0
+                                  ? Colors.blue
+                                  : Colors.green,
                             ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-                    LinearProgressIndicator(
-                      value: controller.progress,
-                      minHeight: 16,
-                      backgroundColor: Colors.grey[300],
-                      color: controller.progress < 1.0
-                          ? Colors.blue
-                          : Colors.green,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      "₱${controller.totalDonationsCash.toStringAsFixed(2)} / ₱${controller.expenseGoal.toStringAsFixed(2)} donated",
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        fontSize: 14,
-                        fontWeight: FontWeight.w500,
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            '${_php.format(c.totalDonationsCash)} / ${_php.format(c.expenseGoal)} donated',
+                            textAlign: TextAlign.center,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: Colors.black87,
+                            ),
+                          ),
+                          if (isClosed && !isCompleted) ...[
+                            const SizedBox(height: 8),
+                            const Text(
+                              'Month is closed. New donations should be disabled in the donor app.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: Colors.redAccent,
+                              ),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
 
                     const Divider(height: 40),
 
+                    // ------- LIST HEADER -------
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
@@ -114,7 +250,8 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                     ),
                     const SizedBox(height: 8),
 
-                    if (controller.operationalExpenseList.isEmpty)
+                    // ------- ALLOCATIONS LIST -------
+                    if (c.operationalExpenseList.isEmpty)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
                         child: Center(
@@ -125,21 +262,48 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                         ),
                       )
                     else
-                      ...controller.operationalExpenseList.asMap().entries.map((
-                        entry,
-                      ) {
+                      ...c.operationalExpenseList.asMap().entries.map((entry) {
                         final index = entry.key;
                         final expense = entry.value;
 
+                        final raised = c.raisedForAllocationId(expense.id);
+                        final goal = expense.amount;
+                        final pct = goal > 0
+                            ? (raised / goal * 100).clamp(0, 100)
+                            : 0;
+                        final rowProgress = c.allocationProgress(index);
+
+                        Future<void> _deleteThis() async {
+                          final ok = await _confirm(
+                            title: 'Delete allocation?',
+                            message:
+                                'This will permanently remove “${expense.category}”.',
+                          );
+                          if (!ok) return;
+                          final success = await c.removeAllocation(index);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                success
+                                    ? 'Allocation deleted'
+                                    : 'Failed to delete allocation',
+                              ),
+                            ),
+                          );
+                        }
+
                         return Card(
+                          key: ValueKey(
+                            expense.id ?? '${expense.category}-$index',
+                          ),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
                           elevation: 2,
                           margin: const EdgeInsets.symmetric(vertical: 6),
                           child: ListTile(
-                            onLongPress: () =>
-                                controller.removeAllocation(index),
+                            onLongPress: _deleteThis, // confirmation added
                             leading: const Icon(
                               Icons.pie_chart,
                               color: Colors.blue,
@@ -150,10 +314,37 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
-                            subtitle: Text(
-                              "₱${expense.amount.toStringAsFixed(2)} "
-                              "(${(controller.allocationPercent(index) * 100).toStringAsFixed(1)}%)",
+
+                            // Raised / Goal + mini progress bar
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${_php.format(raised)} of ${_php.format(goal)} (${pct.toStringAsFixed(1)}%)',
+                                ),
+                                const SizedBox(height: 6),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: LinearProgressIndicator(
+                                    value: _clamp01(rowProgress),
+                                    minHeight: 8,
+                                    backgroundColor: Colors.grey.shade300,
+                                    color: rowProgress < 1.0
+                                        ? Colors.blue
+                                        : Colors.green,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  'Share of monthly goal: ${(c.allocationPercent(index) * 100).toStringAsFixed(1)}%',
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    color: Colors.grey[700],
+                                  ),
+                                ),
+                              ],
                             ),
+
                             trailing: Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -163,7 +354,6 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                                     color: Colors.orange,
                                   ),
                                   onPressed: () {
-                                    // capture the provider instance BEFORE the dialog
                                     final opex = context
                                         .read<OperationalExpenseController>();
 
@@ -233,8 +423,9 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                                                 ),
                                               );
 
-                                              if (context.mounted)
+                                              if (context.mounted) {
                                                 Navigator.pop(context);
+                                              }
                                             },
                                             child: const Text("Update"),
                                           ),
@@ -248,8 +439,7 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                                     Icons.delete,
                                     color: Colors.red,
                                   ),
-                                  onPressed: () =>
-                                      controller.removeAllocation(index),
+                                  onPressed: _deleteThis, // confirmation added
                                 ),
                               ],
                             ),
@@ -257,8 +447,63 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                         );
                       }),
 
+                    const SizedBox(height: 24),
+
+                    // ------- HISTORY (Previous months) -------
+                    if (c.history.isNotEmpty) ...[
+                      Text(
+                        "Previous Months",
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
+                      const SizedBox(height: 8),
+                      ...c.history.map((m) {
+                        final statusColor = _statusColor(m.state);
+                        return Card(
+                          margin: const EdgeInsets.symmetric(vertical: 6),
+                          child: ListTile(
+                            leading: Icon(Icons.history, color: statusColor),
+                            title: Text(_monthFmt.format(m.monthStart)),
+                            subtitle: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${_php.format(m.cashRaised)} / ${_php.format(m.goalAmount)} • ${(m.progressRatio * 100).toStringAsFixed(1)}%',
+                                ),
+                                const SizedBox(height: 4),
+                                LinearProgressIndicator(
+                                  value: _clamp01(m.progressRatio),
+                                  minHeight: 6,
+                                ),
+                              ],
+                            ),
+                            trailing: Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 10,
+                                vertical: 4,
+                              ),
+                              decoration: BoxDecoration(
+                                color: statusColor.withOpacity(.12),
+                                borderRadius: BorderRadius.circular(999),
+                              ),
+                              child: Text(
+                                m.state,
+                                style: TextStyle(
+                                  color: statusColor,
+                                  fontWeight: FontWeight.w700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                            ),
+                          ),
+                        );
+                      }),
+                      const SizedBox(height: 16),
+                    ],
+
                     const Divider(height: 40),
 
+                    // ------- DONATIONS LIST (UI-only) -------
                     Text(
                       "Donations",
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
@@ -267,7 +512,7 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                     ),
                     const SizedBox(height: 8),
 
-                    if (controller.donations.isEmpty)
+                    if (c.donations.isEmpty)
                       const Padding(
                         padding: EdgeInsets.symmetric(vertical: 24),
                         child: Center(
@@ -278,7 +523,7 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                         ),
                       )
                     else
-                      ...controller.donations.asMap().entries.map((entry) {
+                      ...c.donations.asMap().entries.map((entry) {
                         final index = entry.key;
                         final d = entry.value;
                         final donor = (d.donorName.isEmpty)
@@ -288,12 +533,24 @@ class _OperationalExpenseState extends State<OperationalExpense> {
 
                         final isCash = d.type == DonationType.cash;
                         final title = isCash
-                            ? "₱${(d.amount ?? 0).toStringAsFixed(2)} from $donor"
+                            ? "${_php.format(d.amount ?? 0)} from $donor"
                             : "${(d.item ?? 'In-kind item')} × ${(d.quantity ?? 0)} from $donor";
-
                         final subtitle = isCash
                             ? "Cash • ${d.paymentMethod ?? '—'} • $dateStr"
                             : "In-Kind • $dateStr";
+
+                        Future<void> _deleteDonation() async {
+                          final ok = await _confirm(
+                            title: 'Delete donation?',
+                            message: 'Remove this donation card permanently?',
+                          );
+                          if (!ok) return;
+                          c.removeDonation(index);
+                          if (!mounted) return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Donation removed')),
+                          );
+                        }
 
                         return Card(
                           shape: RoundedRectangleBorder(
@@ -310,7 +567,7 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                             subtitle: Text(subtitle),
                             trailing: IconButton(
                               icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: () => controller.removeDonation(index),
+                              onPressed: _deleteDonation, // confirmation added
                             ),
                           ),
                         );
@@ -320,14 +577,12 @@ class _OperationalExpenseState extends State<OperationalExpense> {
               ),
       ),
 
-      // FAB: Add Allocation
+      // ------- FAB: Add Allocation -------
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: const Text("Add Allocation"),
         onPressed: () {
-          // capture the provider instance BEFORE opening the dialog
           final opex = context.read<OperationalExpenseController>();
-
           final categoryController = TextEditingController();
           final amountController = TextEditingController();
 
@@ -393,21 +648,25 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                               });
 
                               try {
-                                await opex.addAllocation(
+                                final ok = await opex.addAllocation(
                                   OperationalExpenseModel(
                                     category: category,
                                     amount: amount,
                                   ),
                                 );
 
-                                if (context.mounted) {
-                                  Navigator.pop(context);
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                      content: Text('Allocation added'),
+                                if (!mounted) return;
+                                Navigator.pop(context);
+
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      ok
+                                          ? 'Allocation added'
+                                          : 'Failed to add allocation',
                                     ),
-                                  );
-                                }
+                                  ),
+                                );
                               } catch (e) {
                                 setState(() {
                                   saving = false;
