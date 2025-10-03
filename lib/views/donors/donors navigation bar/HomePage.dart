@@ -103,12 +103,12 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        // Example featured pet → details (pass campaignId)
+                        // ✅ Pass a real petId string (replace with real id when wired to DB)
                         Navigator.push(
                           context,
                           MaterialPageRoute(
-                            builder: (_) => PetDetailPage(
-                              campaignId: defaultCampaignId,
+                            builder: (_) => const PetDetailPage(
+                              petId: 'featured-buddy-1',
                               name: "Buddy",
                               image: "assets/images/donors/peter.png",
                               breed: "Aspin",
@@ -180,6 +180,7 @@ class HomePage extends StatelessWidget {
                 children: [
                   petCard(
                     context,
+                    petId: 'buddy-001', // ✅ NEW
                     name: "Buddy",
                     breed: "Aspin",
                     type: "Dog",
@@ -188,6 +189,7 @@ class HomePage extends StatelessWidget {
                   ),
                   petCard(
                     context,
+                    petId: 'ming-001',
                     name: "Ming",
                     breed: "Puspin",
                     type: "Cat",
@@ -196,6 +198,7 @@ class HomePage extends StatelessWidget {
                   ),
                   petCard(
                     context,
+                    petId: 'luna-001',
                     name: "Luna",
                     breed: "Aspin",
                     type: "Dog",
@@ -204,6 +207,7 @@ class HomePage extends StatelessWidget {
                   ),
                   petCard(
                     context,
+                    petId: 'whiskers-001',
                     name: "Whiskers",
                     breed: "Puspin",
                     type: "Cat",
@@ -258,9 +262,9 @@ class HomePage extends StatelessWidget {
                 await Navigator.push(
                   context,
                   MaterialPageRoute(
-                    builder: (_) => DonatePage(
-                      campaignId: defaultCampaignId, // 👈 required
-                      campaignTitle: 'General Fund', // optional
+                    builder: (_) => const DonatePage(
+                      campaignId: defaultCampaignId, // 👈 general fund
+                      campaignTitle: 'General Fund',
                     ),
                   ),
                 );
@@ -348,11 +352,12 @@ class HomePage extends StatelessWidget {
 
   Widget petCard(
     BuildContext context, {
+    required String petId, // ✅ NEW
     required String name,
     required String breed,
     required String type,
     required String imagePath,
-    required int campaignId,
+    required int campaignId, // (you can remove later if unused)
   }) {
     return Container(
       width: 160,
@@ -391,7 +396,7 @@ class HomePage extends StatelessWidget {
                       context,
                       MaterialPageRoute(
                         builder: (_) => PetDetailPage(
-                          campaignId: campaignId, // 👈 pass it
+                          petId: petId, // ✅ pass the id we received
                           name: name,
                           image: imagePath,
                           breed: breed,
@@ -442,7 +447,6 @@ class HomePage extends StatelessWidget {
     required String deadline,
   }) {
     final double progress = raised / total;
-
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
       padding: const EdgeInsets.all(16),
@@ -465,12 +469,10 @@ class HomePage extends StatelessWidget {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
               ),
               GestureDetector(
-                onTap: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (_) => const ViewMorePage()),
-                  );
-                },
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const ViewMorePage()),
+                ),
                 child: const Text(
                   "View More",
                   style: TextStyle(

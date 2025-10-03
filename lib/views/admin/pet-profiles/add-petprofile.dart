@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/controllers/add-pet-controller.dart';
-import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/pill.dart'; // adjust import
+import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/pill.dart';
 
 class AddPetProfile extends StatefulWidget {
   const AddPetProfile({super.key});
@@ -22,18 +22,18 @@ class _AddPetProfileState extends State<AddPetProfile> {
   }
 
   OutlineInputBorder _border(Color c) => OutlineInputBorder(
-        borderRadius: BorderRadius.circular(16),
-        borderSide: BorderSide(color: c, width: 1.2),
-      );
+    borderRadius: BorderRadius.circular(16),
+    borderSide: BorderSide(color: c, width: 1.2),
+  );
 
   InputDecoration _input({String? hint}) => InputDecoration(
-        hintText: hint,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        filled: true,
-        fillColor: Colors.white,
-        enabledBorder: _border(Colors.blueGrey.shade200),
-        focusedBorder: _border(brand),
-      );
+    hintText: hint,
+    contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+    filled: true,
+    fillColor: Colors.white,
+    enabledBorder: _border(Colors.blueGrey.shade200),
+    focusedBorder: _border(brand),
+  );
 
   @override
   Widget build(BuildContext context) {
@@ -128,7 +128,8 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     child: Pill(
                       label: 'Dog',
                       selected: pet.species == 'Dog',
-                      onTap: () => setState(() => controller.updateSpecies('Dog')),
+                      onTap: () =>
+                          setState(() => controller.updateSpecies('Dog')),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -136,7 +137,8 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     child: Pill(
                       label: 'Cat',
                       selected: pet.species == 'Cat',
-                      onTap: () => setState(() => controller.updateSpecies('Cat')),
+                      onTap: () =>
+                          setState(() => controller.updateSpecies('Cat')),
                     ),
                   ),
                 ],
@@ -150,7 +152,9 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     child: Pill(
                       label: 'Puppy/Kitten',
                       selected: pet.ageGroup == 'Puppy/Kitten',
-                      onTap: () => setState(() => controller.updateAgeGroup('Puppy/Kitten')),
+                      onTap: () => setState(
+                        () => controller.updateAgeGroup('Puppy/Kitten'),
+                      ),
                     ),
                   ),
                   const SizedBox(width: 10),
@@ -158,7 +162,8 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     child: Pill(
                       label: 'Senior',
                       selected: pet.ageGroup == 'Senior',
-                      onTap: () => setState(() => controller.updateAgeGroup('Senior')),
+                      onTap: () =>
+                          setState(() => controller.updateAgeGroup('Senior')),
                     ),
                   ),
                 ],
@@ -176,37 +181,47 @@ class _AddPetProfileState extends State<AddPetProfile> {
                   CheckboxListTile(
                     title: const Text('Surgery'),
                     value: pet.surgery,
-                    onChanged: (v) => setState(() => controller.toggleSurgery(v ?? false)),
+                    onChanged: (v) =>
+                        setState(() => controller.toggleSurgery(v ?? false)),
                   ),
                   CheckboxListTile(
                     title: const Text('Dental Care'),
                     value: pet.dentalCare,
-                    onChanged: (v) => setState(() => controller.toggleDentalCare(v ?? false)),
+                    onChanged: (v) =>
+                        setState(() => controller.toggleDentalCare(v ?? false)),
                   ),
                   CheckboxListTile(
                     title: const Text('Vaccination'),
                     value: pet.vaccination,
-                    onChanged: (v) => setState(() => controller.toggleVaccination(v ?? false)),
+                    onChanged: (v) => setState(
+                      () => controller.toggleVaccination(v ?? false),
+                    ),
                   ),
                   CheckboxListTile(
                     title: const Text('Injury Treatment'),
                     value: pet.injuryTreatment,
-                    onChanged: (v) => setState(() => controller.toggleInjuryTreatment(v ?? false)),
+                    onChanged: (v) => setState(
+                      () => controller.toggleInjuryTreatment(v ?? false),
+                    ),
                   ),
                   CheckboxListTile(
                     title: const Text('Deworming'),
                     value: pet.deworming,
-                    onChanged: (v) => setState(() => controller.toggleDeworming(v ?? false)),
+                    onChanged: (v) =>
+                        setState(() => controller.toggleDeworming(v ?? false)),
                   ),
                   CheckboxListTile(
                     title: const Text('Skin Treatment'),
                     value: pet.skinTreatment,
-                    onChanged: (v) => setState(() => controller.toggleSkinTreatment(v ?? false)),
+                    onChanged: (v) => setState(
+                      () => controller.toggleSkinTreatment(v ?? false),
+                    ),
                   ),
                   CheckboxListTile(
                     title: const Text('Spay/Neuter'),
                     value: pet.spayNeuter,
-                    onChanged: (v) => setState(() => controller.toggleSpayNeuter(v ?? false)),
+                    onChanged: (v) =>
+                        setState(() => controller.toggleSpayNeuter(v ?? false)),
                   ),
                 ],
               ),
@@ -223,12 +238,40 @@ class _AddPetProfileState extends State<AddPetProfile> {
                 isExpanded: true,
                 decoration: _input(hint: 'For Adoption'),
                 items: const [
-                  DropdownMenuItem(value: 'For Adoption', child: Text('For Adoption')),
+                  DropdownMenuItem(
+                    value: 'For Adoption',
+                    child: Text('For Adoption'),
+                  ),
                   DropdownMenuItem(value: 'Adopted', child: Text('Adopted')),
-                  DropdownMenuItem(value: 'Needs Medical Care', child: Text('Needs Medical Care')),
+                  DropdownMenuItem(
+                    value: 'Needs Medical Care',
+                    child: Text('Needs Medical Care'),
+                  ),
                 ],
-                onChanged: (v) => setState(() => controller.updateStatus(v ?? 'For Adoption')),
+                onChanged: (v) => setState(
+                  () => controller.updateStatus(v ?? 'For Adoption'),
+                ),
               ),
+
+              const SizedBox(height: 16),
+
+              // 👇 NEW: Pet Story (multiline)
+              const Text(
+                'Story',
+                style: TextStyle(color: brand, fontWeight: FontWeight.w700),
+              ),
+              const SizedBox(height: 6),
+              TextField(
+                controller: controller.storyController,
+                decoration: _input(
+                  hint:
+                      "Share this pet's rescue background, personality, and adoption notes…",
+                ),
+                minLines: 4,
+                maxLines: 8,
+                textInputAction: TextInputAction.newline,
+              ),
+
               const SizedBox(height: 80),
             ],
           ),
@@ -237,270 +280,3 @@ class _AddPetProfileState extends State<AddPetProfile> {
     );
   }
 }
-
-// // lib/screens/add_pet_profile.dart
-// import 'package:flutter/material.dart';
-// import 'package:pawlytics/views/admin/controllers/add-pet-controller.dart';
-// import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/pill.dart'; // adjust import path if needed
-
-// class AddPetProfile extends StatefulWidget {
-//   const AddPetProfile({super.key});
-
-//   @override
-//   State<AddPetProfile> createState() => _AddPetProfileState();
-// }
-
-// class _AddPetProfileState extends State<AddPetProfile> {
-//   static const brand = Color(0xFF27374D);
-//   static const softGrey = Color(0xFFE9EEF3);
-
-//   final controller = PetProfileController();
-
-//   @override
-//   void dispose() {
-//     controller.dispose();
-//     super.dispose();
-//   }
-
-//   OutlineInputBorder _border(Color c) => OutlineInputBorder(
-//     borderRadius: BorderRadius.circular(16),
-//     borderSide: BorderSide(color: c, width: 1.2),
-//   );
-
-//   InputDecoration _input({String? hint}) => InputDecoration(
-//     hintText: hint,
-//     contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-//     filled: true,
-//     fillColor: Colors.white,
-//     enabledBorder: _border(Colors.blueGrey.shade200),
-//     focusedBorder: _border(brand),
-//   );
-
-//   @override
-//   Widget build(BuildContext context) {
-//     final pet = controller.petProfile;
-
-//     return GestureDetector(
-//       onTap: () => FocusScope.of(context).unfocus(),
-//       child: Scaffold(
-//         backgroundColor: Colors.white,
-//         appBar: AppBar(
-//           leading: const BackButton(),
-//           title: const Text('Add New Pet'),
-//           centerTitle: true,
-//           elevation: 0,
-//           backgroundColor: Colors.white,
-//           foregroundColor: Colors.black87,
-//         ),
-//         bottomNavigationBar: SafeArea(
-//           child: Padding(
-//             padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-//             child: SizedBox(
-//               width: double.infinity,
-//               height: 50,
-//               child: ElevatedButton(
-//                 style: ElevatedButton.styleFrom(
-//                   backgroundColor: brand,
-//                   foregroundColor: Colors.white,
-//                   elevation: 0,
-//                   shape: RoundedRectangleBorder(
-//                     borderRadius: BorderRadius.circular(18),
-//                   ),
-//                 ),
-//                 onPressed: () async {
-//                   try {
-//                     await controller.savePet();
-//                     ScaffoldMessenger.of(
-//                       context,
-//                     ).showSnackBar(const SnackBar(content: Text('Pet saved')));
-//                     Navigator.of(context).maybePop(); // optional close
-//                   } catch (e) {
-//                     ScaffoldMessenger.of(context).showSnackBar(
-//                       SnackBar(content: Text('Error saving pet: $e')),
-//                     );
-//                   }
-//                 },
-//                 child: const Text('Save Pet'),
-//               ),
-//             ),
-//           ),
-//         ),
-//         body: SafeArea(
-//           child: ListView(
-//             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-//             children: [
-//               // Profile Picture Placeholder
-//               Center(
-//                 child: Container(
-//                   width: 100,
-//                   height: 100,
-//                   decoration: BoxDecoration(
-//                     color: softGrey,
-//                     shape: BoxShape.circle,
-//                   ),
-//                   child: IconButton(
-//                     onPressed: () {},
-//                     icon: const Icon(
-//                       Icons.photo_camera_outlined,
-//                       size: 36,
-//                       color: brand,
-//                     ),
-//                   ),
-//                 ),
-//               ),
-//               const SizedBox(height: 16),
-
-//               // Pet Name
-//               const Text(
-//                 'Pet Name',
-//                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
-//               ),
-//               const SizedBox(height: 6),
-//               TextField(
-//                 controller: controller.nameController,
-//                 decoration: _input(hint: 'Peter'),
-//                 textInputAction: TextInputAction.next,
-//               ),
-//               const SizedBox(height: 14),
-
-//               // Species
-//               Row(
-//                 children: [
-//                   Expanded(
-//                     child: Pill(
-//                       label: 'Dog',
-//                       selected: pet.species == 'Dog',
-//                       onTap: () =>
-//                           setState(() => controller.updateSpecies('Dog')),
-//                     ),
-//                   ),
-//                   const SizedBox(width: 10),
-//                   Expanded(
-//                     child: Pill(
-//                       label: 'Cat',
-//                       selected: pet.species == 'Cat',
-//                       // outlineOnly: true,
-//                       onTap: () =>
-//                           setState(() => controller.updateSpecies('Cat')),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 10),
-
-//               // Age Group
-//               Row(
-//                 children: [
-//                   Expanded(
-//                     child: Pill(
-//                       label: 'Puppy/Kitten',
-//                       selected: pet.ageGroup == 'Puppy/Kitten',
-//                       // outlineOnly: true,
-//                       onTap: () => setState(
-//                         () => controller.updateAgeGroup('Puppy/Kitten'),
-//                       ),
-//                     ),
-//                   ),
-//                   const SizedBox(width: 10),
-//                   Expanded(
-//                     child: Pill(
-//                       label: 'Senior',
-//                       selected: pet.ageGroup == 'Senior',
-//                       onTap: () =>
-//                           setState(() => controller.updateAgeGroup('Senior')),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 16),
-
-//               // Health & Care Needs (use bool fields directly)
-//               const Text(
-//                 'Health & Care Needs',
-//                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
-//               ),
-//               const SizedBox(height: 10),
-//               Column(
-//                 children: [
-//                   CheckboxListTile(
-//                     title: const Text('Surgery'),
-//                     value: pet.surgery,
-//                     onChanged: (v) =>
-//                         setState(() => controller.toggleSurgery(v ?? false)),
-//                   ),
-//                   CheckboxListTile(
-//                     title: const Text('Dental Care'),
-//                     value: pet.dentalCare,
-//                     onChanged: (v) =>
-//                         setState(() => controller.toggleDentalCare(v ?? false)),
-//                   ),
-//                   CheckboxListTile(
-//                     title: const Text('Vaccination'),
-//                     value: pet.vaccination,
-//                     onChanged: (v) => setState(
-//                       () => controller.toggleVaccination(v ?? false),
-//                     ),
-//                   ),
-//                   CheckboxListTile(
-//                     title: const Text('Injury Treatment'),
-//                     value: pet.injuryTreatment,
-//                     onChanged: (v) => setState(
-//                       () => controller.toggleInjuryTreatment(v ?? false),
-//                     ),
-//                   ),
-//                   CheckboxListTile(
-//                     title: const Text('Deworming'),
-//                     value: pet.deworming,
-//                     onChanged: (v) =>
-//                         setState(() => controller.toggleDeworming(v ?? false)),
-//                   ),
-//                   CheckboxListTile(
-//                     title: const Text('Skin Treatment'),
-//                     value: pet.skinTreatment,
-//                     onChanged: (v) => setState(
-//                       () => controller.toggleSkinTreatment(v ?? false),
-//                     ),
-//                   ),
-//                   CheckboxListTile(
-//                     title: const Text('Spay/Neuter'),
-//                     value: pet.spayNeuter,
-//                     onChanged: (v) =>
-//                         setState(() => controller.toggleSpayNeuter(v ?? false)),
-//                   ),
-//                 ],
-//               ),
-//               const SizedBox(height: 16),
-
-//               // Status
-//               const Text(
-//                 'Status',
-//                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
-//               ),
-//               const SizedBox(height: 6),
-//               DropdownButtonFormField<String>(
-//                 value: pet.status,
-//                 isExpanded: true,
-//                 decoration: _input(hint: 'For Adoption'),
-//                 items: const [
-//                   DropdownMenuItem(
-//                     value: 'For Adoption',
-//                     child: Text('For Adoption'),
-//                   ),
-//                   DropdownMenuItem(value: 'Adopted', child: Text('Adopted')),
-//                   DropdownMenuItem(
-//                     value: 'Needs Medical Care',
-//                     child: Text('Needs Medical Care'),
-//                   ),
-//                 ],
-//                 onChanged: (v) => setState(
-//                   () => controller.updateStatus(v ?? 'For Adoption'),
-//                 ),
-//               ),
-//               const SizedBox(height: 80),
-//             ],
-//           ),
-//         ),
-//       ),
-//     );
-//   }
-// }

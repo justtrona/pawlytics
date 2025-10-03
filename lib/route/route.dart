@@ -74,6 +74,7 @@ const String operationalExpense = 'operational-expense';
 const String userManage = 'manage-user';
 const String manualDonation = 'manual-donation';
 const String menuBar = 'menu-bar';
+const String petDetailPage = 'pet-detail-page';
 
 //correct route for operational expense
 const String operationalExpenseModule = 'operational-expense-module';
@@ -154,7 +155,7 @@ Route<dynamic> controller(RouteSettings settings) {
     // donors
     case routePage:
       return MaterialPageRoute(builder: (context) => RoutePage());
-
+    case petDetailPage:
     default:
       return MaterialPageRoute(builder: (_) => const NavigationButtonAdmin());
   }

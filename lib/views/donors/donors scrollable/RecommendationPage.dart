@@ -10,6 +10,7 @@ class RecommendationPage extends StatelessWidget {
   // Use dynamic to allow an int for campaignId
   final List<Map<String, dynamic>> recommendedPets = [
     {
+      "id": 1, // Add ID
       "name": "Max",
       "breed": "Aspin",
       "type": "Dog",
@@ -17,6 +18,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 2, // Add ID
       "name": "Mingming",
       "breed": "Puspin",
       "type": "Cat",
@@ -24,6 +26,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 3, // Add ID
       "name": "Buddy",
       "breed": "Shih Tzu",
       "type": "Dog",
@@ -31,6 +34,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 4, // Add ID
       "name": "Kuting",
       "breed": "Puspin",
       "type": "Cat",
@@ -38,6 +42,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 5, // Add ID
       "name": "Chowee",
       "breed": "Puspin",
       "type": "Cat",
@@ -45,6 +50,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 6, // Add ID
       "name": "Princess",
       "breed": "Aspins",
       "type": "Dog",
@@ -52,6 +58,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 7, // Add ID
       "name": "Luna",
       "breed": "Persian Mix",
       "type": "Cat",
@@ -59,6 +66,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 8, // Add ID
       "name": "Bantay",
       "breed": "Puspin",
       "type": "Cat",
@@ -66,6 +74,7 @@ class RecommendationPage extends StatelessWidget {
       "campaignId": defaultCampaignId,
     },
     {
+      "id": 9, // Add ID
       "name": "Snow",
       "breed": "Aspin",
       "type": "Dog",
@@ -188,13 +197,13 @@ class RecommendationPage extends StatelessWidget {
                             Navigator.push(
                               context,
                               MaterialPageRoute(
-                                builder: (context) => PetDetailPage(
-                                  campaignId:
-                                      pet["campaignId"] as int, // 👈 PASS IT
-                                  name: pet["name"] as String,
-                                  image: pet["image"] as String,
-                                  breed: pet["breed"] as String,
-                                  type: pet["type"] as String,
+                                builder: (_) => PetDetailPage(
+                                  // campaignId: pet["campaignId"],
+                                  petId: pet["id"], // Passing the id
+                                  name: pet['name'] as String,
+                                  image: pet['image'] as String,
+                                  breed: pet['breed'] as String,
+                                  type: pet['type'] as String,
                                 ),
                               ),
                             );

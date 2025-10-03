@@ -16,7 +16,7 @@ class DonationController {
   String? selectedPaymentMethod;
   String? selectedLocation;
 
-  /// FK → donations.opex_id
+  /// FK → public.donations.allocation_id (kept name for minimal refactor)
   int? selectedOpexId;
 
   final paymentOptions = const ['GCash', 'Maya'];
@@ -86,7 +86,7 @@ class DonationController {
             ? null
             : selectedPaymentMethod!.trim(),
         notes: notesCtl.text.trim().isEmpty ? null : notesCtl.text.trim(),
-        opexId: selectedOpexId, // <-- here
+        opexId: selectedOpexId, // mapped to allocation_id by the model
       );
     } else {
       final qty = int.tryParse(qtyCtl.text.trim());
@@ -104,7 +104,7 @@ class DonationController {
             ? null
             : selectedLocation!.trim(),
         notes: notesCtl.text.trim().isEmpty ? null : notesCtl.text.trim(),
-        opexId: selectedOpexId, // <-- here
+        opexId: selectedOpexId, // mapped to allocation_id by the model
       );
     }
   }

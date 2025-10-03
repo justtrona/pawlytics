@@ -1,11 +1,19 @@
 // lib/views/donors/model/donation-model.dart
-
 enum DonationType { cash, inKind }
 
 extension DonationTypeDb on DonationType {
   String get db => this == DonationType.cash ? 'Cash' : 'InKind';
-  static DonationType fromDb(String v) =>
-      v.toLowerCase() == 'cash' ? DonationType.cash : DonationType.inKind;
+
+  static DonationType fromDb(String v) {
+    switch (v.toLowerCase()) {
+      case 'cash':
+        return DonationType.cash;
+      case 'inkind':
+        return DonationType.inKind;
+      default:
+        throw ArgumentError('Invalid DonationType: $v');
+    }
+  }
 }
 
 class DonationModel {
@@ -22,7 +30,8 @@ class DonationModel {
 
   final DonationType donationType;
 
-  /// FK → your schema column `public.donations.opex_id`
+  /// Keep the field name for minimal refactor, but this now maps to DB column:
+  /// public.donations.allocation_id
   final int? opexId;
 
   DonationModel._({
@@ -39,6 +48,7 @@ class DonationModel {
     this.opexId,
   });
 
+  // Cash donation
   factory DonationModel.cash({
     required String donorName,
     required String donorPhone,
@@ -46,7 +56,7 @@ class DonationModel {
     required double amount,
     String? paymentMethod,
     String? notes,
-    int? opexId, // <-- note the name
+    int? opexId,
   }) {
     return DonationModel._(
       donorName: donorName,
@@ -60,6 +70,7 @@ class DonationModel {
     );
   }
 
+  // In-kind donation
   factory DonationModel.inKind({
     required String donorName,
     required String donorPhone,
@@ -69,7 +80,7 @@ class DonationModel {
     double? fairValueAmount,
     String? dropOffLocation,
     String? notes,
-    int? opexId, // <-- note the name
+    int? opexId,
   }) {
     return DonationModel._(
       donorName: donorName,
@@ -96,8 +107,8 @@ class DonationModel {
     'quantity': quantity,
     'drop_off_location': dropOffLocation,
     'notes': notes,
-    // IMPORTANT: matches DB column name
-    'opex_id': opexId,
+    // IMPORTANT: write to the new column name
+    'allocation_id': opexId,
   };
 
   Map<String, dynamic> toInsertMap({bool stripNulls = true}) {
@@ -109,13 +120,19 @@ class DonationModel {
   List<String> validate() {
     final errs = <String>[];
     if (donationType == DonationType.cash) {
-      if (amount == null || amount! <= 0)
+      if (amount == null || amount! <= 0) {
         errs.add('Cash amount must be greater than zero.');
-    } else {
-      if (item == null || item!.trim().isEmpty)
+      }
+    } else if (donationType == DonationType.inKind) {
+      if (item == null || item!.trim().isEmpty) {
         errs.add('In-kind item is required.');
-      if (quantity != null && quantity! < 0)
+      }
+      if (quantity != null && quantity! < 0) {
         errs.add('Quantity cannot be negative.');
+      }
+      if (amount == null || amount! <= 0) {
+        errs.add('In-kind donation must have a valid fair value.');
+      }
     }
     return errs;
   }

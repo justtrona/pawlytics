@@ -1,7 +1,8 @@
-// lib/views/donors/donors scrollable/connections/pet_page.dart
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pawlytics/views/donors/donors scrollable/connections/PetDetailsPage.dart';
+import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 
 class PetPage extends StatefulWidget {
   const PetPage({super.key});
@@ -15,11 +16,10 @@ class PetProfile {
   final String id;
   final String name;
   final String species; // "Dog" / "Cat"
-  final String ageGroup; // you previously showed this; using as “breed-ish”
+  final String ageGroup; // using as “breed-ish”
   final String status; // e.g. "For Adoption"
-  final String? imageUrl; // may be null/empty
+  final String? imageUrl;
   final DateTime? createdAt;
-  final int campaignId; // default until you add a real column
 
   PetProfile({
     required this.id,
@@ -29,11 +29,7 @@ class PetProfile {
     required this.status,
     required this.imageUrl,
     required this.createdAt,
-    required this.campaignId,
   });
-
-  static double _toD(dynamic v) =>
-      v is num ? v.toDouble() : double.tryParse('$v') ?? 0.0;
 
   static DateTime? _toDate(dynamic v) {
     if (v == null) return null;
@@ -44,12 +40,9 @@ class PetProfile {
     }
   }
 
-  factory PetProfile.fromMap(
-    Map<String, dynamic> m, {
-    int defaultCampaignId = 26,
-  }) {
+  factory PetProfile.fromMap(Map<String, dynamic> m) {
     return PetProfile(
-      id: (m['id'] ?? m['uuid'] ?? '').toString(),
+      id: (m['id'] ?? '').toString(),
       name: (m['name'] ?? 'Unnamed').toString(),
       species: (m['species'] ?? '').toString(),
       ageGroup: (m['age_group'] ?? '').toString(),
@@ -58,9 +51,6 @@ class PetProfile {
           ? null
           : m['image'].toString(),
       createdAt: _toDate(m['created_at']),
-      campaignId: m['campaign_id'] is num
-          ? (m['campaign_id'] as num).toInt()
-          : defaultCampaignId,
     );
   }
 }
@@ -69,14 +59,11 @@ class PetProfile {
 class _PetPageState extends State<PetPage> {
   final _sb = Supabase.instance.client;
 
-  // UI state
   String _searchQuery = '';
   String _selectedFilter = 'All'; // All / Dog / Cat
   bool _loading = false;
   String? _error;
 
-  // Data
-  static const int _defaultCampaignId = 26;
   final List<PetProfile> _allPets = [];
 
   @override
@@ -94,17 +81,11 @@ class _PetPageState extends State<PetPage> {
     try {
       final res = await _sb
           .from('pet_profiles')
-          .select(
-            'id, uuid, name, species, age_group, status, image, created_at, campaign_id',
-          )
+          .select('id, name, species, age_group, status, image, created_at')
           .order('created_at', ascending: false);
 
       final rows = (res as List).cast<Map<String, dynamic>>();
-      final items = rows
-          .map(
-            (m) => PetProfile.fromMap(m, defaultCampaignId: _defaultCampaignId),
-          )
-          .toList();
+      final items = rows.map((m) => PetProfile.fromMap(m)).toList();
 
       setState(() {
         _allPets
@@ -126,22 +107,17 @@ class _PetPageState extends State<PetPage> {
       final matchesFilter =
           _selectedFilter == 'All' || p.species == _selectedFilter;
       if (!matchesFilter) return false;
-
       if (q.isEmpty) return true;
-      // Search by name + ageGroup (you previously used “breed”)
       return p.name.toLowerCase().contains(q) ||
           p.ageGroup.toLowerCase().contains(q) ||
           p.status.toLowerCase().contains(q);
     }).toList();
   }
 
-  // If you later store storage paths instead of full URLs,
-  // resolve them here via storage.getPublicUrl(bucket, path).
   String? _resolveImageUrl(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     if (raw.startsWith('http')) return raw;
-    // TODO: if you store storage paths like "pets/abc.jpg",
-    // return _sb.storage.from('YOUR_BUCKET').getPublicUrl(raw);
+    // If you save storage paths, convert to a public URL here.
     return null;
   }
 
@@ -249,19 +225,17 @@ class _PetPageState extends State<PetPage> {
                   crossAxisCount: 2,
                   crossAxisSpacing: 12,
                   mainAxisSpacing: 8,
-                  childAspectRatio: 0.9,
+                  childAspectRatio: 0.92,
                 ),
                 itemCount: filteredPets.length,
                 itemBuilder: (context, index) {
                   final p = filteredPets[index];
                   return _PetCard(
+                    id: p.id, // <- petId to carry forward
                     name: p.name,
-                    breedLike: p.ageGroup.isEmpty
-                        ? '—'
-                        : p.ageGroup, // using age_group as “breed-ish”
+                    breedLike: p.ageGroup.isEmpty ? '—' : p.ageGroup,
                     type: p.species,
                     imageUrl: _resolveImageUrl(p.imageUrl),
-                    campaignId: p.campaignId,
                   );
                 },
               ),
@@ -399,49 +373,51 @@ class _ErrorBox extends StatelessWidget {
 
 class _PetCard extends StatelessWidget {
   const _PetCard({
+    required this.id,
     required this.imageUrl,
     required this.name,
     required this.breedLike,
     required this.type,
-    required this.campaignId,
   });
 
+  final String id; // <- petId
   final String? imageUrl;
   final String name;
   final String breedLike;
   final String type;
-  final int campaignId;
 
   @override
   Widget build(BuildContext context) {
-    final brand = const Color(0xFF1F2C47);
+    const brand = Color(0xFF1F2C47);
 
-    return Container(
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-      child: Column(
-        children: [
-          ClipRRect(
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(10),
-              topRight: Radius.circular(10),
-            ),
-            child: imageUrl == null
-                ? Container(
-                    height: 150,
-                    color: Colors.grey.shade300,
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.pets,
-                      size: 48,
-                      color: Colors.white70,
-                    ),
-                  )
-                : Image.network(
-                    imageUrl!,
-                    height: 150,
-                    width: double.infinity,
-                    fit: BoxFit.cover,
-                    errorBuilder: (_, __, ___) => Container(
+    void goDonate() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => DonatePage(
+            petId: id, // <- key piece
+            allowInKind: true,
+            autoAssignOpex: false,
+            // no campaignId / opexId here so they’ll be NULL in the row
+          ),
+        ),
+      );
+    }
+
+    return InkWell(
+      onTap: goDonate, // tap the card to donate to this pet
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
+        child: Column(
+          children: [
+            ClipRRect(
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(10),
+                topRight: Radius.circular(10),
+              ),
+              child: imageUrl == null
+                  ? Container(
                       height: 150,
                       color: Colors.grey.shade300,
                       alignment: Alignment.center,
@@ -450,37 +426,78 @@ class _PetCard extends StatelessWidget {
                         size: 48,
                         color: Colors.white70,
                       ),
+                    )
+                  : Image.network(
+                      imageUrl!,
+                      height: 150,
+                      width: double.infinity,
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(
+                        height: 150,
+                        color: Colors.grey.shade300,
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.pets,
+                          size: 48,
+                          color: Colors.white70,
+                        ),
+                      ),
+                    ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(left: 8, right: 4),
+              height: 74,
+              decoration: const BoxDecoration(
+                color: brand,
+                borderRadius: BorderRadius.only(
+                  bottomLeft: Radius.circular(10),
+                  bottomRight: Radius.circular(10),
+                ),
+              ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(top: 8, bottom: 8),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "$breedLike • $type",
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          Text(
+                            name,
+                            style: const TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-          ),
-          Container(
-            width: double.infinity,
-            height: 70,
-            decoration: BoxDecoration(
-              color: brand,
-              borderRadius: const BorderRadius.only(
-                bottomLeft: Radius.circular(10),
-                bottomRight: Radius.circular(10),
-              ),
-            ),
-            child: Stack(
-              children: [
-                Positioned(
-                  top: 6,
-                  right: 6,
-                  child: IconButton(
+                  IconButton(
+                    tooltip: 'Details',
                     icon: const Icon(Icons.info_outline, color: Colors.white),
-                    iconSize: 20,
                     onPressed: () {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => PetDetailPage(
-                            campaignId: campaignId,
+                          builder: (_) => PetDetailPage(
+                            petId: id, // <-- pass the pet id
                             name: name,
-                            image:
-                                imageUrl ??
-                                '', // your details page can handle empty
+                            image: imageUrl ?? '',
                             breed: breedLike,
                             type: type,
                           ),
@@ -488,38 +505,27 @@ class _PetCard extends StatelessWidget {
                       );
                     },
                   ),
-                ),
-                Positioned(
-                  left: 8,
-                  bottom: 6,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        "$breedLike • $type",
-                        style: const TextStyle(
-                          fontSize: 12,
-                          color: Colors.white,
-                        ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                  const SizedBox(width: 4),
+                  ElevatedButton(
+                    onPressed: goDonate,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: brand,
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 8,
                       ),
-                      const SizedBox(height: 2),
-                      Text(
-                        name,
-                        style: const TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(20),
                       ),
-                    ],
+                    ),
+                    child: const Text('Donate'),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
