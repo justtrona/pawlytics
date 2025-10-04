@@ -1,6 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/ViewMore.dart';
@@ -10,6 +11,15 @@ import 'package:pawlytics/views/donors/donors scrollable/GoalPage.dart';
 import 'package:pawlytics/views/donors/donors scrollable/PetPage.dart';
 import 'package:pawlytics/views/donors/donors scrollable/RecommendationPage.dart';
 import 'package:pawlytics/views/donors/donors scrollable/connections/PetDetailsPage.dart';
+
+// Monthly goal controller/model
+import 'package:pawlytics/views/donors/controller/goal-opex-controller.dart';
+
+/// ---- tiny color helper to avoid withOpacity deprecation and extension clashes
+Color darker(Color c, [double amount = .12]) {
+  final double t = amount.clamp(0.0, 1.0) as double;
+  return Color.lerp(c, Colors.black, t)!;
+}
 
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
@@ -32,20 +42,16 @@ class HomePage extends StatelessWidget {
         ),
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          children: const [
-            Center(
+          children: [
+            const Center(
               child: Text(
                 "Welcome to PAWLYTICS",
                 style: TextStyle(fontSize: 14, color: Colors.white70),
               ),
             ),
-            SizedBox(height: 2),
-            Center(
-              child: Text(
-                "Hello, User1010!",
-                style: TextStyle(fontSize: 18, color: Colors.white),
-              ),
-            ),
+            const SizedBox(height: 2),
+            // 👇 dynamic user name
+            const Center(child: _UserGreeting()),
           ],
         ),
         actions: [
@@ -105,7 +111,6 @@ class HomePage extends StatelessWidget {
                         ),
                       ),
                       onPressed: () {
-                        // ✅ Pass a real petId string (replace with real id when wired to DB)
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -173,19 +178,17 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 15),
             const Divider(thickness: 2, indent: 10, endIndent: 10),
 
+            // ===== Monthly Goal (Summary) ABOVE recommendations =====
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: _MonthlyGoalHeader(),
+            ),
+            const SizedBox(height: 16),
+
             // Recommended carousel (now pulls the same pets shown in PetPage)
             sectionHeader(context, "Recommended"),
             const SizedBox(height: 230, child: _RecommendedPetsRow()),
 
-            const SizedBox(height: 1),
-
-            _buildDonationCard(
-              context,
-              total: 15000,
-              raised: 12500,
-              deadline: "Sept 30, 2025",
-            ),
-            const SizedBox(height: 15),
             const SizedBox(height: 20),
           ],
         ),
@@ -310,136 +313,310 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
 
-  Widget petCard(
-    BuildContext context, {
-    required String petId, // ✅ NEW
-    required String name,
-    required String breed,
-    required String type,
-    required String imagePath,
-    required int campaignId, // (you can remove later if unused)
-  }) {
+/* -------------------------------------------------------------------------- */
+/*                          USER GREETING WIDGET                              */
+/* -------------------------------------------------------------------------- */
+
+class _UserGreeting extends StatelessWidget {
+  const _UserGreeting({Key? key}) : super(key: key);
+
+  Future<String> _fetchName() async {
+    final sb = Supabase.instance.client;
+    final user = sb.auth.currentUser;
+
+    // 1) Try auth metadata
+    if (user != null) {
+      final md = user.userMetadata ?? {};
+      final metaName =
+          (md['full_name'] as String?) ??
+          (md['name'] as String?) ??
+          (md['username'] as String?) ??
+          (md['display_name'] as String?);
+      if (metaName != null && metaName.trim().isNotEmpty) {
+        return metaName.trim();
+      }
+    }
+
+    // 2) Try profiles table (nullable result from maybeSingle)
+    try {
+      if (user != null) {
+        final Map<String, dynamic>? res = await sb
+            .from('profiles')
+            .select('full_name, name, username')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (res != null) {
+          final nameFromProfile =
+              (res['full_name'] as String?) ??
+              (res['name'] as String?) ??
+              (res['username'] as String?);
+          if (nameFromProfile != null && nameFromProfile.trim().isNotEmpty) {
+            return nameFromProfile.trim();
+          }
+        }
+      }
+    } catch (_) {
+      // table/columns might not exist — safely ignore
+    }
+
+    // 3) Fallback to email local part or "there"
+    final email = user?.email ?? '';
+    if (email.contains('@')) return email.split('@').first;
+    return 'there';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<String>(
+      future: _fetchName(),
+      builder: (context, snap) {
+        final name = snap.data ?? 'there';
+        return Text(
+          'Hello, $name!',
+          style: const TextStyle(fontSize: 18, color: Colors.white),
+        );
+      },
+    );
+  }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                        MONTHLY GOAL HEADER (SUMMARY)                       */
+/* -------------------------------------------------------------------------- */
+
+class _MonthlyGoalHeader extends StatefulWidget {
+  const _MonthlyGoalHeader({Key? key}) : super(key: key);
+
+  @override
+  State<_MonthlyGoalHeader> createState() => _MonthlyGoalHeaderState();
+}
+
+class _MonthlyGoalHeaderState extends State<_MonthlyGoalHeader> {
+  final _controller = OpexAllocationsController();
+  final _php = NumberFormat.currency(
+    locale: 'en_PH',
+    symbol: '₱',
+    decimalDigits: 0,
+  );
+  final _dateFmt = DateFormat('MMM d, yyyy');
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.addListener(_onChange);
+    _controller.loadAllocations();
+  }
+
+  void _onChange() {
+    if (mounted) setState(() {});
+  }
+
+  @override
+  void dispose() {
+    _controller.removeListener(_onChange);
+    _controller.dispose();
+    super.dispose();
+  }
+
+  String _percent(double v) => '${(v * 100).clamp(0, 100).toStringAsFixed(0)}%';
+
+  @override
+  Widget build(BuildContext context) {
+    const brand = Color(0xFF1F2C47);
+    const peach = Color(0xFFEC8C69);
+    final border = BorderSide(color: Colors.grey.shade300);
+
+    if (_controller.loading) {
+      return Container(
+        height: 112,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.fromBorderSide(border),
+        ),
+        padding: const EdgeInsets.all(16),
+        child: const Align(
+          alignment: Alignment.centerLeft,
+          child: SizedBox(
+            width: 160,
+            child: LinearProgressIndicator(minHeight: 10),
+          ),
+        ),
+      );
+    }
+
+    final items = _controller.items;
+    final goal = items.fold<double>(0, (s, e) => s + e.amount);
+    final raised = items.fold<double>(0, (s, e) => s + e.raised);
+    final prog = goal > 0 ? (raised / goal).clamp(0.0, 1.0) : 0.0;
+
+    final isClosed = _controller.isClosed;
+    final dueStr = _controller.monthEnd == null
+        ? '—'
+        : _dateFmt.format(_controller.monthEnd!);
+
+    return _SummaryCard(
+      brand: brand,
+      peach: peach,
+      border: border,
+      title: "This Month’s Goal",
+      raisedLabel: _php.format(raised),
+      goalLabel: _php.format(goal),
+      progress: prog,
+      percentText: _percent(prog),
+      statusChip: _StatusChip(
+        label: isClosed ? 'Closed' : 'Active',
+        color: isClosed ? Colors.grey : brand,
+      ),
+      dueText: 'Due: $dueStr',
+      showClosedNote: isClosed,
+    );
+  }
+}
+
+/* ---------- Shared UI pieces for goal summary ---------- */
+
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      width: 160,
-      margin: const EdgeInsets.only(left: 16, right: 6),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.center,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.asset(
-                  imagePath,
-                  height: 140,
-                  width: 180,
-                  fit: BoxFit.cover,
-                ),
-              ),
-              Positioned(
-                bottom: 8,
-                right: 8,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 8,
-                    ),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    elevation: 2,
-                  ),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (_) => PetDetailPage(
-                          petId: petId, // ✅ pass the id we received
-                          name: name,
-                          image: imagePath,
-                          breed: breed,
-                          type: type,
-                        ),
-                      ),
-                    );
-                  },
-                  icon: const Icon(
-                    Icons.info,
-                    size: 25,
-                    color: Color(0xFF1A2C50),
-                  ),
-                  label: const Text(
-                    "View Details",
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Color(0xFF1A2C50),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            name,
-            style: const TextStyle(
-              fontWeight: FontWeight.w600,
-              fontSize: 20,
-              color: Color(0xFF1A2C50),
-            ),
-          ),
-          Text(
-            "$breed • $type",
-            style: const TextStyle(fontSize: 15, color: Color(0xFF1A2C50)),
-          ),
-        ],
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: .08),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: .25)),
+      ),
+      child: Text(
+        label,
+        style: TextStyle(
+          fontWeight: FontWeight.w700,
+          color: color,
+          fontSize: 12,
+        ),
       ),
     );
   }
+}
 
-  Widget _buildDonationCard(
-    BuildContext context, {
-    required int total,
-    required int raised,
-    required String deadline,
-  }) {
-    final double progress = raised / total;
+class _SummaryCard extends StatelessWidget {
+  const _SummaryCard({
+    required this.brand,
+    required this.peach,
+    required this.border,
+    required this.title,
+    required this.raisedLabel,
+    required this.goalLabel,
+    required this.progress,
+    required this.percentText,
+    required this.statusChip,
+    required this.dueText,
+    required this.showClosedNote,
+  });
+
+  final Color brand;
+  final Color peach;
+  final BorderSide border;
+  final String title;
+  final String raisedLabel;
+  final String goalLabel;
+  final double progress;
+  final String percentText;
+  final Widget statusChip;
+  final String dueText;
+  final bool showClosedNote;
+
+  @override
+  Widget build(BuildContext context) {
     return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 1),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.fromBorderSide(border),
         boxShadow: const [
-          BoxShadow(color: Colors.black12, blurRadius: 6, offset: Offset(0, 3)),
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
         ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // title + status
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text(
-                "Donation Usage",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              GestureDetector(
-                onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (_) => const ViewMorePage()),
-                ),
-                child: const Text(
-                  "View More",
+              Expanded(
+                child: Text(
+                  title,
                   style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w500,
-                    color: Colors.blue,
+                    fontSize: 18,
+                    fontWeight: FontWeight.w800,
+                    color: brand,
+                  ),
+                ),
+              ),
+              statusChip,
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            dueText,
+            style: const TextStyle(fontSize: 12, color: Colors.black54),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(
+                          raisedLabel,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 16,
+                          ),
+                        ),
+                        const SizedBox(width: 6),
+                        const Text(
+                          'raised',
+                          style: TextStyle(color: Colors.grey),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      'of $goalLabel',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        color: Colors.black54,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: peach.withValues(alpha: .12),
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(color: peach.withValues(alpha: .35)),
+                ),
+                child: Text(
+                  percentText,
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: darker(peach, 0.12),
                   ),
                 ),
               ),
@@ -450,18 +627,18 @@ class HomePage extends StatelessWidget {
             borderRadius: BorderRadius.circular(10),
             child: LinearProgressIndicator(
               value: progress,
-              backgroundColor: Colors.grey.shade300,
-              color: const Color(0xFF1A2C50),
-              minHeight: 10,
+              minHeight: 12,
+              backgroundColor: Colors.grey.shade200,
+              valueColor: AlwaysStoppedAnimation(brand),
             ),
           ),
-          const SizedBox(height: 8),
-          Center(
-            child: Text(
-              "Php $raised of Php $total",
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+          if (showClosedNote) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'This month is closed. New donations are not accepted.',
+              style: TextStyle(fontSize: 12, color: Colors.redAccent),
             ),
-          ),
+          ],
         ],
       ),
     );
