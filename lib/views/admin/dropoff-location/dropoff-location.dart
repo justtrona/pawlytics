@@ -1,7 +1,10 @@
+// lib/views/admin/campaigns/dropoff-location-page.dart
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:pawlytics/route/route.dart' as route;
 import 'package:pawlytics/views/admin/controllers/dropoff-controller.dart';
 import 'package:pawlytics/views/admin/model/dropoff-model.dart';
+import 'package:pawlytics/views/admin/dropoff-location/dropoff-details.dart';
 
 class DropoffLocationPage extends StatefulWidget {
   const DropoffLocationPage({super.key});
@@ -34,7 +37,7 @@ class _DropoffLocationPageState extends State<DropoffLocationPage> {
     } catch (e) {
       debugPrint("Error loading locations: $e");
     } finally {
-      setState(() => _loading = false);
+      if (mounted) setState(() => _loading = false);
     }
   }
 
@@ -57,6 +60,18 @@ class _DropoffLocationPageState extends State<DropoffLocationPage> {
   void dispose() {
     _searchCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _openDetails(DropoffLocation loc) async {
+    final changed = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(builder: (_) => DropoffDetails(location: loc)),
+    );
+
+    // If details page saved/deleted, refresh this list
+    if (changed == true) {
+      _loadLocations();
+    }
   }
 
   @override
@@ -100,30 +115,33 @@ class _DropoffLocationPageState extends State<DropoffLocationPage> {
             Expanded(
               child: _loading
                   ? const Center(child: CircularProgressIndicator())
-                  : _filtered.isEmpty
-                  ? const Center(
-                      child: Text(
-                        "No drop-off locations found",
-                        style: TextStyle(color: Colors.grey),
-                      ),
-                    )
-                  : ListView.separated(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-                      itemCount: _filtered.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, i) {
-                        final loc = _filtered[i];
-                        return _LocationCard(
-                          data: loc,
-                          onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Open "${loc.organization}"'),
-                              ),
-                            );
-                          },
-                        );
-                      },
+                  : RefreshIndicator(
+                      onRefresh: _loadLocations,
+                      child: _filtered.isEmpty
+                          ? ListView(
+                              children: [
+                                SizedBox(height: 160),
+                                Center(
+                                  child: Text(
+                                    "No drop-off locations found",
+                                    style: TextStyle(color: Colors.grey),
+                                  ),
+                                ),
+                              ],
+                            )
+                          : ListView.separated(
+                              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+                              itemCount: _filtered.length,
+                              separatorBuilder: (_, __) =>
+                                  const SizedBox(height: 12),
+                              itemBuilder: (context, i) {
+                                final loc = _filtered[i];
+                                return _LocationCard(
+                                  data: loc,
+                                  onTap: () => _openDetails(loc),
+                                );
+                              },
+                            ),
                     ),
             ),
 
@@ -148,7 +166,7 @@ class _DropoffLocationPageState extends State<DropoffLocationPage> {
                       route.createDropoff,
                     );
                     if (result == true) {
-                      _loadLocations(); // ✅ Refresh list after adding
+                      _loadLocations(); // Refresh after adding
                     }
                   },
                   child: const Text('Add Location'),
@@ -172,6 +190,9 @@ class _LocationCard extends StatelessWidget {
   final VoidCallback? onTap;
 
   const _LocationCard({required this.data, this.onTap});
+
+  String _formatDate(DateTime dt) =>
+      DateFormat('MMM d, yyyy • h:mm a').format(dt);
 
   @override
   Widget build(BuildContext context) {
@@ -247,7 +268,7 @@ class _LocationCard extends StatelessWidget {
               // Scheduled Date
               _RowIconText(
                 icon: Icons.schedule_rounded,
-                text: data.scheduledAt.toString(), // format if needed
+                text: _formatDate(data.scheduledAt),
               ),
               const SizedBox(height: 6),
 

@@ -1,21 +1,31 @@
+// lib/views/admin/campaigns/create-campaign.dart (UI-only refresh + details nav)
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/controllers/campaigns-controller.dart';
 import 'package:pawlytics/views/admin/model/campaigns-model.dart';
 import 'package:pawlytics/route/route.dart' as route;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+// ⬇️ Add this import so we can open the campaign details page
+import 'package:pawlytics/views/admin/campaigns/campaign_details.dart';
+
 class CreateCampaign extends StatefulWidget {
   const CreateCampaign({super.key});
-
   @override
   State<CreateCampaign> createState() => _CreateCampaignState();
 }
 
 class _CreateCampaignState extends State<CreateCampaign> {
+  // --- Palette (unchanged semantics, refined tones) ---
   static const brand = Color(0xFF27374D);
-  static const softGrey = Color(0xFFE9EEF3);
-  static const tileGrey = Color(0xFFDDE5EC);
+  static const brandDark = Color(0xFF1B2A3A);
+  static const accent = Color(0xFF4F8EDC);
+  static const softGrey = Color(0xFFF2F5F8);
+  static const tileGrey = Color(0xFFF8FAFD);
   static const textMuted = Color(0xFF6A7886);
+  static const line = Color(0xFFE6EDF4);
+  static const success = Color(0xFF10B981);
+  static const warn = Color(0xFFF59E0B);
+  static const danger = Color(0xFFE74C3C);
 
   final CampaignController _controller = CampaignController();
 
@@ -48,11 +58,8 @@ class _CreateCampaignState extends State<CreateCampaign> {
   Future<void> _fetchCampaigns() async {
     try {
       final campaigns = await _controller.fetchCampaigns();
-
-      // fetch totals (id, raised_amount, progress_ratio) from the view
       final totals = await _controller.fetchCampaignTotals();
 
-      // merge into maps
       _raisedById.clear();
       _progressById.clear();
       for (final t in totals) {
@@ -99,7 +106,7 @@ class _CreateCampaignState extends State<CreateCampaign> {
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'donations', // refresh when donations change
+          table: 'donations',
           callback: (_) => _fetchCampaigns(),
         )
         .subscribe();
@@ -108,12 +115,6 @@ class _CreateCampaignState extends State<CreateCampaign> {
   List<Campaign> get _filtered {
     var list = _campaigns.where((c) {
       if (_statusFilter == 'All Statuses') return true;
-
-      // If your Campaign model has a status field, prefer that:
-      // final k = (c.status is String) ? (c.status as String).toLowerCase() : (c.status as dynamic).name.toLowerCase();
-      // switch (_statusFilter) { ... }
-
-      // Fallback using deadline only:
       if (_statusFilter == 'Active') return c.deadline.isAfter(DateTime.now());
       if (_statusFilter == 'Ended') return c.deadline.isBefore(DateTime.now());
       return true;
@@ -140,12 +141,9 @@ class _CreateCampaignState extends State<CreateCampaign> {
   // Aggregate stats
   int get _activeCount =>
       _campaigns.where((c) => c.deadline.isAfter(DateTime.now())).length;
-
   int get _totalCampaigns => _campaigns.length;
-
   num get _totalGoal =>
       _campaigns.fold<num>(0, (sum, c) => sum + c.fundraisingGoal);
-
   num get _totalRaised =>
       _campaigns.fold<num>(0, (sum, c) => sum + (_raisedById[c.id] ?? 0));
 
@@ -184,17 +182,24 @@ class _CreateCampaignState extends State<CreateCampaign> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: softGrey,
       appBar: AppBar(
-        leading: BackButton(
-          color: Colors.black87,
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: const Text('Campaigns'),
-        centerTitle: true,
         elevation: 0,
         backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
+        foregroundColor: brandDark,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: const Text(
+          'Campaigns',
+          style: TextStyle(fontWeight: FontWeight.w800),
+        ),
+        centerTitle: true,
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(1),
+          child: Container(height: 1, color: line),
+        ),
       ),
       body: SafeArea(
         child: _loading
@@ -202,9 +207,9 @@ class _CreateCampaignState extends State<CreateCampaign> {
             : RefreshIndicator(
                 onRefresh: _fetchCampaigns,
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
+                  padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                   children: [
-                    // Top stats
+                    // --- Top stats row ---
                     Row(
                       children: [
                         Expanded(
@@ -213,14 +218,14 @@ class _CreateCampaignState extends State<CreateCampaign> {
                             value: '$_totalCampaigns',
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: _StatPill(
                             label: 'Active Campaigns',
                             value: '$_activeCount',
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        const SizedBox(width: 10),
                         Expanded(
                           child: _StatPill(
                             label: 'Total Raised',
@@ -230,29 +235,72 @@ class _CreateCampaignState extends State<CreateCampaign> {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
-                    // Create Campaign
-                    SizedBox(
-                      height: 46,
-                      child: ElevatedButton(
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: brand,
-                          foregroundColor: Colors.white,
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(14),
+                    // --- Create Campaign CTA ---
+                    Container(
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: line),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Colors.black12,
+                            blurRadius: 12,
+                            offset: Offset(0, 6),
                           ),
-                        ),
-                        onPressed: () {
-                          Navigator.pushNamed(context, route.campaignSettings);
-                        },
-                        child: const Text('Create Campaign'),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(12),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 42,
+                            height: 42,
+                            decoration: BoxDecoration(
+                              color: brand.withOpacity(.08),
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: const Icon(Icons.campaign, color: brand),
+                          ),
+                          const SizedBox(width: 12),
+                          const Expanded(
+                            child: Text(
+                              'Start a new campaign to raise funds',
+                              style: TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: brandDark,
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            height: 44,
+                            child: ElevatedButton.icon(
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: brand,
+                                foregroundColor: Colors.white,
+                                elevation: 0,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                              ),
+                              onPressed: () {
+                                Navigator.pushNamed(
+                                  context,
+                                  route.campaignSettings,
+                                );
+                              },
+                              icon: const Icon(Icons.add_rounded),
+                              label: const Text('Create'),
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 14),
 
-                    // Filters row
+                    // --- Filters row ---
                     Row(
                       children: [
                         Expanded(
@@ -297,12 +345,22 @@ class _CreateCampaignState extends State<CreateCampaign> {
                     ),
                     const SizedBox(height: 12),
 
-                    // Campaign list
+                    // --- Campaign list ---
                     if (_filtered.isEmpty)
-                      const Center(
-                        child: Padding(
-                          padding: EdgeInsets.all(20),
-                          child: Text("No campaigns found"),
+                      Container(
+                        height: 160,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(14),
+                          border: Border.all(color: line),
+                        ),
+                        child: const Text(
+                          "No campaigns found",
+                          style: TextStyle(
+                            color: textMuted,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       )
                     else
@@ -312,13 +370,25 @@ class _CreateCampaignState extends State<CreateCampaign> {
                             _progressById[c.id] ?? _safeProgressFor(c);
 
                         return Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
+                          padding: const EdgeInsets.only(bottom: 12),
                           child: _CampaignTile(
                             data: c,
                             raised: raised,
                             progress: progress,
                             money: _fmtMoney,
                             dateFmt: _fmtDate,
+                            // ⬇️ Navigate to details, refresh on return
+                            onTap: () async {
+                              final changed = await Navigator.push<bool>(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => CampaignDetails(campaign: c),
+                                ),
+                              );
+                              if (changed == true) {
+                                _fetchCampaigns();
+                              }
+                            },
                           ),
                         );
                       }),
@@ -345,20 +415,20 @@ class _CreateCampaignState extends State<CreateCampaign> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 4),
+            const SizedBox(height: 6),
             Text(
               title,
-              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+              style: const TextStyle(fontWeight: FontWeight.w900, fontSize: 16),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             ...options.map(
               (o) => ListTile(
                 title: Text(
                   o,
                   style: TextStyle(
                     fontWeight: o == current
-                        ? FontWeight.w700
-                        : FontWeight.w500,
+                        ? FontWeight.w800
+                        : FontWeight.w600,
                     color: o == current ? brand : Colors.black87,
                   ),
                 ),
@@ -376,7 +446,8 @@ class _CreateCampaignState extends State<CreateCampaign> {
   }
 }
 
-// ====== WIDGETS ======
+/* ===================== WIDGETS (UI only) ===================== */
+
 class _StatPill extends StatelessWidget {
   final String label;
   final String value;
@@ -390,18 +461,25 @@ class _StatPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bg = emphasize
-        ? _CreateCampaignState.brand
-        : _CreateCampaignState.softGrey;
-    final fg = emphasize ? Colors.white : _CreateCampaignState.brand;
+    final bg = emphasize ? _CreateCampaignState.brand : Colors.white;
+    final fg = emphasize ? Colors.white : _CreateCampaignState.brandDark;
+    final sub = emphasize ? Colors.white70 : _CreateCampaignState.textMuted;
 
     return Container(
-      constraints: const BoxConstraints(minHeight: 64),
+      constraints: const BoxConstraints(minHeight: 72),
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _CreateCampaignState.line),
+        boxShadow: const [
+          BoxShadow(
+            color: Colors.black12,
+            blurRadius: 10,
+            offset: Offset(0, 6),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -410,11 +488,9 @@ class _StatPill extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: emphasize
-                  ? Colors.white70
-                  : _CreateCampaignState.textMuted,
+              color: sub,
               fontSize: 12,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w700,
             ),
           ),
           const SizedBox(height: 6),
@@ -424,8 +500,9 @@ class _StatPill extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: fg,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
+              fontSize: 18,
+              fontWeight: FontWeight.w900,
+              letterSpacing: .2,
             ),
           ),
         ],
@@ -442,36 +519,22 @@ class _FilterPill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Material(
-      color: _CreateCampaignState.softGrey,
-      borderRadius: BorderRadius.circular(14),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Flexible(
-                child: Text(
-                  label,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _CreateCampaignState.brand,
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-              const Icon(
-                Icons.expand_more_rounded,
-                size: 18,
-                color: _CreateCampaignState.brand,
-              ),
-            ],
-          ),
+    return OutlinedButton.icon(
+      onPressed: onTap,
+      icon: const Icon(Icons.tune_rounded, color: _CreateCampaignState.brand),
+      label: Text(
+        label,
+        overflow: TextOverflow.ellipsis,
+        style: const TextStyle(
+          color: _CreateCampaignState.brand,
+          fontWeight: FontWeight.w800,
         ),
+      ),
+      style: OutlinedButton.styleFrom(
+        side: const BorderSide(color: _CreateCampaignState.line),
+        backgroundColor: Colors.white,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
       ),
     );
   }
@@ -480,9 +543,10 @@ class _FilterPill extends StatelessWidget {
 class _CampaignTile extends StatelessWidget {
   final Campaign data;
   final double raised; // from view
-  final double progress; // from view 0..1
+  final double progress; // 0..1
   final String Function(num) money;
   final String Function(DateTime) dateFmt;
+  final VoidCallback? onTap; // ⬅️ NEW (to open details)
 
   const _CampaignTile({
     required this.data,
@@ -490,18 +554,15 @@ class _CampaignTile extends StatelessWidget {
     required this.progress,
     required this.money,
     required this.dateFmt,
+    this.onTap, // ⬅️ NEW
   });
 
-  // ---- Status helpers that accept String OR enum ----
-  // ---- Normalizers that accept String OR enum ----
+  // --- status helpers (UI only) ---
   String _statusKey(dynamic status) {
-    // 1) prefer enum.name if present
     try {
       final n = (status as dynamic).name;
       if (n is String && n.isNotEmpty) return n.toLowerCase();
     } catch (_) {}
-
-    // 2) fallback to string, trim "CampaignStatus.xxx" or "X.yyy"
     var s = status?.toString() ?? '';
     final dot = s.lastIndexOf('.');
     if (dot != -1) s = s.substring(dot + 1);
@@ -522,86 +583,109 @@ class _CampaignTile extends StatelessWidget {
     }
   }
 
-  Color _statusBorder(dynamic status) {
+  Color _statusBg(dynamic status) {
     switch (_statusKey(status)) {
       case 'active':
-        return _CreateCampaignState.brand;
+        return _CreateCampaignState.brand.withOpacity(.10);
       case 'due':
-        return const Color(0xFFB45309); // amber
+        return _CreateCampaignState.warn.withOpacity(.12);
       case 'inactive':
-        return Colors.blueGrey.shade300;
+        return Colors.blueGrey.withOpacity(.10);
       default:
-        return Colors.blueGrey.shade300;
+        return Colors.blueGrey.withOpacity(.10);
     }
   }
 
-  Color _statusText(dynamic status) {
+  Color _statusFg(dynamic status) {
     switch (_statusKey(status)) {
       case 'active':
         return _CreateCampaignState.brand;
       case 'due':
         return const Color(0xFF92400E);
       case 'inactive':
-        return Colors.blueGrey.shade600;
+        return Colors.blueGrey.shade700;
       default:
-        return Colors.blueGrey.shade600;
+        return Colors.blueGrey.shade700;
     }
   }
 
-  // ---------------------------------------------------
+  IconData _statusIcon(dynamic status) {
+    switch (_statusKey(status)) {
+      case 'active':
+        return Icons.play_circle_fill_rounded;
+      case 'due':
+        return Icons.schedule_rounded;
+      case 'inactive':
+        return Icons.pause_circle_filled_rounded;
+      default:
+        return Icons.info_outline_rounded;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final raisedLabel = '${money(raised)} of ${money(data.fundraisingGoal)}';
+    final st =
+        (data as dynamic).status ??
+        (data.deadline.isBefore(DateTime.now()) ? 'due' : 'active');
 
     return Material(
-      color: _CreateCampaignState.tileGrey,
-      borderRadius: BorderRadius.circular(16),
+      color: Colors.white,
+      elevation: 0,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+        side: const BorderSide(color: _CreateCampaignState.line),
+      ),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          // TODO: Navigate to admin campaign details if you have one
-        },
+        onTap: onTap, // ⬅️ open details
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Program + category + goal + status chip
+              // Header
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Thumbnail placeholder
                   ClipRRect(
                     borderRadius: BorderRadius.circular(12),
                     child: Container(
                       width: 96,
                       height: 72,
-                      color: Colors.white,
+                      color: _CreateCampaignState.softGrey,
+                      alignment: Alignment.center,
                       child: const Icon(
                         Icons.campaign,
                         size: 40,
-                        color: Colors.grey,
+                        color: _CreateCampaignState.brand,
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 12),
+                  // Title + meta
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           data.program,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
                             color: _CreateCampaignState.brand,
-                            fontWeight: FontWeight.w800,
-                            fontSize: 15,
+                            fontWeight: FontWeight.w900,
+                            fontSize: 16,
                           ),
                         ),
                         const SizedBox(height: 6),
                         Text(
                           '${data.category} • Goal: ${money(data.fundraisingGoal)} ${data.currency}',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                            color: _CreateCampaignState.brand,
+                            color: _CreateCampaignState.brandDark,
                             fontWeight: FontWeight.w700,
                             fontSize: 12.5,
                           ),
@@ -609,53 +693,41 @@ class _CampaignTile extends StatelessWidget {
                       ],
                     ),
                   ),
-
-                  // Status chip (uses data.status if present; otherwise derive)
+                  const SizedBox(width: 8),
+                  // Status chip
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 10,
-                      vertical: 4,
+                      vertical: 6,
                     ),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: _statusBg(st),
                       borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: _statusBorder(
-                          // prefer status field if your model has it; else fallback
-                          (data as dynamic).status ?? //
-                              (data.deadline.isBefore(DateTime.now())
-                                  ? 'due'
-                                  : 'active'),
-                        ),
-                        width: 1.2,
-                      ),
+                      border: Border.all(color: _statusFg(st).withOpacity(.35)),
                     ),
-                    child: Text(
-                      _statusLabel(
-                        (data as dynamic).status ??
-                            (data.deadline.isBefore(DateTime.now())
-                                ? 'due'
-                                : 'active'),
-                      ),
-                      style: TextStyle(
-                        color: _statusText(
-                          (data as dynamic).status ??
-                              (data.deadline.isBefore(DateTime.now())
-                                  ? 'due'
-                                  : 'active'),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_statusIcon(st), size: 14, color: _statusFg(st)),
+                        const SizedBox(width: 6),
+                        Text(
+                          _statusLabel(st),
+                          style: TextStyle(
+                            color: _statusFg(st),
+                            fontWeight: FontWeight.w800,
+                            fontSize: 11,
+                            letterSpacing: .2,
+                          ),
                         ),
-                        fontWeight: FontWeight.w800,
-                        fontSize: 11,
-                        letterSpacing: .2,
-                      ),
+                      ],
                     ),
                   ),
                 ],
               ),
 
-              const SizedBox(height: 10),
-
-              if (data.description.isNotEmpty)
+              // Description
+              if (data.description.isNotEmpty) ...[
+                const SizedBox(height: 10),
                 Text(
                   data.description,
                   maxLines: 3,
@@ -663,23 +735,47 @@ class _CampaignTile extends StatelessWidget {
                   style: const TextStyle(
                     color: _CreateCampaignState.textMuted,
                     fontSize: 13,
+                    height: 1.35,
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+              ],
 
-              const SizedBox(height: 10),
+              const SizedBox(height: 12),
 
-              // Progress bar + amounts
+              // Progress
               ClipRRect(
                 borderRadius: BorderRadius.circular(8),
-                child: LinearProgressIndicator(
-                  value: progress, // 0..1
-                  minHeight: 10,
-                  backgroundColor: Colors.white,
-                  color: _CreateCampaignState.brand,
+                child: Stack(
+                  alignment: Alignment.centerLeft,
+                  children: [
+                    LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 12,
+                      backgroundColor: _CreateCampaignState.softGrey,
+                      color: _CreateCampaignState.brand,
+                    ),
+                    // percent label on top
+                    Positioned.fill(
+                      child: Align(
+                        alignment: Alignment.center,
+                        child: Text(
+                          '${(progress * 100).toStringAsFixed(0)}%',
+                          style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w900,
+                            color: Colors.white,
+                            letterSpacing: .2,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
+
+              // Money + dates
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -695,21 +791,19 @@ class _CampaignTile extends StatelessWidget {
                     'Deadline: ${dateFmt(data.deadline)}',
                     style: const TextStyle(
                       color: _CreateCampaignState.textMuted,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       fontSize: 12,
                     ),
                   ),
                 ],
               ),
-
               const SizedBox(height: 6),
-
               Text(
                 'Created: ${dateFmt(data.createdAt)} • Updated: ${dateFmt(data.updatedAt)}',
                 style: const TextStyle(
                   color: Colors.grey,
                   fontSize: 11,
-                  fontWeight: FontWeight.w500,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ],

@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:pawlytics/views/donors/donors scrollable/connections/PetDetailsPage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
+import 'package:pawlytics/views/donors/donors scrollable/connections/PetDetailsPage.dart';
 
 class PetPage extends StatefulWidget {
   const PetPage({super.key});
@@ -105,12 +104,14 @@ class _PetPageState extends State<PetPage> {
     final q = _searchQuery.trim().toLowerCase();
     return _allPets.where((p) {
       final matchesFilter =
-          _selectedFilter == 'All' || p.species == _selectedFilter;
+          _selectedFilter == 'All' ||
+          p.species.toLowerCase() == _selectedFilter.toLowerCase();
       if (!matchesFilter) return false;
       if (q.isEmpty) return true;
       return p.name.toLowerCase().contains(q) ||
           p.ageGroup.toLowerCase().contains(q) ||
-          p.status.toLowerCase().contains(q);
+          p.status.toLowerCase().contains(q) ||
+          p.species.toLowerCase().contains(q);
     }).toList();
   }
 
@@ -128,7 +129,7 @@ class _PetPageState extends State<PetPage> {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
         elevation: 0,
         foregroundColor: Colors.black,
         leading: IconButton(
@@ -148,42 +149,44 @@ class _PetPageState extends State<PetPage> {
           IconButton(
             tooltip: 'Refresh',
             onPressed: _loadPets,
-            icon: const Icon(Icons.refresh),
+            icon: const Icon(Icons.refresh, color: Color(0xFF1F2C47)),
           ),
         ],
       ),
       body: RefreshIndicator(
         onRefresh: _loadPets,
         child: ListView(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
           children: [
-            Center(
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: const [
-                  Icon(Icons.pets, size: 20, color: Color(0xFF1F2C47)),
-                  SizedBox(width: 6),
-                  Text(
-                    "Dog & Cat Categories",
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1F2C47),
-                    ),
+            // Tagline row
+            Row(
+              children: const [
+                Icon(
+                  Icons.volunteer_activism_rounded,
+                  size: 20,
+                  color: Color(0xFF1F2C47),
+                ),
+                SizedBox(width: 8),
+                Text(
+                  "Every gift helps a rescue find home.",
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF1F2C47),
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
 
-            // Search + Filter
+            // Search + Filter pills
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     onChanged: (value) => setState(() => _searchQuery = value),
                     decoration: InputDecoration(
-                      hintText: "Search by name / age group",
+                      hintText: "Search name, status, or breed",
                       prefixIcon: const Icon(Icons.search, color: Colors.grey),
                       filled: true,
                       fillColor: Colors.grey.shade200,
@@ -200,11 +203,11 @@ class _PetPageState extends State<PetPage> {
               ],
             ),
 
-            const SizedBox(height: 20),
+            const SizedBox(height: 18),
 
             if (_loading)
               const Padding(
-                padding: EdgeInsets.symmetric(vertical: 48),
+                padding: EdgeInsets.symmetric(vertical: 56),
                 child: Center(child: CircularProgressIndicator()),
               )
             else if (_error != null)
@@ -223,18 +226,19 @@ class _PetPageState extends State<PetPage> {
                 padding: EdgeInsets.zero,
                 gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: 2,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 8,
-                  childAspectRatio: 0.92,
+                  crossAxisSpacing: 14,
+                  mainAxisSpacing: 14,
+                  childAspectRatio: 0.74,
                 ),
                 itemCount: filteredPets.length,
                 itemBuilder: (context, index) {
                   final p = filteredPets[index];
                   return _PetCard(
-                    id: p.id, // <- petId to carry forward
+                    id: p.id,
                     name: p.name,
                     breedLike: p.ageGroup.isEmpty ? '—' : p.ageGroup,
                     type: p.species,
+                    status: p.status,
                     imageUrl: _resolveImageUrl(p.imageUrl),
                   );
                 },
@@ -292,9 +296,9 @@ class _FilterPill extends StatelessWidget {
           children: [
             Text(
               value,
-              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
             ),
-            const SizedBox(width: 4),
+            const SizedBox(width: 6),
             const Icon(Icons.arrow_drop_down, color: Colors.black),
           ],
         ),
@@ -371,6 +375,8 @@ class _ErrorBox extends StatelessWidget {
   }
 }
 
+/* ---------- Card ---------- */
+
 class _PetCard extends StatelessWidget {
   const _PetCard({
     required this.id,
@@ -378,6 +384,7 @@ class _PetCard extends StatelessWidget {
     required this.name,
     required this.breedLike,
     required this.type,
+    required this.status,
   });
 
   final String id; // <- petId
@@ -385,148 +392,259 @@ class _PetCard extends StatelessWidget {
   final String name;
   final String breedLike;
   final String type;
+  final String status;
 
   @override
   Widget build(BuildContext context) {
-    const brand = Color(0xFF1F2C47);
+    const brand = Color(0xFF0F2D50);
 
     void goDonate() {
       Navigator.push(
         context,
         MaterialPageRoute(
-          builder: (_) => DonatePage(
-            petId: id, // <- key piece
-            allowInKind: true,
-            autoAssignOpex: false,
-            // no campaignId / opexId here so they’ll be NULL in the row
+          builder: (_) =>
+              DonatePage(petId: id, allowInKind: true, autoAssignOpex: false),
+        ),
+      );
+    }
+
+    void goDetails() {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => PetDetailPage(
+            petId: id,
+            name: name,
+            image: imageUrl ?? '',
+            breed: breedLike,
+            type: type,
           ),
         ),
       );
     }
 
+    // status pill color/icon
+    final _StatusStyle st = _statusStyle(status);
+
     return InkWell(
-      onTap: goDonate, // tap the card to donate to this pet
-      borderRadius: BorderRadius.circular(12),
+      onTap: goDetails,
+      borderRadius: BorderRadius.circular(16),
       child: Container(
-        decoration: BoxDecoration(borderRadius: BorderRadius.circular(12)),
-        child: Column(
-          children: [
-            ClipRRect(
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(10),
-                topRight: Radius.circular(10),
-              ),
-              child: imageUrl == null
-                  ? Container(
-                      height: 150,
-                      color: Colors.grey.shade300,
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.pets,
-                        size: 48,
-                        color: Colors.white70,
-                      ),
-                    )
-                  : Image.network(
-                      imageUrl!,
-                      height: 150,
-                      width: double.infinity,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        height: 150,
-                        color: Colors.grey.shade300,
-                        alignment: Alignment.center,
-                        child: const Icon(
-                          Icons.pets,
-                          size: 48,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ),
-            ),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.only(left: 8, right: 4),
-              height: 74,
-              decoration: const BoxDecoration(
-                color: brand,
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(10),
-                  bottomRight: Radius.circular(10),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Padding(
-                      padding: const EdgeInsets.only(top: 8, bottom: 8),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            "$breedLike • $type",
-                            style: const TextStyle(
-                              fontSize: 12,
-                              color: Colors.white,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          Text(
-                            name,
-                            style: const TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  IconButton(
-                    tooltip: 'Details',
-                    icon: const Icon(Icons.info_outline, color: Colors.white),
-                    onPressed: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => PetDetailPage(
-                            petId: id, // <-- pass the pet id
-                            name: name,
-                            image: imageUrl ?? '',
-                            breed: breedLike,
-                            type: type,
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                  const SizedBox(width: 4),
-                  ElevatedButton(
-                    onPressed: goDonate,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.white,
-                      foregroundColor: brand,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 8,
-                      ),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                    ),
-                    child: const Text('Donate'),
-                  ),
-                ],
-              ),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x1A000000),
+              blurRadius: 14,
+              offset: Offset(0, 8),
             ),
           ],
+        ),
+        child: ClipRRect(
+          borderRadius: BorderRadius.circular(16),
+          child: Stack(
+            children: [
+              // Image
+              SizedBox(
+                width: double.infinity,
+                height: double.infinity,
+                child: AspectRatio(
+                  aspectRatio: 4 / 5,
+                  child: imageUrl == null
+                      ? _placeholderImg()
+                      : Image.network(
+                          imageUrl!,
+                          fit: BoxFit.cover,
+                          errorBuilder: (_, __, ___) => _placeholderImg(),
+                        ),
+                ),
+              ),
+
+              // Top-left status pill
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: st.bg,
+                    borderRadius: BorderRadius.circular(999),
+                    border: Border.all(color: st.border),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(st.icon, size: 14, color: st.fg),
+                      const SizedBox(width: 6),
+                      Text(
+                        st.label,
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w700,
+                          color: st.fg,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
+              // Gradient bottom
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment(0, .4),
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        Colors.transparent,
+                        Colors.black54,
+                        Colors.black87,
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // Name + meta + buttons
+              Positioned(
+                left: 12,
+                right: 12,
+                bottom: 12,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      name,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w900,
+                        height: 1.1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      "$breedLike • $type",
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: goDonate,
+                            icon: const Icon(
+                              Icons.volunteer_activism_rounded,
+                              size: 18,
+                            ),
+                            label: const Text('Donate'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: Colors.white,
+                              foregroundColor: brand,
+                              padding: const EdgeInsets.symmetric(vertical: 10),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filled(
+                          onPressed: goDetails,
+                          style: IconButton.styleFrom(
+                            backgroundColor: Colors.white.withOpacity(.9),
+                            foregroundColor: brand,
+                          ),
+                          icon: const Icon(Icons.info_outline),
+                          tooltip: 'Details',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
+
+  Widget _placeholderImg() => Container(
+    color: Colors.grey.shade300,
+    child: const Center(
+      child: Icon(Icons.pets, size: 56, color: Colors.white70),
+    ),
+  );
+
+  // Map status string -> colors, icon, normalized label
+  _StatusStyle _statusStyle(String s) {
+    final lower = s.toLowerCase();
+    Color bg, border, fg;
+    IconData icon;
+
+    if (lower.contains('adopted')) {
+      bg = const Color(0xFFEDE9FE);
+      border = const Color(0xFFD9D6FE);
+      fg = const Color(0xFF5B21B6);
+      icon = Icons.verified;
+    } else if (lower.contains('for adoption') ||
+        (lower.contains('adopt') && !lower.contains('ed'))) {
+      bg = const Color(0xFFEFFDF5);
+      border = const Color(0xFFD1FAE5);
+      fg = const Color(0xFF065F46);
+      icon = Icons.home;
+    } else if (lower.contains('foster')) {
+      bg = const Color(0xFFFFFBEB);
+      border = const Color(0xFFFDE68A);
+      fg = const Color(0xFF92400E);
+      icon = Icons.family_restroom;
+    } else if (lower.contains('rehab') || lower.contains('treatment')) {
+      bg = const Color(0xFFFFF1F2);
+      border = const Color(0xFFFECACA);
+      fg = const Color(0xFF9F1239);
+      icon = Icons.healing;
+    } else if (lower.contains('reserved') || lower.contains('hold')) {
+      bg = const Color(0xFFEFF6FF);
+      border = const Color(0xFFBFDBFE);
+      fg = const Color(0xFF1D4ED8);
+      icon = Icons.hourglass_top;
+    } else {
+      bg = Colors.white;
+      border = Colors.black12;
+      fg = const Color(0xFF1F2C47);
+      icon = Icons.info_outline;
+    }
+
+    return _StatusStyle(_titleCase(s), bg, border, fg, icon);
+  }
+
+  String _titleCase(String input) {
+    final t = input.trim();
+    if (t.isEmpty) return 'Status';
+    return t
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+}
+
+class _StatusStyle {
+  final String label;
+  final Color bg, border, fg;
+  final IconData icon;
+  _StatusStyle(this.label, this.bg, this.border, this.fg, this.icon);
 }

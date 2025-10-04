@@ -30,15 +30,23 @@ class _PetDetailPageState extends State<PetDetailPage> {
   bool _loading = true;
   String? _error;
 
-  bool get _isHttpImage => widget.image.startsWith('http');
+  // Summary from DB
+  double _funds = 0.0; // from pet_profiles.funds
+  int _donationCount = 0; // number of donations for this pet
+
+  bool get _hasImage => widget.image.trim().isNotEmpty;
+  bool get _isHttpImage =>
+      _hasImage &&
+      (widget.image.startsWith('http://') ||
+          widget.image.startsWith('https://'));
 
   @override
   void initState() {
     super.initState();
-    _loadPetRow();
+    _loadEverything();
   }
 
-  Future<void> _loadPetRow() async {
+  Future<void> _loadEverything() async {
     setState(() {
       _loading = true;
       _error = null;
@@ -47,20 +55,41 @@ class _PetDetailPageState extends State<PetDetailPage> {
     try {
       final sb = Supabase.instance.client;
 
-      final res = await sb
-          .from('pet_profiles')
-          .select('*')
-          .eq('id', widget.petId)
-          .maybeSingle();
+      // Explicitly type the futures list to avoid inference issues
+      final futures = <Future<dynamic>>[
+        sb
+            .from('pet_profiles')
+            .select('*')
+            .eq('id', widget.petId)
+            .maybeSingle(), // Map?
+        sb.from('donations').select('id').eq('pet_id', widget.petId), // List
+      ];
 
+      final results = await Future.wait(futures);
       if (!mounted) return;
 
-      final row = (res ?? <String, dynamic>{});
+      // Pet row
+      final Map<String, dynamic> row =
+          (results[0] as Map<String, dynamic>?) ?? <String, dynamic>{};
       final story = (row['story'] ?? '').toString().trim();
+
+      // Funds from pet_profiles.funds (numeric)
+      final fundsRaw = row['funds'];
+      final funds = () {
+        if (fundsRaw == null) return 0.0;
+        if (fundsRaw is num) return fundsRaw.toDouble();
+        return double.tryParse(fundsRaw.toString()) ?? 0.0;
+      }();
+
+      // Donations count
+      final List<dynamic> donations = (results[1] as List<dynamic>? ?? []);
+      final donationCount = donations.length;
 
       setState(() {
         _row = row;
         _story = story.isEmpty ? null : story;
+        _funds = funds;
+        _donationCount = donationCount;
         _loading = false;
       });
     } on PostgrestException catch (e) {
@@ -78,7 +107,7 @@ class _PetDetailPageState extends State<PetDetailPage> {
     }
   }
 
-  /* ---------- flexible value readers (table can use different names/types) ---------- */
+  /* ---------- flexible value readers ---------- */
 
   bool _readBoolAny(Map m, List<String> keys) {
     for (final k in keys) {
@@ -105,16 +134,54 @@ class _PetDetailPageState extends State<PetDetailPage> {
     return null;
   }
 
-  double? _readNumAny(Map m, List<String> keys) {
-    for (final k in keys) {
-      if (m.containsKey(k) && m[k] != null) {
-        final v = m[k];
-        if (v is num) return v.toDouble();
-        final p = double.tryParse(v.toString());
-        if (p != null) return p;
-      }
+  /* ---------- tiny helpers ---------- */
+
+  void _maybeAddChip(
+    List<_ChipData> chips,
+    Map row, {
+    required List<String> keys,
+    required String label,
+    required IconData icon,
+  }) {
+    if (_readBoolAny(row, keys)) chips.add(_ChipData(label, icon));
+  }
+
+  // Normalize a status string (safe title-case-ish for chip text)
+  String _normalizeStatus(String s) {
+    final t = s.trim();
+    if (t.isEmpty) return '';
+    // Make only first letter uppercased per word; keep rest lower
+    return t
+        .toLowerCase()
+        .split(RegExp(r'\s+'))
+        .map((w) => w.isEmpty ? w : '${w[0].toUpperCase()}${w.substring(1)}')
+        .join(' ');
+  }
+
+  // Add a STATUS chip based on pet_profiles.status string
+  void _addStatusChipIfAny(List<_ChipData> chips, Map row) {
+    final raw = _readStringAny(row, ['status']);
+    if (raw == null || raw.isEmpty) return;
+
+    final s = raw.toLowerCase();
+    IconData icon;
+
+    if (s.contains('adopted')) {
+      icon = Icons.verified; // adopted / completed
+    } else if (s.contains('for adoption') ||
+        (s.contains('adopt') && !s.contains('ed'))) {
+      icon = Icons.home; // for adoption
+    } else if (s.contains('foster')) {
+      icon = Icons.family_restroom;
+    } else if (s.contains('rehab') || s.contains('treatment')) {
+      icon = Icons.healing;
+    } else if (s.contains('reserved') || s.contains('hold')) {
+      icon = Icons.hourglass_top;
+    } else {
+      icon = Icons.info; // generic/unknown custom value
     }
-    return null;
+
+    chips.add(_ChipData(_normalizeStatus(raw), icon));
   }
 
   /* ------------------------------------ UI ------------------------------------ */
@@ -122,59 +189,80 @@ class _PetDetailPageState extends State<PetDetailPage> {
   @override
   Widget build(BuildContext context) {
     final row = _row ?? const {};
-    final status = _readStringAny(row, ['status']); // e.g. "For Adoption"
     final gender = _readStringAny(row, ['gender']) ?? 'Male';
     final age = _readStringAny(row, ['age', 'age_group']) ?? 'Senior';
 
-    // Progress values (pull from row if you later add columns like goal/raised)
-    // Fallback demo values for now:
-    final double goal = _readNumAny(row, ['goal_amount']) ?? 10000.0;
-    final double raised = _readNumAny(row, ['raised_amount']) ?? 3500.0;
-    final double progress = (raised / (goal <= 0 ? 1 : goal))
-        .clamp(0.0, 1.0)
-        .toDouble();
-
-    // Quick facts (Age/Breed/Gender row)
+    // Quick facts
     final petInfo = {"Age": age, "Breed": widget.breed, "Gender": gender};
 
-    // Dynamic chips from the loaded row
+    // Chips (STATUS first, then booleans)
     final chips = <_ChipData>[];
-    if ((status ?? '').toLowerCase().contains('adopt')) {
-      chips.add(_ChipData('For Adoption', Icons.home));
-    }
-    if (_readBoolAny(row, ['vaccination', 'vaccinated', 'is_vaccinated'])) {
-      chips.add(_ChipData('Vaccinated', Icons.vaccines));
-    }
-    if (_readBoolAny(row, ['surgery', 'needs_surgery', 'had_surgery'])) {
-      chips.add(_ChipData('Surgery', Icons.healing));
-    }
-    if (_readBoolAny(row, [
-      'needs_medical_care',
-      'needs_treatment',
-      'treatment_needed',
-      'injury_treatment',
-      'skin_treatment',
-    ])) {
-      chips.add(_ChipData('Needs Treatment', Icons.favorite));
-    }
-    if (_readBoolAny(row, [
-      'spay_neuter',
-      'spayed_neutered',
-      'is_neutered',
-      'is_spayed',
-    ])) {
-      chips.add(_ChipData('Spay/Neuter', Icons.pets));
-    }
+    _addStatusChipIfAny(chips, row);
+
+    _maybeAddChip(
+      chips,
+      row,
+      keys: const ['vaccination', 'vaccinated', 'is_vaccinated'],
+      label: 'Vaccinated',
+      icon: Icons.vaccines,
+    );
+    _maybeAddChip(
+      chips,
+      row,
+      keys: const ['surgery', 'had_surgery', 'needs_surgery'],
+      label: 'Surgery',
+      icon: Icons.healing,
+    );
+    _maybeAddChip(
+      chips,
+      row,
+      keys: const ['dental_care', 'dentalCare'],
+      label: 'Dental Care',
+      icon: Icons.medical_services,
+    );
+    _maybeAddChip(
+      chips,
+      row,
+      keys: const ['deworming'],
+      label: 'Deworming',
+      icon: Icons.pest_control,
+    );
+    _maybeAddChip(
+      chips,
+      row,
+      keys: const ['injury_treatment', 'injuryTreatment'],
+      label: 'Injury Treatment',
+      icon: Icons.local_hospital,
+    );
+    _maybeAddChip(
+      chips,
+      row,
+      keys: const ['skin_treatment', 'skinTreatment'],
+      label: 'Skin Treatment',
+      icon: Icons.healing,
+    );
+    _maybeAddChip(
+      chips,
+      row,
+      keys: const [
+        'spay_neuter',
+        'spayed_neutered',
+        'is_neutered',
+        'is_spayed',
+      ],
+      label: 'Spay/Neuter',
+      icon: Icons.pets,
+    );
 
     void goDonate() {
       Navigator.push(
         context,
         MaterialPageRoute(
           builder: (_) => DonatePage(
-            petId: widget.petId, // donate to THIS pet
-            allowInKind: false, // flip to true if you want in-kind here
+            petId: widget.petId,
+            allowInKind: false,
             autoAssignOpex: false,
-            campaignTitle: widget.name, // just for header text on donate page
+            campaignTitle: widget.name,
           ),
         ),
       );
@@ -192,13 +280,13 @@ class _PetDetailPageState extends State<PetDetailPage> {
         actions: [
           IconButton(
             tooltip: 'Refresh',
-            onPressed: _loadPetRow,
+            onPressed: _loadEverything,
             icon: const Icon(Icons.refresh, color: Colors.black87),
           ),
         ],
       ),
 
-      /* --------- Gradient Donate FAB (center float), as requested --------- */
+      /* --------- Gradient Donate FAB (center float) --------- */
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: SafeArea(
         minimum: const EdgeInsets.all(16),
@@ -240,39 +328,35 @@ class _PetDetailPageState extends State<PetDetailPage> {
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-          ? _ErrorBox(message: _error!, onRetry: _loadPetRow)
+          ? _ErrorBox(message: _error!, onRetry: _loadEverything)
           : SingleChildScrollView(
-              padding: const EdgeInsets.only(bottom: 96), // leave space for FAB
+              padding: const EdgeInsets.only(bottom: 96),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Header image
+                  // Header image (safe fallback if empty/invalid)
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 25),
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(15),
-                      child: _isHttpImage
+                      child: !_hasImage
+                          ? _placeholderHeader()
+                          : _isHttpImage
                           ? Image.network(
                               widget.image,
                               height: 280,
                               width: double.infinity,
                               fit: BoxFit.cover,
-                              errorBuilder: (_, __, ___) => Container(
-                                height: 280,
-                                color: Colors.grey.shade300,
-                                alignment: Alignment.center,
-                                child: const Icon(
-                                  Icons.pets,
-                                  size: 56,
-                                  color: Colors.white70,
-                                ),
-                              ),
+                              errorBuilder: (_, __, ___) =>
+                                  _placeholderHeader(),
                             )
                           : Image.asset(
                               widget.image,
                               height: 280,
                               width: double.infinity,
                               fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) =>
+                                  _placeholderHeader(),
                             ),
                     ),
                   ),
@@ -315,42 +399,19 @@ class _PetDetailPageState extends State<PetDetailPage> {
                         .map((entry) => _buildMainTag(entry.key, entry.value))
                         .toList(),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  /* -------- PROGRESS (placed BEFORE chips, as requested) -------- */
+                  // ---- Support so far (Total funds + Number of donations) ----
                   Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 16,
-                      vertical: 6,
-                    ),
-                    child: Column(
-                      children: [
-                        ClipRRect(
-                          borderRadius: BorderRadius.circular(10),
-                          child: LinearProgressIndicator(
-                            value: progress, // <-- double
-                            minHeight: 12,
-                            backgroundColor: Colors.grey.shade300,
-                            valueColor: const AlwaysStoppedAnimation<Color>(
-                              Color(0xFF1F2C47),
-                            ),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          "₱${raised.toStringAsFixed(0)} raised of ₱${goal.toStringAsFixed(0)} goal",
-                          style: const TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.w600,
-                            color: Color(0xFF1F2C47),
-                          ),
-                        ),
-                      ],
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: _supportSoFarCard(
+                      total: _funds,
+                      count: _donationCount,
                     ),
                   ),
                   const SizedBox(height: 12),
 
-                  // Dynamic status chips (For Adoption, Vaccinated, etc.)
+                  // Status + attribute chips
                   if (chips.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
@@ -408,7 +469,6 @@ class _PetDetailPageState extends State<PetDetailPage> {
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     child: Text(
                       _story ??
-                          // fallback if no story in DB
                           "${widget.name} is a lovely ${widget.breed} ${widget.type} looking for a forever home!\n\n"
                               "He was rescued in the Philippines after being abandoned. "
                               "Despite his hardships, he remains gentle and full of love. "
@@ -425,10 +485,127 @@ class _PetDetailPageState extends State<PetDetailPage> {
                     ),
                   ),
 
-                  const SizedBox(height: 120), // comfy bottom space
+                  const SizedBox(height: 120),
                 ],
               ),
             ),
+    );
+  }
+
+  Widget _supportSoFarCard({required double total, required int count}) {
+    String money(double v) => "₱${v.toStringAsFixed(0)}";
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: const [
+          BoxShadow(
+            blurRadius: 14,
+            offset: Offset(0, 8),
+            color: Colors.black12,
+          ),
+        ],
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            "Support so far",
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: Color(0xFF1F2C47),
+            ),
+          ),
+          const SizedBox(height: 6),
+          const Divider(),
+          const SizedBox(height: 6),
+          Row(
+            children: [
+              Expanded(
+                child: _metricTile(
+                  label: "Total Funds",
+                  value: money(total),
+                  icon: Icons.account_balance_wallet_outlined,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _metricTile(
+                  label: "Donations",
+                  value: count.toString(),
+                  icon: Icons.people_alt_outlined,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _metricTile({
+    required String label,
+    required String value,
+    required IconData icon,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE2E8F0)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: const Color(0xFF1F2C47).withOpacity(.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: const Color(0xFF1F2C47)),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: Color(0xFF64748B),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: const TextStyle(
+                    fontSize: 18,
+                    color: Color(0xFF0F172A),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _placeholderHeader() {
+    return Container(
+      height: 280,
+      width: double.infinity,
+      color: Colors.grey.shade300,
+      alignment: Alignment.center,
+      child: const Icon(Icons.pets, size: 56, color: Colors.white70),
     );
   }
 
