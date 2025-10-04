@@ -1,5 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/ViewMore.dart';
 import 'package:pawlytics/views/donors/donors navigation bar/connections/AboutUsPage.dart';
@@ -171,52 +173,9 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 15),
             const Divider(thickness: 2, indent: 10, endIndent: 10),
 
-            // Recommended carousel
+            // Recommended carousel (now pulls the same pets shown in PetPage)
             sectionHeader(context, "Recommended"),
-            SizedBox(
-              height: 230,
-              child: ListView(
-                scrollDirection: Axis.horizontal,
-                children: [
-                  petCard(
-                    context,
-                    petId: 'buddy-001', // ✅ NEW
-                    name: "Buddy",
-                    breed: "Aspin",
-                    type: "Dog",
-                    imagePath: "assets/images/donors/peter.png",
-                    campaignId: defaultCampaignId,
-                  ),
-                  petCard(
-                    context,
-                    petId: 'ming-001',
-                    name: "Ming",
-                    breed: "Puspin",
-                    type: "Cat",
-                    imagePath: "assets/images/donors/dog3.png",
-                    campaignId: defaultCampaignId,
-                  ),
-                  petCard(
-                    context,
-                    petId: 'luna-001',
-                    name: "Luna",
-                    breed: "Aspin",
-                    type: "Dog",
-                    imagePath: "assets/images/donors/dog3.png",
-                    campaignId: defaultCampaignId,
-                  ),
-                  petCard(
-                    context,
-                    petId: 'whiskers-001',
-                    name: "Whiskers",
-                    breed: "Puspin",
-                    type: "Cat",
-                    imagePath: "assets/images/donors/luna.png",
-                    campaignId: defaultCampaignId,
-                  ),
-                ],
-              ),
-            ),
+            const SizedBox(height: 230, child: _RecommendedPetsRow()),
 
             const SizedBox(height: 1),
 
@@ -283,6 +242,8 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+
+  // ---------------- Helpers ----------------
 
   Widget buildCircleIcon(IconData icon, String label) {
     return Column(
@@ -505,4 +466,283 @@ class HomePage extends StatelessWidget {
       ),
     );
   }
+}
+
+/* -------------------------------------------------------------------------- */
+/*                   Recommended pets row (reads pet_profiles)                */
+/* -------------------------------------------------------------------------- */
+
+class _RecommendedPetsRow extends StatelessWidget {
+  const _RecommendedPetsRow({Key? key}) : super(key: key);
+
+  Future<List<_MiniPet>> _fetch() async {
+    final sb = Supabase.instance.client;
+    final res = await sb
+        .from('pet_profiles')
+        .select('id, name, species, age_group, status, image, created_at')
+        .order('created_at', ascending: false)
+        .limit(12);
+
+    final rows = (res as List).cast<Map<String, dynamic>>();
+    return rows.map(_MiniPet.fromMap).toList();
+  }
+
+  String? _resolveImageUrl(String? raw) {
+    if (raw == null || raw.isEmpty) return null;
+    if (raw.startsWith('http')) return raw;
+    // If you store Supabase Storage paths, convert to public URL here:
+    // return Supabase.instance.client.storage.from('your-bucket').getPublicUrl(raw);
+    return null;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<List<_MiniPet>>(
+      future: _fetch(),
+      builder: (context, snap) {
+        if (snap.connectionState == ConnectionState.waiting) {
+          // skeletons
+          return ListView.separated(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.symmetric(horizontal: 16),
+            itemCount: 4,
+            separatorBuilder: (_, __) => const SizedBox(width: 10),
+            itemBuilder: (_, __) => const _SkeletonCard(),
+          );
+        }
+
+        if (snap.hasError) {
+          return Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red),
+                  const SizedBox(height: 8),
+                  Text(
+                    snap.error.toString(),
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(color: Colors.red),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+
+        final pets = snap.data ?? const <_MiniPet>[];
+        if (pets.isEmpty) {
+          return const Center(child: Text('No pets yet'));
+        }
+
+        return ListView.separated(
+          scrollDirection: Axis.horizontal,
+          padding: const EdgeInsets.only(left: 16, right: 10),
+          itemCount: pets.length,
+          separatorBuilder: (_, __) => const SizedBox(width: 10),
+          itemBuilder: (context, i) {
+            final p = pets[i];
+            final url = _resolveImageUrl(p.imageUrl);
+
+            // Same visual design as your homepage cards
+            return _RecommendedCard(
+              petId: p.id,
+              name: p.name,
+              breed: p.ageGroup.isEmpty ? '—' : p.ageGroup,
+              type: p.species,
+              imageUrl: url,
+            );
+          },
+        );
+      },
+    );
+  }
+}
+
+class _SkeletonCard extends StatelessWidget {
+  const _SkeletonCard({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 6),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Container(height: 140, width: 180, color: Colors.black12),
+          ),
+          const SizedBox(height: 6),
+          Container(height: 16, width: 100, color: Colors.black12),
+          const SizedBox(height: 4),
+          Container(height: 12, width: 80, color: Colors.black12),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecommendedCard extends StatelessWidget {
+  const _RecommendedCard({
+    required this.petId,
+    required this.name,
+    required this.breed,
+    required this.type,
+    required this.imageUrl,
+  });
+
+  final String petId;
+  final String name;
+  final String breed;
+  final String type;
+  final String? imageUrl;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget img;
+    if (imageUrl == null) {
+      img = Image.asset(
+        "assets/images/donors/peter.png",
+        height: 140,
+        width: 180,
+        fit: BoxFit.cover,
+      );
+    } else if (imageUrl!.startsWith('http')) {
+      img = Image.network(
+        imageUrl!,
+        height: 140,
+        width: 180,
+        fit: BoxFit.cover,
+        errorBuilder: (_, __, ___) => Image.asset(
+          "assets/images/donors/peter.png",
+          height: 140,
+          width: 180,
+          fit: BoxFit.cover,
+        ),
+      );
+    } else {
+      img = Image.asset(imageUrl!, height: 140, width: 180, fit: BoxFit.cover);
+    }
+
+    return Container(
+      width: 160,
+      margin: const EdgeInsets.only(right: 6),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Stack(
+            children: [
+              ClipRRect(borderRadius: BorderRadius.circular(12), child: img),
+              Positioned(
+                bottom: 8,
+                right: 8,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 8,
+                    ),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    elevation: 2,
+                  ),
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => PetDetailPage(
+                          petId: petId,
+                          name: name,
+                          image: imageUrl ?? '',
+                          breed: breed,
+                          type: type,
+                        ),
+                      ),
+                    );
+                  },
+                  icon: const Icon(
+                    Icons.info,
+                    size: 25,
+                    color: Color(0xFF1A2C50),
+                  ),
+                  label: const Text(
+                    "View Details",
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A2C50),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            name,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              fontWeight: FontWeight.w600,
+              fontSize: 20,
+              color: Color(0xFF1A2C50),
+            ),
+          ),
+          Text(
+            "$breed • $type",
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(fontSize: 15, color: Color(0xFF1A2C50)),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* ------------------------------ tiny DTO class ---------------------------- */
+
+class _MiniPet {
+  final String id;
+  final String name;
+  final String species;
+  final String ageGroup;
+  final String status;
+  final String? imageUrl;
+  final DateTime? createdAt;
+
+  _MiniPet({
+    required this.id,
+    required this.name,
+    required this.species,
+    required this.ageGroup,
+    required this.status,
+    required this.imageUrl,
+    required this.createdAt,
+  });
+
+  static DateTime? _toDate(dynamic v) {
+    if (v == null) return null;
+    try {
+      return DateTime.parse('$v');
+    } catch (_) {
+      return null;
+    }
+  }
+
+  factory _MiniPet.fromMap(Map<String, dynamic> m) => _MiniPet(
+    id: (m['id'] ?? '').toString(),
+    name: (m['name'] ?? 'Unnamed').toString(),
+    species: (m['species'] ?? '').toString(),
+    ageGroup: (m['age_group'] ?? '').toString(),
+    status: (m['status'] ?? '').toString(),
+    imageUrl: (m['image']?.toString().isEmpty ?? true)
+        ? null
+        : m['image'].toString(),
+    createdAt: _toDate(m['created_at']),
+  );
 }
