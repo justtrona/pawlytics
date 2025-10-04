@@ -57,6 +57,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
       _emailCtrl.text = user.email ?? '';
       final md = user.userMetadata ?? {};
       final metaName =
+          (md['fullName'] as String?) ?? // support camelCase too
           (md['full_name'] as String?) ??
           (md['name'] as String?) ??
           (md['username'] as String?) ??
@@ -83,11 +84,20 @@ class _ProfileSettingsState extends State<ProfileSettings> {
 
       // ---------------- Enrich from registrations (preferred DB source) ----------------
       try {
-        final Map<String, dynamic>? reg = await _sb
+        Map<String, dynamic>? reg = await _sb
             .from('registrations')
             .select('fullName, email, phone_number')
             .eq('auth_user_id', user.id)
             .maybeSingle();
+
+        // Fallback by email if auth_user_id is NULL in the table
+        if (reg == null && (user.email ?? '').isNotEmpty) {
+          reg = await _sb
+              .from('registrations')
+              .select('fullName, email, phone_number')
+              .eq('email', user.email!) // <-- non-null asserted
+              .maybeSingle();
+        }
 
         if (reg != null) {
           final rName = (reg['fullName'] as String?);
@@ -95,8 +105,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
           final rPhone = (reg['phone_number'] as String?);
 
           if (rName != null && rName.trim().isNotEmpty) {
-            _nameCtrl.text = rName
-                .trim(); // <-- show full name from registrations
+            _nameCtrl.text = rName.trim();
           }
           if (rEmail != null && rEmail.trim().isNotEmpty) {
             _emailCtrl.text = rEmail.trim();
@@ -163,6 +172,8 @@ class _ProfileSettingsState extends State<ProfileSettings> {
     try {
       // ---------------- 1) Update Auth (email + metadata) ----------------
       final meta = <String, dynamic>{
+        // write both cases for compatibility
+        'fullName': _nameCtrl.text.trim(),
         'full_name': _nameCtrl.text.trim(),
         'phone': _phoneCtrl.text.trim(),
         'donate_anonymously': _donateAnonymously,

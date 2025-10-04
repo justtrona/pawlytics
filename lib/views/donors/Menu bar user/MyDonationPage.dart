@@ -1,200 +1,137 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-void main() {
-  runApp(const MyApp());
-}
-
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+class DonationHistoryPage extends StatefulWidget {
+  const DonationHistoryPage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return const MaterialApp(
-      debugShowCheckedModeBanner: false,
-      home: MyDonationPage(),
-    );
+  State<DonationHistoryPage> createState() => _DonationHistoryPageState();
+}
+
+class _DonationHistoryPageState extends State<DonationHistoryPage> {
+  final supabase = Supabase.instance.client;
+  late Future<List<Map<String, dynamic>>> _donationsFuture;
+
+  @override
+  void initState() {
+    super.initState();
+    _donationsFuture = fetchDonationHistory();
   }
-}
 
-class MyDonationPage extends StatefulWidget {
-  const MyDonationPage({super.key});
+  Future<List<Map<String, dynamic>>> fetchDonationHistory() async {
+    try {
+      final response = await supabase.from('donations').select('*');
 
-  @override
-  State<MyDonationPage> createState() => _MyDonationPageState();
-}
+      debugPrint('✅ Raw donations response: $response');
 
-class _MyDonationPageState extends State<MyDonationPage> {
-  String selectedFilter = "Weekly";
+      if (response.isEmpty) {
+        debugPrint('⚠️ No rows found in donations table.');
+        return [];
+      }
 
-  final List<Map<String, String>> donations = [
-    {"type": "Cash", "amount": "2000.00", "date": "06/22/25"},
-    {"type": "Cash", "amount": "500.00", "date": "06/03/25"},
-    {"type": "Cash", "amount": "1000.00", "date": "05/15/25"},
-    {"type": "Cash", "amount": "1500.00", "date": "01/10/25"},
-  ];
-
-  List<Map<String, String>> get filteredDonations {
-    if (selectedFilter == "Weekly") {
-      return donations.where((d) => d["date"]!.startsWith("06/22")).toList();
-    } else if (selectedFilter == "Monthly") {
-      return donations.where((d) => d["date"]!.startsWith("06/")).toList();
-    } else if (selectedFilter == "Yearly") {
-      return donations.where((d) => d["date"]!.endsWith("/25")).toList();
+      return List<Map<String, dynamic>>.from(response);
+    } catch (e) {
+      debugPrint('❌ Error fetching donations: $e');
+      return [];
     }
-    return donations;
   }
 
-  double get totalBalance {
-    return filteredDonations.fold(
-      0.0,
-      (sum, d) => sum + double.parse(d["amount"]!),
-    );
+  String getDonationTarget(Map<String, dynamic> donation) {
+    final campaign = donation['campaigns']?['title'];
+    final pet = donation['pet_profiles']?['name'];
+    final goal = donation['operational_expense_allocations']?['title'];
+
+    if (campaign != null && campaign.isNotEmpty) {
+      return 'Campaign: $campaign';
+    } else if (pet != null && pet.isNotEmpty) {
+      return 'Pet: $pet';
+    } else if (goal != null && goal.isNotEmpty) {
+      return 'Goal: $goal';
+    } else {
+      return 'General Donation';
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () {
-            Navigator.of(context).pop();
-          },
-        ),
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        title: const Text(
-          "Donation History",
-          style: TextStyle(color: Colors.black),
-        ),
-        centerTitle: true,
+        title: const Text('Donation History'),
+        backgroundColor: Colors.teal,
       ),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                filterButton("Weekly"),
-                const SizedBox(width: 8),
-                filterButton("Monthly"),
-                const SizedBox(width: 8),
-                filterButton("Yearly"),
-              ],
-            ),
-            const SizedBox(height: 16),
-
-            // Total Balance
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 20),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1F2C47),
-                borderRadius: BorderRadius.circular(8),
+      body: FutureBuilder<List<Map<String, dynamic>>>(
+        future: _donationsFuture,
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          } else if (snapshot.hasError) {
+            return Center(
+              child: Text(
+                'Error: ${snapshot.error}',
+                style: const TextStyle(color: Colors.red),
               ),
-              child: Column(
-                children: [
-                  const Text(
-                    "Total Balance",
-                    style: TextStyle(color: Colors.white, fontSize: 16),
+            );
+          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
+            return const Center(child: Text('No donations found.'));
+          }
+
+          final donations = snapshot.data!;
+          final Map<String, double> totals = {};
+
+          for (var donation in donations) {
+            final name = donation['donor_name'] ?? 'Unknown Donor';
+            final amount = (donation['amount'] ?? 0).toDouble();
+            totals[name] = (totals[name] ?? 0) + amount;
+          }
+
+          return ListView(
+            padding: const EdgeInsets.all(16),
+            children: [
+              const Text(
+                'Total Donations by Donor',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...totals.entries.map((entry) {
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    title: Text(entry.key),
+                    subtitle: Text('Total: ₱${entry.value.toStringAsFixed(2)}'),
+                    leading: const Icon(Icons.volunteer_activism),
                   ),
-                  const SizedBox(height: 8),
-                  Text(
-                    "PHP ${totalBalance.toStringAsFixed(2)}",
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
+                );
+              }),
+              const SizedBox(height: 16),
+              const Divider(),
+              const Text(
+                'Donation Details',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              ),
+              const SizedBox(height: 8),
+              ...donations.map((donation) {
+                final target = getDonationTarget(donation);
+                return Card(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: ListTile(
+                    title: Text(
+                      '${donation['donor_name']} - ₱${donation['amount']}',
+                    ),
+                    subtitle: Text(
+                      '$target\nType: ${donation['donation_type'] ?? 'N/A'}\nDate: ${donation['donation_date'] ?? ''}',
+                    ),
+                    isThreeLine: true,
+                    leading: const Icon(
+                      Icons.favorite,
+                      color: Colors.redAccent,
                     ),
                   ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            // Donations List
-            Expanded(
-              child: filteredDonations.isEmpty
-                  ? const Center(child: Text("No donations found."))
-                  : ListView.separated(
-                      itemCount: filteredDonations.length,
-                      separatorBuilder: (_, __) => const SizedBox(height: 12),
-                      itemBuilder: (context, index) {
-                        final donation = filteredDonations[index];
-                        return donationCard(
-                          donation["type"]!,
-                          "PHP ${donation["amount"]!}",
-                          donation["date"]!,
-                        );
-                      },
-                    ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget filterButton(String label) {
-    final bool isSelected = selectedFilter == label;
-    return Expanded(
-      child: ElevatedButton(
-        style: ElevatedButton.styleFrom(
-          backgroundColor: isSelected
-              ? const Color(0xFF1F2C47)
-              : Colors.grey[200],
-          foregroundColor: isSelected ? Colors.white : Colors.black,
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-        ),
-        onPressed: () {
-          setState(() {
-            selectedFilter = label;
-          });
+                );
+              }),
+            ],
+          );
         },
-        child: Text(label),
       ),
-    );
-  }
-
-  Widget donationCard(String type, String amount, String date) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.grey.shade400),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          rowText("Donation Type", type),
-          const SizedBox(height: 4),
-          rowText("Amount Donated", amount),
-          const SizedBox(height: 4),
-          rowText("Date Donated", date),
-        ],
-      ),
-    );
-  }
-
-  Widget rowText(String label, String value) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: const TextStyle(fontSize: 14, color: Colors.black54),
-        ),
-        Text(
-          value,
-          style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
-        ),
-      ],
     );
   }
 }
