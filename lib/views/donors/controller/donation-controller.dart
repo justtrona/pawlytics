@@ -63,9 +63,6 @@ class DonationController {
       ? 'Select Date'
       : DateFormat.yMMMMd().format(selectedDate!);
 
-  void setOpexId(int? id) => selectedOpexId = id;
-  void clearOpexId() => selectedOpexId = null;
-
   DonationModel buildDonation() {
     final date = selectedDate ?? DateTime.now();
     final donorName = nameCtl.text.trim().isEmpty
@@ -110,24 +107,39 @@ class DonationController {
     }
   }
 
-  List<String> validateCurrent() => buildDonation().validate();
-
-  /// ✅ NEW FUNCTION — Save donation to Supabase with user_id
+  /// ✅ Save donation with user info from registration
   Future<bool> saveDonation() async {
     try {
       final user = supabase.auth.currentUser;
-
       if (user == null) {
         debugPrint('❌ No logged-in user.');
         return false;
       }
 
+      debugPrint('🧠 Current user: ${user.email} (${user.id})');
+
+      // ✅ Correct join to registration using auth_user_id
+      final profile = await supabase
+          .from('registration')
+          .select('"fullName", phone_number')
+          .eq('id', user.id)
+          .maybeSingle();
+
+      debugPrint('📦 Registration result: $profile');
+
+      // Use values from registration or fallback
+      final donorName = profile?['fullName'] ?? 'Anonymous';
+      final donorPhone = profile?['phone_number'] ?? 'N/A';
+
+      debugPrint('✅ Using donor info: $donorName | $donorPhone');
+
       final donation = buildDonation();
 
+      // ✅ Let the trigger handle donor_name and donor_phone if missing
       final data = {
-        'user_id': user.id, // 👈 ensures donation is tied to this user
-        'donor_name': donation.donorName,
-        'donor_phone': donation.donorPhone,
+        'user_id': user.id, // ✅ Correct foreign key reference
+        'donor_name': donorName, // ✅ Add this
+        'donor_phone': donorPhone, // ✅ Add this
         'donation_type': donation.donationType.name,
         'donation_date': donation.donationDate.toIso8601String(),
         'amount': donation.amount,
@@ -139,14 +151,15 @@ class DonationController {
         'is_operation_expense': donation.opexId != null,
       };
 
-      debugPrint('📤 Saving donation: $data');
+      debugPrint('📤 Saving donation with payload: $data');
 
       final response = await supabase.from('donations').insert(data).select();
 
       debugPrint('✅ Donation inserted: $response');
       return true;
-    } catch (e) {
+    } catch (e, st) {
       debugPrint('❌ Error saving donation: $e');
+      debugPrint(st.toString());
       return false;
     }
   }

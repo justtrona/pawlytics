@@ -19,18 +19,16 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     _donationsFuture = fetchDonationHistory();
   }
 
-  /// 🧠 Fetch donation history from Supabase (for logged-in user only)
   Future<List<Map<String, dynamic>>> fetchDonationHistory() async {
     try {
       debugPrint('🚀 Running donation query...');
 
       final user = supabase.auth.currentUser;
       if (user == null) {
-        debugPrint('❌ No logged-in user found.');
+        debugPrint('❌ No logged-in user found');
         return [];
       }
 
-      // 🧩 Fetch only donations belonging to this specific user
       final response = await supabase
           .from('donations')
           .select(
@@ -54,7 +52,6 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     }
   }
 
-  /// 🎯 Determine the donation’s target
   String getDonationTarget(Map<String, dynamic> donation) {
     if (donation['opex_id'] != null) {
       return 'Operation Expense (Opex ID: ${donation['opex_id']})';
@@ -67,7 +64,6 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     }
   }
 
-  /// 💰 Safely parse amount
   double parseAmount(dynamic value) {
     if (value == null) return 0;
     if (value is num) return value.toDouble();
@@ -77,7 +73,6 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     return 0;
   }
 
-  /// 📅 Format date
   String formatDate(String? isoString) {
     if (isoString == null || isoString.isEmpty) return 'Unknown Date';
     try {
@@ -91,15 +86,22 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.grey.shade100,
       appBar: AppBar(
-        title: const Text('Donation History'),
+        title: const Text(
+          'Donation History',
+          style: TextStyle(fontWeight: FontWeight.bold),
+        ),
         backgroundColor: Colors.teal,
+        elevation: 2,
       ),
       body: FutureBuilder<List<Map<String, dynamic>>>(
         future: _donationsFuture,
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
+            return const Center(
+              child: CircularProgressIndicator(color: Colors.teal),
+            );
           } else if (snapshot.hasError) {
             return Center(
               child: Text(
@@ -108,7 +110,16 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
               ),
             );
           } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(child: Text('No donations found.'));
+            return const Center(
+              child: Text(
+                'No donations found.',
+                style: TextStyle(
+                  color: Colors.grey,
+                  fontSize: 16,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            );
           }
 
           final donations = snapshot.data!;
@@ -123,51 +134,146 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
             children: [
               // 💰 Total donations card
               Card(
-                color: Colors.teal.shade100,
-                margin: const EdgeInsets.only(bottom: 16),
-                child: ListTile(
-                  leading: const Icon(
-                    Icons.account_balance_wallet,
-                    color: Colors.teal,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(15),
+                ),
+                elevation: 4,
+                color: Colors.teal.shade50,
+                margin: const EdgeInsets.only(bottom: 20),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 16,
                   ),
-                  title: const Text(
-                    'Total Donations',
-                    style: TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  subtitle: Text(
-                    '₱${NumberFormat('#,##0.00').format(totalAmount)}',
-                    style: const TextStyle(fontSize: 16),
+                  child: Row(
+                    children: [
+                      CircleAvatar(
+                        radius: 26,
+                        backgroundColor: Colors.teal,
+                        child: const Icon(
+                          Icons.volunteer_activism,
+                          color: Colors.white,
+                          size: 28,
+                        ),
+                      ),
+                      const SizedBox(width: 16),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text(
+                            'Total Donations',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '₱${NumberFormat('#,##0.00').format(totalAmount)}',
+                            style: const TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.teal,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
               ),
 
-              const Text(
-                'Donation Details',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+              const Padding(
+                padding: EdgeInsets.only(bottom: 10),
+                child: Text(
+                  'Your Recent Donations',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.black87,
+                  ),
+                ),
               ),
-              const SizedBox(height: 8),
 
-              // 🧾 List of donations
+              // 🧾 Donation cards
               ...donations.map((donation) {
                 final target = getDonationTarget(donation);
                 final amount = parseAmount(donation['amount']);
                 final date = formatDate(donation['donation_date']);
+                final type = donation['donation_type'] ?? 'N/A';
 
                 return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    leading: const Icon(
-                      Icons.favorite,
-                      color: Colors.redAccent,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  elevation: 3,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  child: Padding(
+                    padding: const EdgeInsets.all(14.0),
+                    child: Row(
+                      children: [
+                        Container(
+                          decoration: BoxDecoration(
+                            color: Colors.teal.shade100,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          padding: const EdgeInsets.all(10),
+                          child: Icon(
+                            type.toLowerCase() == 'cash'
+                                ? Icons.payments
+                                : Icons.card_giftcard,
+                            color: Colors.teal.shade800,
+                            size: 28,
+                          ),
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                target,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: Colors.black87,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '₱${NumberFormat('#,##0.00').format(amount)}',
+                                style: const TextStyle(
+                                  color: Colors.teal,
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    'Type: $type',
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black54,
+                                    ),
+                                  ),
+                                  Text(
+                                    date,
+                                    style: const TextStyle(
+                                      fontSize: 13,
+                                      color: Colors.black45,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
                     ),
-                    title: Text(
-                      '₱${NumberFormat('#,##0.00').format(amount)}',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
-                    ),
-                    subtitle: Text(
-                      '$target\nType: ${donation['donation_type'] ?? 'N/A'}\nDate: $date',
-                    ),
-                    isThreeLine: true,
                   ),
                 );
               }),
