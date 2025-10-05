@@ -20,18 +20,32 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
 
   Future<List<Map<String, dynamic>>> fetchDonationHistory() async {
     try {
-      final response = await supabase.from('donations').select('*');
+      final user = supabase.auth.currentUser;
 
-      debugPrint('✅ Raw donations response: $response');
-
-      if (response.isEmpty) {
-        debugPrint('⚠️ No rows found in donations table.');
+      if (user == null) {
+        debugPrint('❌ No user logged in.');
         return [];
       }
 
+      debugPrint('🔎 Logged in user ID: ${user.id}');
+
+      // TEMPORARY: Fetch all donations (no filter yet)
+      final response = await supabase
+          .from('donations')
+          .select('*')
+          .order('donation_date', ascending: false);
+
+      debugPrint('🧾 All donations data: $response');
+
+      if (response.isEmpty) {
+        debugPrint('⚠️ No donations in table.');
+        return [];
+      }
+
+      // Return all donations for now
       return List<Map<String, dynamic>>.from(response);
     } catch (e) {
-      debugPrint('❌ Error fetching donations: $e');
+      debugPrint('❌ Error fetching donation history: $e');
       return [];
     }
   }
@@ -76,34 +90,30 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
           }
 
           final donations = snapshot.data!;
-          final Map<String, double> totals = {};
+          double totalAmount = 0;
 
           for (var donation in donations) {
-            final name = donation['donor_name'] ?? 'Unknown Donor';
-            final amount = (donation['amount'] ?? 0).toDouble();
-            totals[name] = (totals[name] ?? 0) + amount;
+            totalAmount += (donation['amount'] ?? 0).toDouble();
           }
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              const Text(
-                'Total Donations by Donor',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 8),
-              ...totals.entries.map((entry) {
-                return Card(
-                  margin: const EdgeInsets.only(bottom: 10),
-                  child: ListTile(
-                    title: Text(entry.key),
-                    subtitle: Text('Total: ₱${entry.value.toStringAsFixed(2)}'),
-                    leading: const Icon(Icons.volunteer_activism),
+              Card(
+                color: Colors.teal.shade100,
+                margin: const EdgeInsets.only(bottom: 16),
+                child: ListTile(
+                  leading: const Icon(
+                    Icons.account_balance_wallet,
+                    color: Colors.teal,
                   ),
-                );
-              }),
-              const SizedBox(height: 16),
-              const Divider(),
+                  title: const Text(
+                    'Total Donations (All Users)',
+                    style: TextStyle(fontWeight: FontWeight.bold),
+                  ),
+                  subtitle: Text('₱${totalAmount.toStringAsFixed(2)}'),
+                ),
+              ),
               const Text(
                 'Donation Details',
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -115,10 +125,11 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                   margin: const EdgeInsets.only(bottom: 10),
                   child: ListTile(
                     title: Text(
-                      '${donation['donor_name']} - ₱${donation['amount']}',
+                      '₱${donation['amount']}',
+                      style: const TextStyle(fontWeight: FontWeight.bold),
                     ),
                     subtitle: Text(
-                      '$target\nType: ${donation['donation_type'] ?? 'N/A'}\nDate: ${donation['donation_date'] ?? ''}',
+                      '${donation['donor_name'] ?? 'Unknown Donor'}\n$target\nType: ${donation['donation_type'] ?? 'N/A'}\nDate: ${donation['donation_date'] ?? ''}',
                     ),
                     isThreeLine: true,
                     leading: const Icon(
