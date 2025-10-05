@@ -19,6 +19,7 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     _donationsFuture = fetchDonationHistory();
   }
 
+  /// 🧠 Fetch donation history with related pet & campaign names
   Future<List<Map<String, dynamic>>> fetchDonationHistory() async {
     try {
       debugPrint('🚀 Running donation query...');
@@ -36,7 +37,8 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
             donation_type,
             donation_date,
             amount,
-            opex_id,
+            item,
+            quantity,
             campaign_id,
             pet_id,
             pet_profiles (name),
@@ -60,15 +62,14 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     }
   }
 
+  /// 🎯 Determine where the donation went
   String getDonationTarget(Map<String, dynamic> donation) {
     if (donation['pet_profiles'] != null &&
-        donation['pet_profiles']['pet_name'] != null) {
-      return 'Pet: ${donation['pet_profiles']['pet_name']}';
+        donation['pet_profiles']['name'] != null) {
+      return 'Pet: ${donation['pet_profiles']['name']}';
     } else if (donation['campaigns'] != null &&
         donation['campaigns']['program'] != null) {
       return 'Campaign: ${donation['campaigns']['program']}';
-    } else if (donation['opex_id'] != null) {
-      return 'Operation Expense (Opex ID: ${donation['opex_id']})';
     } else {
       return 'General Donation';
     }
@@ -141,6 +142,7 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
+              /// 💰 Total Donations Card
               Card(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
@@ -169,7 +171,7 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           const Text(
-                            'Total Donations',
+                            'Total Cash Donations',
                             style: TextStyle(
                               fontWeight: FontWeight.bold,
                               fontSize: 16,
@@ -190,6 +192,7 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                   ),
                 ),
               ),
+
               const Padding(
                 padding: EdgeInsets.only(bottom: 10),
                 child: Text(
@@ -201,11 +204,18 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                   ),
                 ),
               ),
+
+              /// 🧾 Donation Cards
               ...donations.map((donation) {
                 final target = getDonationTarget(donation);
-                final amount = parseAmount(donation['amount']);
-                final date = formatDate(donation['donation_date']);
                 final type = donation['donation_type'] ?? 'N/A';
+                final date = formatDate(donation['donation_date']);
+                final isInKind = type.toString().toLowerCase().contains(
+                  'kind',
+                ); // ✅ Detect
+                final amount = parseAmount(donation['amount']);
+                final item = donation['item'] ?? 'N/A';
+                final quantity = donation['quantity']?.toString() ?? 'N/A';
 
                 return Card(
                   shape: RoundedRectangleBorder(
@@ -216,6 +226,7 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                   child: Padding(
                     padding: const EdgeInsets.all(14.0),
                     child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
                           decoration: BoxDecoration(
@@ -224,9 +235,7 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                           ),
                           padding: const EdgeInsets.all(10),
                           child: Icon(
-                            type.toLowerCase() == 'cash'
-                                ? Icons.payments
-                                : Icons.card_giftcard,
+                            isInKind ? Icons.card_giftcard : Icons.payments,
                             color: Colors.teal.shade800,
                             size: 28,
                           ),
@@ -245,14 +254,27 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                                 ),
                               ),
                               const SizedBox(height: 6),
-                              Text(
-                                '₱${NumberFormat('#,##0.00').format(amount)}',
-                                style: const TextStyle(
-                                  color: Colors.teal,
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w600,
+
+                              /// Show either amount or item/quantity
+                              if (isInKind)
+                                Text(
+                                  'Item: $item\nQuantity: $quantity',
+                                  style: const TextStyle(
+                                    color: Colors.teal,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                )
+                              else
+                                Text(
+                                  '₱${NumberFormat('#,##0.00').format(amount)}',
+                                  style: const TextStyle(
+                                    color: Colors.teal,
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w600,
+                                  ),
                                 ),
-                              ),
+
                               const SizedBox(height: 4),
                               Row(
                                 mainAxisAlignment:
