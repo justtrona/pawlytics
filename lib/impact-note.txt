@@ -129,8 +129,6 @@ class _ImpactPageState extends State<ImpactPage> {
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7F9),
       appBar: AppBar(
-        automaticallyImplyLeading: false,
-
         backgroundColor: Colors.transparent,
         elevation: 0,
         foregroundColor: Colors.black,

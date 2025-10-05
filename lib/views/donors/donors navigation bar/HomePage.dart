@@ -31,7 +31,10 @@ class HomePage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
+
       appBar: AppBar(
+        automaticallyImplyLeading: false,
+
         backgroundColor: const Color(0xFF1A2C50),
         elevation: 0,
         shape: const RoundedRectangleBorder(
