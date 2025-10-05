@@ -22,7 +22,6 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
   Future<List<Map<String, dynamic>>> fetchDonationHistory() async {
     try {
       debugPrint('🚀 Running donation query...');
-
       final user = supabase.auth.currentUser;
       if (user == null) {
         debugPrint('❌ No logged-in user found');
@@ -31,9 +30,18 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
 
       final response = await supabase
           .from('donations')
-          .select(
-            'id, donor_name, donation_type, donation_date, amount, opex_id, campaign_id, pet_id',
-          )
+          .select('''
+            id,
+            donor_name,
+            donation_type,
+            donation_date,
+            amount,
+            opex_id,
+            campaign_id,
+            pet_id,
+            pet_profiles (name),
+            campaigns (program)
+          ''')
           .eq('user_id', user.id)
           .order('donation_date', ascending: false);
 
@@ -53,12 +61,14 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
   }
 
   String getDonationTarget(Map<String, dynamic> donation) {
-    if (donation['opex_id'] != null) {
+    if (donation['pet_profiles'] != null &&
+        donation['pet_profiles']['pet_name'] != null) {
+      return 'Pet: ${donation['pet_profiles']['pet_name']}';
+    } else if (donation['campaigns'] != null &&
+        donation['campaigns']['program'] != null) {
+      return 'Campaign: ${donation['campaigns']['program']}';
+    } else if (donation['opex_id'] != null) {
       return 'Operation Expense (Opex ID: ${donation['opex_id']})';
-    } else if (donation['campaign_id'] != null) {
-      return 'Campaign ID: ${donation['campaign_id']}';
-    } else if (donation['pet_id'] != null) {
-      return 'Pet ID: ${donation['pet_id']}';
     } else {
       return 'General Donation';
     }
@@ -123,16 +133,14 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
           }
 
           final donations = snapshot.data!;
-          double totalAmount = 0;
-
-          for (var donation in donations) {
-            totalAmount += parseAmount(donation['amount']);
-          }
+          double totalAmount = donations.fold(
+            0,
+            (sum, item) => sum + parseAmount(item['amount']),
+          );
 
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
-              // 💰 Total donations card
               Card(
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(15),
@@ -182,7 +190,6 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                   ),
                 ),
               ),
-
               const Padding(
                 padding: EdgeInsets.only(bottom: 10),
                 child: Text(
@@ -194,8 +201,6 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                   ),
                 ),
               ),
-
-              // 🧾 Donation cards
               ...donations.map((donation) {
                 final target = getDonationTarget(donation);
                 final amount = parseAmount(donation['amount']);
