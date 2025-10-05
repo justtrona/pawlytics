@@ -2,8 +2,11 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pawlytics/views/donors/model/donation-model.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DonationController {
+  final supabase = Supabase.instance.client;
+
   final nameCtl = TextEditingController();
   final phoneCtl = TextEditingController();
   final amountCtl = TextEditingController();
@@ -15,8 +18,6 @@ class DonationController {
   DateTime? selectedDate;
   String? selectedPaymentMethod;
   String? selectedLocation;
-
-  /// FK → public.donations.allocation_id (kept name for minimal refactor)
   int? selectedOpexId;
 
   final paymentOptions = const ['GCash', 'Maya'];
@@ -86,7 +87,7 @@ class DonationController {
             ? null
             : selectedPaymentMethod!.trim(),
         notes: notesCtl.text.trim().isEmpty ? null : notesCtl.text.trim(),
-        opexId: selectedOpexId, // mapped to allocation_id by the model
+        opexId: selectedOpexId,
       );
     } else {
       final qty = int.tryParse(qtyCtl.text.trim());
@@ -104,10 +105,49 @@ class DonationController {
             ? null
             : selectedLocation!.trim(),
         notes: notesCtl.text.trim().isEmpty ? null : notesCtl.text.trim(),
-        opexId: selectedOpexId, // mapped to allocation_id by the model
+        opexId: selectedOpexId,
       );
     }
   }
 
   List<String> validateCurrent() => buildDonation().validate();
+
+  /// ✅ NEW FUNCTION — Save donation to Supabase with user_id
+  Future<bool> saveDonation() async {
+    try {
+      final user = supabase.auth.currentUser;
+
+      if (user == null) {
+        debugPrint('❌ No logged-in user.');
+        return false;
+      }
+
+      final donation = buildDonation();
+
+      final data = {
+        'user_id': user.id, // 👈 ensures donation is tied to this user
+        'donor_name': donation.donorName,
+        'donor_phone': donation.donorPhone,
+        'donation_type': donation.donationType.name,
+        'donation_date': donation.donationDate.toIso8601String(),
+        'amount': donation.amount,
+        'quantity': donation.quantity,
+        'payment_method': donation.paymentMethod,
+        'drop_off_location': donation.dropOffLocation,
+        'notes': donation.notes,
+        'opex_id': donation.opexId,
+        'is_operation_expense': donation.opexId != null,
+      };
+
+      debugPrint('📤 Saving donation: $data');
+
+      final response = await supabase.from('donations').insert(data).select();
+
+      debugPrint('✅ Donation inserted: $response');
+      return true;
+    } catch (e) {
+      debugPrint('❌ Error saving donation: $e');
+      return false;
+    }
+  }
 }
