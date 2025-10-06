@@ -39,14 +39,9 @@ class ShelterUpdatesPage extends StatelessWidget {
     ];
 
     return Scaffold(
-      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black87),
-          onPressed: () => Navigator.pop(context),
-        ),
+        automaticallyImplyLeading: false,
         title: const Text(
           "Shelter Updates",
           style: TextStyle(
@@ -75,7 +70,6 @@ class ShelterUpdatesPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 16),
-
             Container(
               padding: const EdgeInsets.symmetric(vertical: 1),
               decoration: BoxDecoration(
@@ -111,13 +105,11 @@ class ShelterUpdatesPage extends StatelessWidget {
                       ],
                     ),
                   ),
-
                   Container(
                     width: 2,
                     height: 150,
-                    color: const Color.fromARGB(255, 14, 5, 5),
+                    color: Color.fromARGB(255, 14, 5, 5),
                   ),
-
                   Expanded(
                     child: Column(
                       children: const [
@@ -137,7 +129,6 @@ class ShelterUpdatesPage extends StatelessWidget {
                       ],
                     ),
                   ),
-
                   Expanded(
                     child: Column(
                       children: const [
@@ -160,9 +151,7 @@ class ShelterUpdatesPage extends StatelessWidget {
                 ],
               ),
             ),
-
             const SizedBox(height: 16),
-
             Expanded(
               child: ListView.separated(
                 itemCount: updates.length,

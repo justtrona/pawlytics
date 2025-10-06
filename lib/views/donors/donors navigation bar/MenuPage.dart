@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/FavoritePage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 // routes & screens
@@ -12,7 +13,7 @@ import 'package:pawlytics/views/donors/Menu%20bar%20user/MyDonationPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/NotificationPreferencePage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/PaymentMethodPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/PrivacySettingsPage.dart';
-import 'package:pawlytics/views/donors/Menu%20bar%20user/ShelterUpdatesPage.dart';
+import 'package:pawlytics/views/donors/donors%20navigation%20bar/ShelterUpdatesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/TermsConditionsPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/connections/ProfileEdit.dart';
 import 'package:pawlytics/views/get_start/get_started_main.dart';
@@ -276,11 +277,11 @@ class _ProfilePageState extends State<ProfilePage> {
                 ),
               ),
               _MenuTile(
-                icon: Icons.update,
-                title: 'Shelter Updates',
+                icon: Icons.star,
+                title: 'Favorites',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const ShelterUpdatesPage()),
+                  MaterialPageRoute(builder: (_) => const FavoritesPage()),
                 ),
               ),
 

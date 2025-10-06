@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:pawlytics/views/donors/donors%20navigation%20bar/FavoritePage.dart';
+import 'package:pawlytics/views/donors/donors%20navigation%20bar/ShelterUpdatesPage.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/FavoritePage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/HomePage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/MenuPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/TransactionPage.dart';
@@ -25,7 +26,7 @@ class _RoutePageState extends State<RoutePage> {
   final List<Widget> _pages = const [
     HomePage(),
     TransactionsPage(),
-    FavoritesPage(),
+    ShelterUpdatesPage(),
     ProfilePage(),
   ];
 
@@ -58,7 +59,10 @@ class _RoutePageState extends State<RoutePage> {
               icon: Icon(Icons.swap_horiz),
               label: "Transactions",
             ),
-            BottomNavigationBarItem(icon: Icon(Icons.star), label: "Favorites"),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.notifications),
+              label: "Notifications",
+            ),
             BottomNavigationBarItem(icon: Icon(Icons.menu), label: "Menu"),
           ],
         ),

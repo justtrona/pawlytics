@@ -46,7 +46,13 @@ class _FavoritesPageState extends State<FavoritesPage> {
 
     return Scaffold(
       appBar: AppBar(
-        automaticallyImplyLeading: false,
+        automaticallyImplyLeading: true, // enables the default back arrow
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Color(0xFF1F2C47)),
+          onPressed: () {
+            Navigator.pop(context); // returns to the previous page
+          },
+        ),
         title: const Text(
           "Favorites",
           style: TextStyle(
