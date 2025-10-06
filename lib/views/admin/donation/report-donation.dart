@@ -30,7 +30,7 @@ class _DonationReportsState extends State<DonationReports> {
   String _type = 'All Types';
   String _donor = 'All Donors';
   String _status = 'All Statuses';
-  String _query = ''; // quick search (donor, item)
+  String _query = '';
   DateTime? _from;
   DateTime? _to;
 
@@ -43,13 +43,7 @@ class _DonationReportsState extends State<DonationReports> {
 
   final List<_DonationRow> _allRows = [];
   final Set<String> _donorSet = {};
-  final Set<String> _statusSet = {
-    'Paid',
-    'For Pickup',
-    'Received',
-    'Cancelled',
-    'Refunded',
-  };
+  final Set<String> _statusSet = {'Paid', 'Pending', 'For Pickup', 'Received'};
 
   // Helpers
   String _money(num v) {
@@ -122,6 +116,13 @@ class _DonationReportsState extends State<DonationReports> {
 
   Future<void> _refresh() => _load(reset: true);
 
+  String _mapInkindStatus(dynamic s) {
+    final v = (s ?? 'pending').toString().toLowerCase();
+    if (v == 'received') return 'Received';
+    if (v == 'for_pickup' || v == 'forpickup') return 'For Pickup';
+    return 'Pending';
+  }
+
   Future<void> _load({required bool reset}) async {
     if (_fetching) return;
     setState(() {
@@ -138,10 +139,9 @@ class _DonationReportsState extends State<DonationReports> {
     if (_period != 'Custom') _computePeriodRange();
 
     try {
-      // NOTE: we intentionally do NOT include 'status' here to avoid errors
-      // if your table doesn't have it yet. We will still read m['status'] (nullable) below.
+      // IMPORTANT: No "status" here; we derive it from donation_type/inkind_status
       const cols = '''
-        id, donor_name, donor_phone, donation_date, donation_type,
+        id, donor_name, donor_phone, donation_date, donation_type, inkind_status,
         payment_method, amount, item,
         campaign_id, pet_id, manual_id,
         allocation_id, opex_id, opex_allocation_id, is_operational
@@ -171,7 +171,6 @@ class _DonationReportsState extends State<DonationReports> {
             ? m['donor_name'] as String
             : 'Anonymous';
 
-        // Decide the source; no "details"
         String source = 'Uncategorized';
         if (m['campaign_id'] != null) {
           source = 'Campaign';
@@ -189,17 +188,12 @@ class _DonationReportsState extends State<DonationReports> {
         final type = (m['donation_type'] as String?) ?? 'Unknown';
         final payment = (m['payment_method'] as String?) ?? 'N/A';
 
-        // Admin status (safe defaults):
-        // - If your table has a "status" column, this will pick it up automatically.
-        // - Otherwise:
-        //     * Cash -> Paid
-        //     * Non-cash -> For Pickup
-        final rawStatus = (m['status'] as String?);
-        final status = (rawStatus?.trim().isNotEmpty == true)
-            ? rawStatus!.trim()
-            : (type.toLowerCase() == 'cash' ? 'Paid' : 'For Pickup');
+        // Derive status
+        final status = type.toLowerCase() == 'cash'
+            ? 'Paid'
+            : _mapInkindStatus(m['inkind_status']);
 
-        _statusSet.add(status); // build dynamic status options from data
+        _statusSet.add(status);
 
         page.add(
           _DonationRow(
@@ -244,8 +238,9 @@ class _DonationReportsState extends State<DonationReports> {
       if (end != null && r.date.isAfter(end)) return false;
 
       if (_payment != 'All Payments' &&
-          r.payment.toLowerCase() != _payment.toLowerCase())
+          r.payment.toLowerCase() != _payment.toLowerCase()) {
         return false;
+      }
 
       if (_type == 'Cash' && r.type.toLowerCase() != 'cash') return false;
       if (_type == 'In-Kind' && r.type.toLowerCase() == 'cash') return false;
@@ -283,14 +278,12 @@ class _DonationReportsState extends State<DonationReports> {
   ];
   List<String> get _statusOptions {
     final opts = <String>{'All Statuses', ..._statusSet};
-    // keep a predictable order for common statuses
     final common = [
       'All Statuses',
       'Paid',
+      'Pending',
       'For Pickup',
       'Received',
-      'Cancelled',
-      'Refunded',
     ];
     final rest = opts.where((e) => !common.contains(e)).toList()..sort();
     return [...common.where(opts.contains), ...rest];
@@ -316,7 +309,7 @@ class _DonationReportsState extends State<DonationReports> {
   Future<void> _exportAllCsv() async {
     try {
       const cols = '''
-        id, donor_name, donor_phone, donation_date, donation_type,
+        id, donor_name, donor_phone, donation_date, donation_type, inkind_status,
         payment_method, amount, item,
         campaign_id, pet_id, manual_id,
         allocation_id, opex_id, opex_allocation_id, is_operational
@@ -362,10 +355,9 @@ class _DonationReportsState extends State<DonationReports> {
 
           final type = (m['donation_type'] as String?) ?? 'Unknown';
           final payment = (m['payment_method'] as String?) ?? 'N/A';
-          final rawStatus = (m['status'] as String?);
-          final status = (rawStatus?.trim().isNotEmpty == true)
-              ? rawStatus!.trim()
-              : (type.toLowerCase() == 'cash' ? 'Paid' : 'For Pickup');
+          final status = type.toLowerCase() == 'cash'
+              ? 'Paid'
+              : _mapInkindStatus(m['inkind_status']);
 
           all.add(
             _DonationRow(
@@ -574,7 +566,7 @@ class _DonationReportsState extends State<DonationReports> {
                     ),
                     const SizedBox(height: 14),
 
-                    // Filter toolbar
+                    // Filters
                     _FilterToolbar(
                       period: _period,
                       onPeriodChanged: (v) {
@@ -675,17 +667,19 @@ class _DonationReportsState extends State<DonationReports> {
 
                                     Color statusColor() {
                                       final s = r.status.toLowerCase();
-                                      if (s.contains('received'))
+                                      if (s.contains('received')) {
                                         return success;
+                                      }
+                                      if (s.contains('pending')) {
+                                        return Colors.orange;
+                                      }
                                       if (s.contains('pickup') ||
-                                          s.contains('pick up'))
+                                          s.contains('pick up')) {
                                         return warning;
-                                      if (s.contains('cancel') ||
-                                          s.contains('refund'))
-                                        return danger;
-                                      if (s.contains('paid') ||
-                                          s.contains('complete'))
+                                      }
+                                      if (s.contains('paid')) {
                                         return brand;
+                                      }
                                       return Colors.black87;
                                     }
 
@@ -789,7 +783,7 @@ class _DonationRow {
   final double amount;
   final String item;
   final String source;
-  final String status; // NEW
+  final String status;
 
   _DonationRow({
     required this.id,
@@ -830,9 +824,9 @@ class _FilterToolbar extends StatelessWidget {
   final List<String> donorOptions;
   final ValueChanged<String> onDonorChanged;
 
-  final String status; // NEW
-  final List<String> statusOptions; // NEW
-  final ValueChanged<String> onStatusChanged; // NEW
+  final String status;
+  final List<String> statusOptions;
+  final ValueChanged<String> onStatusChanged;
 
   final VoidCallback onApply;
 
