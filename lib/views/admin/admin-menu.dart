@@ -195,6 +195,12 @@ class _menuBarState extends State<menuBar> {
                         onTap: () =>
                             Navigator.pushNamed(context, route.dropoffLocation),
                       ),
+                      _MenuItem(
+                        icon: Icons.location_on_rounded,
+                        label: 'In-Kind ',
+                        onTap: () =>
+                            Navigator.pushNamed(context, route.inkindpage),
+                      ),
                     ],
                   ),
 

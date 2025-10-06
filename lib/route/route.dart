@@ -17,6 +17,7 @@ import 'package:pawlytics/views/admin/dropoff-location/create-dropoff.dart';
 import 'package:pawlytics/views/admin/dropoff-location/dropoff-location.dart';
 import 'package:pawlytics/views/admin/expense/expense-report.dart';
 import 'package:pawlytics/views/admin/feedbacks/feedback.dart';
+import 'package:pawlytics/views/admin/in-kind/inkind-main.dart';
 import 'package:pawlytics/views/admin/manage-user/manage-user.dart';
 import 'package:pawlytics/views/admin/payment-config/payment-configuration.dart';
 import 'package:pawlytics/views/admin/pet-profiles/add-petprofile.dart';
@@ -75,6 +76,7 @@ const String userManage = 'manage-user';
 const String manualDonation = 'manual-donation';
 const String menuBar = 'menu-bar';
 const String petDetailPage = 'pet-detail-page';
+const String inkindpage = 'inkind-main';
 
 //correct route for operational expense
 const String operationalExpenseModule = 'operational-expense-module';
@@ -150,6 +152,8 @@ Route<dynamic> controller(RouteSettings settings) {
       return MaterialPageRoute(builder: (context) => ManageUserPage());
     case manualDonation:
       return MaterialPageRoute(builder: (context) => ManualDonationPage());
+    case inkindpage:
+      return MaterialPageRoute(builder: (context) => InkindMain());
     // case menuBar:
     //   \return MaterialPageRoute(builder: (context) => MenuBar());
     // donors

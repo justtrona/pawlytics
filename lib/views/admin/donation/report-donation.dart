@@ -18,6 +18,9 @@ class _DonationReportsState extends State<DonationReports> {
   static const softGrey = Color(0xFFF4F7FA);
   static const line = Color(0xFFE6EDF4);
   static const textMuted = Color(0xFF6A7886);
+  static const danger = Color(0xFFCC3D3D);
+  static const success = Color(0xFF2E7D32);
+  static const warning = Color(0xFFB26A00);
 
   final _client = Supabase.instance.client;
 
@@ -26,6 +29,8 @@ class _DonationReportsState extends State<DonationReports> {
   String _payment = 'All Payments';
   String _type = 'All Types';
   String _donor = 'All Donors';
+  String _status = 'All Statuses';
+  String _query = ''; // quick search (donor, item)
   DateTime? _from;
   DateTime? _to;
 
@@ -38,6 +43,13 @@ class _DonationReportsState extends State<DonationReports> {
 
   final List<_DonationRow> _allRows = [];
   final Set<String> _donorSet = {};
+  final Set<String> _statusSet = {
+    'Paid',
+    'For Pickup',
+    'Received',
+    'Cancelled',
+    'Refunded',
+  };
 
   // Helpers
   String _money(num v) {
@@ -126,6 +138,8 @@ class _DonationReportsState extends State<DonationReports> {
     if (_period != 'Custom') _computePeriodRange();
 
     try {
+      // NOTE: we intentionally do NOT include 'status' here to avoid errors
+      // if your table doesn't have it yet. We will still read m['status'] (nullable) below.
       const cols = '''
         id, donor_name, donor_phone, donation_date, donation_type,
         payment_method, amount, item,
@@ -157,7 +171,7 @@ class _DonationReportsState extends State<DonationReports> {
             ? m['donor_name'] as String
             : 'Anonymous';
 
-        // Just decide the source; no "details"
+        // Decide the source; no "details"
         String source = 'Uncategorized';
         if (m['campaign_id'] != null) {
           source = 'Campaign';
@@ -172,17 +186,33 @@ class _DonationReportsState extends State<DonationReports> {
           source = 'Opex';
         }
 
+        final type = (m['donation_type'] as String?) ?? 'Unknown';
+        final payment = (m['payment_method'] as String?) ?? 'N/A';
+
+        // Admin status (safe defaults):
+        // - If your table has a "status" column, this will pick it up automatically.
+        // - Otherwise:
+        //     * Cash -> Paid
+        //     * Non-cash -> For Pickup
+        final rawStatus = (m['status'] as String?);
+        final status = (rawStatus?.trim().isNotEmpty == true)
+            ? rawStatus!.trim()
+            : (type.toLowerCase() == 'cash' ? 'Paid' : 'For Pickup');
+
+        _statusSet.add(status); // build dynamic status options from data
+
         page.add(
           _DonationRow(
             id: (m['id'] as num).toInt(),
             date: dt,
             donor: donor,
             donorPhone: (m['donor_phone'] as String?) ?? '',
-            type: (m['donation_type'] as String?) ?? 'Unknown',
-            payment: (m['payment_method'] as String?) ?? 'N/A',
+            type: type,
+            payment: payment,
             amount: (m['amount'] as num?)?.toDouble() ?? 0.0,
             item: (m['item'] as String?) ?? '',
             source: source,
+            status: status,
           ),
         );
 
@@ -203,19 +233,34 @@ class _DonationReportsState extends State<DonationReports> {
     }
   }
 
-  // In-memory filter
+  // In-memory filter + search
   List<_DonationRow> get _filtered {
     final start = _from;
     final end = _to == null ? null : _endOfDay(_to!);
+    final q = _query.trim().toLowerCase();
+
     return _allRows.where((r) {
       if (start != null && r.date.isBefore(start)) return false;
       if (end != null && r.date.isAfter(end)) return false;
+
       if (_payment != 'All Payments' &&
           r.payment.toLowerCase() != _payment.toLowerCase())
         return false;
+
       if (_type == 'Cash' && r.type.toLowerCase() != 'cash') return false;
       if (_type == 'In-Kind' && r.type.toLowerCase() == 'cash') return false;
+
       if (_donor != 'All Donors' && r.donor != _donor) return false;
+
+      if (_status != 'All Statuses' &&
+          r.status.toLowerCase() != _status.toLowerCase())
+        return false;
+
+      if (q.isNotEmpty) {
+        final hay = '${r.donor} ${r.item} ${r.source} ${r.payment} ${r.status}'
+            .toLowerCase();
+        if (!hay.contains(q)) return false;
+      }
       return true;
     }).toList();
   }
@@ -227,10 +272,29 @@ class _DonationReportsState extends State<DonationReports> {
   int get _inKindCount =>
       _filtered.where((r) => r.type.toLowerCase() != 'cash').length;
 
+  int get _forPickupCount =>
+      _filtered.where((r) => r.status.toLowerCase() == 'for pickup').length;
+  int get _receivedCount =>
+      _filtered.where((r) => r.status.toLowerCase() == 'received').length;
+
   List<String> get _donorOptions => [
     'All Donors',
     ..._donorSet.toList()..sort(),
   ];
+  List<String> get _statusOptions {
+    final opts = <String>{'All Statuses', ..._statusSet};
+    // keep a predictable order for common statuses
+    final common = [
+      'All Statuses',
+      'Paid',
+      'For Pickup',
+      'Received',
+      'Cancelled',
+      'Refunded',
+    ];
+    final rest = opts.where((e) => !common.contains(e)).toList()..sort();
+    return [...common.where(opts.contains), ...rest];
+  }
 
   OutlineInputBorder _border(Color c) => OutlineInputBorder(
     borderRadius: BorderRadius.circular(12),
@@ -296,17 +360,25 @@ class _DonationReportsState extends State<DonationReports> {
             source = 'Opex';
           }
 
+          final type = (m['donation_type'] as String?) ?? 'Unknown';
+          final payment = (m['payment_method'] as String?) ?? 'N/A';
+          final rawStatus = (m['status'] as String?);
+          final status = (rawStatus?.trim().isNotEmpty == true)
+              ? rawStatus!.trim()
+              : (type.toLowerCase() == 'cash' ? 'Paid' : 'For Pickup');
+
           all.add(
             _DonationRow(
               id: (m['id'] as num).toInt(),
               date: dt,
               donor: donor,
               donorPhone: (m['donor_phone'] as String?) ?? '',
-              type: (m['donation_type'] as String?) ?? 'Unknown',
-              payment: (m['payment_method'] as String?) ?? 'N/A',
+              type: type,
+              payment: payment,
               amount: (m['amount'] as num?)?.toDouble() ?? 0.0,
               item: (m['item'] as String?) ?? '',
               source: source,
+              status: status,
             ),
           );
         }
@@ -348,6 +420,7 @@ class _DonationReportsState extends State<DonationReports> {
           'Type',
           'Payment',
           'Amount',
+          'Status',
           'Phone',
           'Item',
         ].join(','),
@@ -363,6 +436,7 @@ class _DonationReportsState extends State<DonationReports> {
           esc(r.type),
           esc(r.payment),
           r.amount.toStringAsFixed(2),
+          esc(r.status),
           esc(r.donorPhone),
           esc(r.item),
         ].join(','),
@@ -410,6 +484,30 @@ class _DonationReportsState extends State<DonationReports> {
             tooltip: 'Refresh',
           ),
         ],
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(48),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                onChanged: (v) => setState(() => _query = v),
+                decoration: InputDecoration(
+                  hintText: 'Search donor, item, source, payment, status…',
+                  prefixIcon: const Icon(Icons.search_rounded, color: brand),
+                  filled: true,
+                  fillColor: softGrey,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  enabledBorder: _border(softGrey),
+                  focusedBorder: _border(brand),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
       body: SafeArea(
         child: _error != null
@@ -419,13 +517,13 @@ class _DonationReportsState extends State<DonationReports> {
                 child: ListView(
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
-                    // KPIs
+                    // KPI Cards
                     Row(
                       children: [
                         Expanded(
                           child: _StatCard(
                             title: 'Total Donations',
-                            value: '${_totalDonations}',
+                            value: '$_totalDonations',
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -448,6 +546,28 @@ class _DonationReportsState extends State<DonationReports> {
                           child: _StatCard(
                             title: 'In-Kind',
                             value: '$_inKindCount',
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _BadgeStatCard(
+                            title: 'For Pickup',
+                            value: '$_forPickupCount',
+                            chipColor: warning.withOpacity(.12),
+                            textColor: warning,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _BadgeStatCard(
+                            title: 'Received',
+                            value: '$_receivedCount',
+                            chipColor: success.withOpacity(.12),
+                            textColor: success,
                           ),
                         ),
                       ],
@@ -477,12 +597,17 @@ class _DonationReportsState extends State<DonationReports> {
                           : 'All Donors',
                       donorOptions: _donorOptions,
                       onDonorChanged: (v) => setState(() => _donor = v),
+                      status: _statusOptions.contains(_status)
+                          ? _status
+                          : 'All Statuses',
+                      statusOptions: _statusOptions,
+                      onStatusChanged: (v) => setState(() => _status = v),
                       onApply: () => setState(() {}),
                     ),
 
                     const SizedBox(height: 16),
 
-                    // TRUE TABLE
+                    // TABLE
                     Container(
                       decoration: BoxDecoration(
                         color: Colors.white,
@@ -518,13 +643,14 @@ class _DonationReportsState extends State<DonationReports> {
                                     fontWeight: FontWeight.w800,
                                   ),
                                   dataRowMinHeight: 44,
-                                  dataRowMaxHeight: 60,
+                                  dataRowMaxHeight: 64,
                                   columns: const [
                                     DataColumn(label: Text('Date')),
                                     DataColumn(label: Text('Donor')),
                                     DataColumn(label: Text('Source')),
                                     DataColumn(label: Text('Type')),
                                     DataColumn(label: Text('Payment')),
+                                    DataColumn(label: Text('Status')),
                                     DataColumn(
                                       label: Align(
                                         alignment: Alignment.centerRight,
@@ -537,11 +663,32 @@ class _DonationReportsState extends State<DonationReports> {
                                     final bg = i % 2 == 0
                                         ? Colors.white
                                         : Colors.grey.shade50;
-                                    TextStyle base(bool end, [FontWeight? w]) =>
-                                        TextStyle(
-                                          color: end ? brand : Colors.black87,
-                                          fontWeight: w ?? FontWeight.w600,
-                                        );
+                                    TextStyle base(
+                                      bool end, [
+                                      FontWeight? w,
+                                      Color? c,
+                                    ]) => TextStyle(
+                                      color:
+                                          c ?? (end ? brand : Colors.black87),
+                                      fontWeight: w ?? FontWeight.w600,
+                                    );
+
+                                    Color statusColor() {
+                                      final s = r.status.toLowerCase();
+                                      if (s.contains('received'))
+                                        return success;
+                                      if (s.contains('pickup') ||
+                                          s.contains('pick up'))
+                                        return warning;
+                                      if (s.contains('cancel') ||
+                                          s.contains('refund'))
+                                        return danger;
+                                      if (s.contains('paid') ||
+                                          s.contains('complete'))
+                                        return brand;
+                                      return Colors.black87;
+                                    }
+
                                     return DataRow(
                                       color: MaterialStateProperty.all(bg),
                                       cells: [
@@ -562,6 +709,29 @@ class _DonationReportsState extends State<DonationReports> {
                                         ),
                                         DataCell(
                                           Text(r.payment, style: base(false)),
+                                        ),
+                                        DataCell(
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 6,
+                                            ),
+                                            decoration: BoxDecoration(
+                                              color: statusColor().withOpacity(
+                                                .12,
+                                              ),
+                                              borderRadius:
+                                                  BorderRadius.circular(999),
+                                            ),
+                                            child: Text(
+                                              r.status,
+                                              style: base(
+                                                false,
+                                                FontWeight.w800,
+                                                statusColor(),
+                                              ),
+                                            ),
+                                          ),
                                         ),
                                         DataCell(
                                           Align(
@@ -619,6 +789,7 @@ class _DonationRow {
   final double amount;
   final String item;
   final String source;
+  final String status; // NEW
 
   _DonationRow({
     required this.id,
@@ -630,6 +801,7 @@ class _DonationRow {
     required this.amount,
     required this.item,
     required this.source,
+    required this.status,
   });
 }
 
@@ -658,6 +830,10 @@ class _FilterToolbar extends StatelessWidget {
   final List<String> donorOptions;
   final ValueChanged<String> onDonorChanged;
 
+  final String status; // NEW
+  final List<String> statusOptions; // NEW
+  final ValueChanged<String> onStatusChanged; // NEW
+
   final VoidCallback onApply;
 
   const _FilterToolbar({
@@ -675,6 +851,9 @@ class _FilterToolbar extends StatelessWidget {
     required this.donor,
     required this.donorOptions,
     required this.onDonorChanged,
+    required this.status,
+    required this.statusOptions,
+    required this.onStatusChanged,
     required this.onApply,
   });
 
@@ -842,6 +1021,33 @@ class _FilterToolbar extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 10),
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                value: status,
+                isExpanded: true,
+                items: statusOptions
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (v) => v == null ? null : onStatusChanged(v),
+                decoration: InputDecoration(
+                  filled: true,
+                  fillColor: softGrey,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  enabledBorder: _border(softGrey),
+                  focusedBorder: _border(brand),
+                ),
+                borderRadius: BorderRadius.circular(12),
+                icon: const Icon(Icons.expand_more_rounded, color: brand),
+                style: const TextStyle(
+                  color: brand,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
             SizedBox(
               height: 40,
               child: ElevatedButton.icon(
@@ -937,6 +1143,62 @@ class _StatCard extends StatelessWidget {
               color: _DonationReportsState.brand,
               fontWeight: FontWeight.w900,
               fontSize: 16,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeStatCard extends StatelessWidget {
+  final String title;
+  final String value;
+  final Color chipColor;
+  final Color textColor;
+
+  const _BadgeStatCard({
+    required this.title,
+    required this.value,
+    required this.chipColor,
+    required this.textColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 74,
+      decoration: BoxDecoration(
+        color: _DonationReportsState.softGrey,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: const TextStyle(
+              color: _DonationReportsState.textMuted,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const Spacer(),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: chipColor,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              value,
+              style: TextStyle(
+                color: textColor,
+                fontWeight: FontWeight.w900,
+                fontSize: 14,
+              ),
             ),
           ),
         ],
