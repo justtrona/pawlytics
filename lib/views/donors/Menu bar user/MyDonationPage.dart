@@ -37,18 +37,12 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
       final user = supabase.auth.currentUser;
       if (user == null) return [];
 
+      // Use * to avoid column-name mismatches (donation_type vs donation_typ).
+      // We still select the embeds explicitly.
       final response = await supabase
           .from('donations')
-          .select('''
-            id,
-            donor_name,
-            donation_type,
-            donation_date,
-            amount,
-            item,
-            quantity,
-            campaign_id,
-            pet_id,
+          .select(r'''
+            *,
             pet_profiles (name),
             campaigns (program)
           ''')
@@ -72,8 +66,20 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     return 'General Donation';
   }
 
-  bool isInKind(Map<String, dynamic> d) =>
-      (d['donation_type'] ?? '').toString().toLowerCase().contains('kind');
+  bool isInKind(Map<String, dynamic> d) {
+    final typeA = (d['donation_type'] ?? '').toString().toLowerCase();
+    final typeB = (d['donation_typ'] ?? '').toString().toLowerCase();
+
+    final byType = typeA.contains('kind') || typeB.contains('kind');
+
+    final amount = d['amount'];
+    final hasNoAmount = amount == null || (amount is num && amount == 0);
+    final item = (d['item'] ?? '').toString().trim();
+    final qty = d['quantity'];
+    final hasGoods = item.isNotEmpty || (qty is num && qty > 0);
+
+    return byType || (hasNoAmount && hasGoods);
+  }
 
   double parseAmount(dynamic v) {
     if (v == null) return 0;
@@ -82,14 +88,28 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     return 0;
   }
 
-  String formatDate(String? iso) {
-    if (iso == null || iso.isEmpty) return 'Unknown date';
+  String formatDate(dynamic isoOrNull) {
+    final s = isoOrNull?.toString();
+    if (s == null || s.isEmpty) return 'Unknown date';
     try {
-      final dt = DateTime.parse(iso);
+      final dt = DateTime.parse(s);
       return DateFormat('MMM d, yyyy • h:mm a').format(dt);
     } catch (_) {
-      return iso;
+      return s;
     }
+  }
+
+  /// Parse in-kind status from the row to (label, color).
+  /// Falls back to 'Pending' if missing/unknown.
+  ({String label, Color color}) parseInkindStatus(Map<String, dynamic> d) {
+    final raw = (d['inkind_status'] ?? 'pending').toString().toLowerCase();
+    if (raw == 'for_pickup' || raw == 'forpickup') {
+      return (label: 'For Pickup', color: Colors.blue);
+    }
+    if (raw == 'received') {
+      return (label: 'Received', color: Colors.green);
+    }
+    return (label: 'Pending', color: Colors.orange);
   }
 
   @override
@@ -126,6 +146,7 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                     );
                   }
 
+                  // sort / map
                   final all = snapshot.data ?? [];
                   if (all.isEmpty) {
                     return const _EmptyBox();
@@ -174,10 +195,21 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                       ...list.map((d) {
                         final inKind = isInKind(d);
                         final amount = parseAmount(d['amount']);
-                        final date = formatDate(d['donation_date']);
+                        final date = formatDate(
+                          d['donation_date'] ?? d['created_at'],
+                        );
                         final label = getDonationTarget(d);
                         final qty = d['quantity'];
                         final item = (d['item'] ?? '').toString().trim();
+
+                        // Only for in-kind: show status chip
+                        String? statusLabel;
+                        Color? statusColor;
+                        if (inKind) {
+                          final s = parseInkindStatus(d);
+                          statusLabel = s.label;
+                          statusColor = s.color;
+                        }
 
                         return _DonationTile(
                           isInKind: inKind,
@@ -193,6 +225,9 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
                                           ? qty.toString()
                                           : qty.toString()))
                               : null,
+                          // new:
+                          statusLabel: statusLabel,
+                          statusColor: statusColor,
                         );
                       }),
 
@@ -412,6 +447,8 @@ class _DonationTile extends StatelessWidget {
     required this.subtitle,
     required this.amountOrItem,
     this.quantity,
+    this.statusLabel,
+    this.statusColor,
   });
 
   final bool isInKind;
@@ -420,11 +457,30 @@ class _DonationTile extends StatelessWidget {
   final String amountOrItem;
   final String? quantity;
 
+  // NEW: in-kind status
+  final String? statusLabel;
+  final Color? statusColor;
+
   @override
   Widget build(BuildContext context) {
     final Color tone = isInKind
         ? const Color(0xFFEC8C69)
         : const Color(0xFF1F2C47);
+
+    Widget chip(String text, Color c) {
+      return Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: c.withOpacity(.10),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: c.withOpacity(.35)),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(color: c, fontWeight: FontWeight.w700, fontSize: 11),
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
@@ -462,7 +518,7 @@ class _DonationTile extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // title + chip
+                // title + chips
                 Row(
                   children: [
                     Expanded(
@@ -475,25 +531,14 @@ class _DonationTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: tone.withOpacity(.10),
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(color: tone.withOpacity(.35)),
-                      ),
-                      child: Text(
-                        isInKind ? 'In-kind' : 'Cash',
-                        style: TextStyle(
-                          color: tone,
-                          fontWeight: FontWeight.w700,
-                          fontSize: 11,
-                        ),
-                      ),
-                    ),
+                    // chips: type + (optional) status
+                    chip(isInKind ? 'In-kind' : 'Cash', tone),
+                    if (isInKind &&
+                        statusLabel != null &&
+                        statusColor != null) ...[
+                      const SizedBox(width: 6),
+                      chip(statusLabel!, statusColor!),
+                    ],
                   ],
                 ),
                 const SizedBox(height: 6),
