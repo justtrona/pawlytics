@@ -10,8 +10,16 @@ class DonationHistoryPage extends StatefulWidget {
 }
 
 class _DonationHistoryPageState extends State<DonationHistoryPage> {
+  // Brand palette
+  static const brand = Color(0xFF1F2C47);
+  static const peach = Color(0xFFEC8C69);
+  static const bg = Color(0xFFF6F7F9);
+
   final supabase = Supabase.instance.client;
   late Future<List<Map<String, dynamic>>> _donationsFuture;
+
+  // filters
+  String _filter = 'All'; // All | Cash | In-kind
 
   @override
   void initState() {
@@ -19,15 +27,15 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
     _donationsFuture = fetchDonationHistory();
   }
 
-  /// 🧠 Fetch donation history with related pet & campaign names
+  Future<void> _refresh() async {
+    setState(() => _donationsFuture = fetchDonationHistory());
+  }
+
+  /// Fetch donation history with related pet & campaign names
   Future<List<Map<String, dynamic>>> fetchDonationHistory() async {
     try {
-      debugPrint('🚀 Running donation query...');
       final user = supabase.auth.currentUser;
-      if (user == null) {
-        debugPrint('❌ No logged-in user found');
-        return [];
-      }
+      if (user == null) return [];
 
       final response = await supabase
           .from('donations')
@@ -47,266 +55,542 @@ class _DonationHistoryPageState extends State<DonationHistoryPage> {
           .eq('user_id', user.id)
           .order('donation_date', ascending: false);
 
-      debugPrint('🧩 Raw Supabase response: $response');
-
-      if (response.isEmpty) {
-        debugPrint('⚠️ No rows returned by Supabase for user ${user.id}');
-        return [];
-      }
-
       return List<Map<String, dynamic>>.from(response);
-    } catch (e, st) {
-      debugPrint('❌ Error fetching donation history: $e');
-      debugPrint(st.toString());
+    } catch (_) {
       return [];
     }
   }
 
-  /// 🎯 Determine where the donation went
-  String getDonationTarget(Map<String, dynamic> donation) {
-    if (donation['pet_profiles'] != null &&
-        donation['pet_profiles']['name'] != null) {
-      return 'Pet: ${donation['pet_profiles']['name']}';
-    } else if (donation['campaigns'] != null &&
-        donation['campaigns']['program'] != null) {
-      return 'Campaign: ${donation['campaigns']['program']}';
-    } else {
-      return 'General Donation';
+  /// Target label: Program or Pet name (fallback to General)
+  String getDonationTarget(Map<String, dynamic> d) {
+    final pet = d['pet_profiles']?['name'];
+    if (pet != null && pet.toString().isNotEmpty) return 'Pet: $pet';
+    final program = d['campaigns']?['program'];
+    if (program != null && program.toString().isNotEmpty) {
+      return program; // shorter: show program only
     }
+    return 'General Donation';
   }
 
-  double parseAmount(dynamic value) {
-    if (value == null) return 0;
-    if (value is num) return value.toDouble();
-    if (value is String) {
-      return double.tryParse(value.replaceAll(',', '')) ?? 0;
-    }
+  bool isInKind(Map<String, dynamic> d) =>
+      (d['donation_type'] ?? '').toString().toLowerCase().contains('kind');
+
+  double parseAmount(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    if (v is String) return double.tryParse(v.replaceAll(',', '')) ?? 0;
     return 0;
   }
 
-  String formatDate(String? isoString) {
-    if (isoString == null || isoString.isEmpty) return 'Unknown Date';
+  String formatDate(String? iso) {
+    if (iso == null || iso.isEmpty) return 'Unknown date';
     try {
-      final date = DateTime.parse(isoString);
-      return DateFormat.yMMMMd().format(date);
+      final dt = DateTime.parse(iso);
+      return DateFormat('MMM d, yyyy • h:mm a').format(dt);
     } catch (_) {
-      return isoString;
+      return iso;
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final php = NumberFormat.currency(
+      locale: 'en_PH',
+      symbol: '₱',
+      decimalDigits: 2,
+    );
+
     return Scaffold(
-      backgroundColor: Colors.grey.shade100,
-      appBar: AppBar(
-        title: const Text(
-          'Donation History',
-          style: TextStyle(fontWeight: FontWeight.bold),
-        ),
-        backgroundColor: Colors.teal,
-        elevation: 2,
-      ),
-      body: FutureBuilder<List<Map<String, dynamic>>>(
-        future: _donationsFuture,
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: Colors.teal),
-            );
-          } else if (snapshot.hasError) {
-            return Center(
-              child: Text(
-                'Error: ${snapshot.error}',
-                style: const TextStyle(color: Colors.red),
-              ),
-            );
-          } else if (!snapshot.hasData || snapshot.data!.isEmpty) {
-            return const Center(
-              child: Text(
-                'No donations found.',
-                style: TextStyle(
-                  color: Colors.grey,
-                  fontSize: 16,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-            );
-          }
+      backgroundColor: bg,
+      body: RefreshIndicator(
+        onRefresh: _refresh,
+        child: CustomScrollView(
+          slivers: [
+            _HeaderSliver(onBack: () => Navigator.of(context).maybePop()),
 
-          final donations = snapshot.data!;
-          double totalAmount = donations.fold(
-            0,
-            (sum, item) => sum + parseAmount(item['amount']),
-          );
+            // Main content
+            SliverToBoxAdapter(
+              child: FutureBuilder<List<Map<String, dynamic>>>(
+                future: _donationsFuture,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Padding(
+                      padding: EdgeInsets.only(top: 60),
+                      child: Center(child: CircularProgressIndicator()),
+                    );
+                  }
+                  if (snapshot.hasError) {
+                    return _ErrorBox(
+                      message: 'Couldn’t load your donations.',
+                      onRetry: _refresh,
+                    );
+                  }
 
-          return ListView(
-            padding: const EdgeInsets.all(16),
-            children: [
-              /// 💰 Total Donations Card
-              Card(
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(15),
-                ),
-                elevation: 4,
-                color: Colors.teal.shade50,
-                margin: const EdgeInsets.only(bottom: 20),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 20,
-                    vertical: 16,
-                  ),
-                  child: Row(
+                  final all = snapshot.data ?? [];
+                  if (all.isEmpty) {
+                    return const _EmptyBox();
+                  }
+
+                  // Totals
+                  final cashTotal = all
+                      .where((d) => !isInKind(d))
+                      .fold<double>(0, (s, d) => s + parseAmount(d['amount']));
+                  final inKindCount = all
+                      .where(isInKind)
+                      .fold<int>(0, (s, d) => s + 1);
+
+                  // Filter
+                  final list = _filter == 'All'
+                      ? all
+                      : _filter == 'Cash'
+                      ? all.where((d) => !isInKind(d)).toList()
+                      : all.where(isInKind).toList();
+
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      CircleAvatar(
-                        radius: 26,
-                        backgroundColor: Colors.teal,
-                        child: const Icon(
-                          Icons.volunteer_activism,
-                          color: Colors.white,
-                          size: 28,
+                      // Totals strip
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                        child: _TotalsRow(
+                          cashText: php.format(cashTotal),
+                          inKindText:
+                              '$inKindCount item${inKindCount == 1 ? '' : 's'}',
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Total Cash Donations',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              fontSize: 16,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            '₱${NumberFormat('#,##0.00').format(totalAmount)}',
-                            style: const TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.teal,
-                            ),
-                          ),
-                        ],
+
+                      // Filter pills
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 10, 16, 6),
+                        child: _FilterRow(
+                          active: _filter,
+                          onSelect: (v) => setState(() => _filter = v),
+                        ),
                       ),
+
+                      const SizedBox(height: 2),
+
+                      // Donation list
+                      ...list.map((d) {
+                        final inKind = isInKind(d);
+                        final amount = parseAmount(d['amount']);
+                        final date = formatDate(d['donation_date']);
+                        final label = getDonationTarget(d);
+                        final qty = d['quantity'];
+                        final item = (d['item'] ?? '').toString().trim();
+
+                        return _DonationTile(
+                          isInKind: inKind,
+                          title: label,
+                          subtitle: date,
+                          amountOrItem: inKind
+                              ? (item.isEmpty ? 'Unspecified item' : item)
+                              : php.format(amount),
+                          quantity: inKind
+                              ? (qty == null
+                                    ? null
+                                    : (qty is num
+                                          ? qty.toString()
+                                          : qty.toString()))
+                              : null,
+                        );
+                      }),
+
+                      const SizedBox(height: 24),
                     ],
-                  ),
-                ),
+                  );
+                },
               ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-              const Padding(
-                padding: EdgeInsets.only(bottom: 10),
-                child: Text(
-                  'Your Recent Donations',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black87,
-                  ),
-                ),
+/* =============== Header =============== */
+
+class _HeaderSliver extends StatelessWidget {
+  const _HeaderSliver({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final canPop = Navigator.of(context).canPop();
+
+    return SliverAppBar(
+      automaticallyImplyLeading: false,
+      leading: canPop
+          ? IconButton(
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: onBack,
+            )
+          : null,
+      pinned: true,
+      expandedHeight: 140,
+      elevation: 0,
+      backgroundColor: const Color(0xFF1F2C47),
+      flexibleSpace: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Color(0xFF0F2D50), Color(0xFF3A4E7A)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(18)),
+        ),
+        child: const FlexibleSpaceBar(
+          titlePadding: EdgeInsetsDirectional.only(start: 56, bottom: 10),
+          title: Text(
+            'Donation History',
+            style: TextStyle(
+              fontWeight: FontWeight.w800,
+              letterSpacing: .2,
+              color: Colors.white,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/* =============== Totals row =============== */
+
+class _TotalsRow extends StatelessWidget {
+  const _TotalsRow({required this.cashText, required this.inKindText});
+
+  final String cashText;
+  final String inKindText;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        const SizedBox(width: 2),
+        _TotalChip(
+          color: const Color(0xFF1F2C47),
+          icon: Icons.payments_rounded,
+          labelTop: 'Cash Donated',
+          labelBottom: cashText,
+        ),
+        const SizedBox(width: 10),
+        _TotalChip(
+          color: const Color(0xFFEC8C69),
+          icon: Icons.card_giftcard_rounded,
+          labelTop: 'In-kind',
+          labelBottom: inKindText,
+        ),
+        const SizedBox(width: 2),
+      ],
+    );
+  }
+}
+
+class _TotalChip extends StatelessWidget {
+  const _TotalChip({
+    required this.color,
+    required this.icon,
+    required this.labelTop,
+    required this.labelBottom,
+  });
+
+  final Color color;
+  final IconData icon;
+  final String labelTop;
+  final String labelBottom;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: Colors.grey.shade300),
+          boxShadow: const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 8,
+              offset: Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            Container(
+              width: 38,
+              height: 38,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withOpacity(.12),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: color.withOpacity(.35)),
               ),
-
-              /// 🧾 Donation Cards
-              ...donations.map((donation) {
-                final target = getDonationTarget(donation);
-                final type = donation['donation_type'] ?? 'N/A';
-                final date = formatDate(donation['donation_date']);
-                final isInKind = type.toString().toLowerCase().contains(
-                  'kind',
-                ); // ✅ Detect
-                final amount = parseAmount(donation['amount']);
-                final item = donation['item'] ?? 'N/A';
-                final quantity = donation['quantity']?.toString() ?? 'N/A';
-
-                return Card(
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(15),
+              child: Icon(icon, color: color, size: 22),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    labelTop,
+                    style: const TextStyle(fontSize: 12, color: Colors.black54),
                   ),
-                  elevation: 3,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  child: Padding(
-                    padding: const EdgeInsets.all(14.0),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Container(
-                          decoration: BoxDecoration(
-                            color: Colors.teal.shade100,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          padding: const EdgeInsets.all(10),
-                          child: Icon(
-                            isInKind ? Icons.card_giftcard : Icons.payments,
-                            color: Colors.teal.shade800,
-                            size: 28,
-                          ),
-                        ),
-                        const SizedBox(width: 14),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                target,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                  color: Colors.black87,
-                                ),
-                              ),
-                              const SizedBox(height: 6),
+                  const SizedBox(height: 2),
+                  Text(
+                    labelBottom,
+                    style: TextStyle(fontWeight: FontWeight.w900, color: color),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
-                              /// Show either amount or item/quantity
-                              if (isInKind)
-                                Text(
-                                  'Item: $item\nQuantity: $quantity',
-                                  style: const TextStyle(
-                                    color: Colors.teal,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                )
-                              else
-                                Text(
-                                  '₱${NumberFormat('#,##0.00').format(amount)}',
-                                  style: const TextStyle(
-                                    color: Colors.teal,
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
+/* =============== Filter row =============== */
 
-                              const SizedBox(height: 4),
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    'Type: $type',
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black54,
-                                    ),
-                                  ),
-                                  Text(
-                                    date,
-                                    style: const TextStyle(
-                                      fontSize: 13,
-                                      color: Colors.black45,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
+class _FilterRow extends StatelessWidget {
+  const _FilterRow({required this.active, required this.onSelect});
+  final String active;
+  final ValueChanged<String> onSelect;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget pill(String label) {
+      final bool selected = active == label;
+      return InkWell(
+        borderRadius: BorderRadius.circular(999),
+        onTap: () => onSelect(label),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+          decoration: BoxDecoration(
+            color: selected ? const Color(0xFF1F2C47) : Colors.white,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected ? const Color(0xFF1F2C47) : Colors.grey.shade300,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              color: selected ? Colors.white : Colors.black87,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
+      );
+    }
+
+    return Row(
+      children: [
+        pill('All'),
+        const SizedBox(width: 8),
+        pill('Cash'),
+        const SizedBox(width: 8),
+        pill('In-kind'),
+      ],
+    );
+  }
+}
+
+/* =============== Donation tile =============== */
+
+class _DonationTile extends StatelessWidget {
+  const _DonationTile({
+    required this.isInKind,
+    required this.title,
+    required this.subtitle,
+    required this.amountOrItem,
+    this.quantity,
+  });
+
+  final bool isInKind;
+  final String title;
+  final String subtitle;
+  final String amountOrItem;
+  final String? quantity;
+
+  @override
+  Widget build(BuildContext context) {
+    final Color tone = isInKind
+        ? const Color(0xFFEC8C69)
+        : const Color(0xFF1F2C47);
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade300),
+        boxShadow: const [
+          BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // leading icon
+          Container(
+            width: 42,
+            height: 42,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: tone.withOpacity(.10),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: tone.withOpacity(.35)),
+            ),
+            child: Icon(
+              isInKind ? Icons.card_giftcard_rounded : Icons.payments_rounded,
+              color: tone,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // text
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // title + chip
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        title,
+                        style: const TextStyle(
+                          fontWeight: FontWeight.w800,
+                          fontSize: 15,
                         ),
-                      ],
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: tone.withOpacity(.10),
+                        borderRadius: BorderRadius.circular(999),
+                        border: Border.all(color: tone.withOpacity(.35)),
+                      ),
+                      child: Text(
+                        isInKind ? 'In-kind' : 'Cash',
+                        style: TextStyle(
+                          color: tone,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 11,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+
+                // amount or item/qty
+                if (isInKind) ...[
+                  Text(
+                    amountOrItem,
+                    style: TextStyle(color: tone, fontWeight: FontWeight.w800),
+                  ),
+                  if (quantity != null && quantity!.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      'Qty: $quantity',
+                      style: const TextStyle(
+                        color: Colors.black87,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ] else
+                  Text(
+                    amountOrItem,
+                    style: TextStyle(
+                      color: tone,
+                      fontWeight: FontWeight.w900,
+                      fontSize: 16,
                     ),
                   ),
-                );
-              }),
-            ],
-          );
-        },
+
+                const SizedBox(height: 4),
+                Text(
+                  subtitle,
+                  style: const TextStyle(color: Colors.black54, fontSize: 12),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/* =============== Empty & Error =============== */
+
+class _EmptyBox extends StatelessWidget {
+  const _EmptyBox();
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 80),
+      child: Column(
+        children: const [
+          Icon(Icons.inbox_outlined, size: 56, color: Colors.black26),
+          SizedBox(height: 10),
+          Text(
+            'No donations found',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          SizedBox(height: 6),
+          Text(
+            'Your donations will appear here.',
+            style: TextStyle(color: Colors.black54, fontSize: 12),
+          ),
+          SizedBox(height: 20),
+        ],
+      ),
+    );
+  }
+}
+
+class _ErrorBox extends StatelessWidget {
+  const _ErrorBox({required this.message, required this.onRetry});
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 80),
+      child: Column(
+        children: [
+          const Icon(Icons.error_outline, size: 56, color: Colors.redAccent),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14),
+          ),
+          const SizedBox(height: 10),
+          OutlinedButton.icon(
+            onPressed: onRetry,
+            icon: const Icon(Icons.refresh),
+            label: const Text('Retry'),
+          ),
+        ],
       ),
     );
   }

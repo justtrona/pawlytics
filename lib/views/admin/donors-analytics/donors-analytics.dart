@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:math' as math;
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class DonorsAnalytics extends StatefulWidget {
   const DonorsAnalytics({super.key});
@@ -8,22 +10,200 @@ class DonorsAnalytics extends StatefulWidget {
 }
 
 class _DonorsAnalyticsState extends State<DonorsAnalytics> {
-  // Sample weekly data (in PHP)
-  final List<double> _weekData = const [
-    4200,
-    3800,
-    7000,
-    3000,
-    6200,
-    4100,
-    5900,
-  ];
+  // === DATA FROM DB ===
+  List<double> _weekData = const [];
+
+  // KPI values
+  String _totalReceivedText = '₱0.00'; // all-time total
+  String _topDonorsText = '—'; // top 3 donors by amount (last 90d)
+  String _avgGiftText = '₱0.00'; // median gift (month-to-date)
+
+  // Donation frequency (last 12 months)
+  String _freqPct = '0%';
+  String _occPct = '0%';
+  String _onePct = '0%';
+
+  bool _loading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadFromDb();
+  }
+
+  Future<void> _loadFromDb() async {
+    try {
+      final sb = Supabase.instance.client;
+
+      // ----- 1) TOTAL RECEIVED (all-time) -----
+      final totalRows = await sb.from('donations').select('amount');
+      final totalReceived = (totalRows as List)
+          .map((r) => (r['amount'] as num?)?.toDouble() ?? 0.0)
+          .fold<double>(0.0, (a, b) => a + b);
+
+      // ----- 2) TOP DONORS (last 90 days) -----
+      final since90 = DateTime.now()
+          .subtract(const Duration(days: 90))
+          .toIso8601String();
+      final rawTopRows = await sb
+          .from('donations')
+          .select('donor_name, amount')
+          .not('donor_name', 'is', null)
+          .gte('donation_date', since90);
+
+      final Map<String, double> sumByDonor = {};
+      for (final r in (rawTopRows as List)) {
+        final dn = r['donor_name'];
+        if (dn == null) continue;
+        final name = (dn as String).trim();
+        if (name.isEmpty) continue;
+        final amt = (r['amount'] as num?)?.toDouble() ?? 0.0;
+        sumByDonor.update(name, (v) => v + amt, ifAbsent: () => amt);
+      }
+      final topDonorNames = sumByDonor.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      final topDonorsJoined = topDonorNames.isEmpty
+          ? '—'
+          : topDonorNames.take(3).map((e) => e.key).join(', ');
+
+      // ----- 3) AVG GIFT (median) Month-to-Date -----
+      final monthStart = DateTime(DateTime.now().year, DateTime.now().month);
+      final amountsRows = await sb
+          .from('donations')
+          .select('amount')
+          .gte('donation_date', monthStart.toIso8601String());
+      final amounts =
+          (amountsRows as List)
+              .map((r) => (r['amount'] as num?)?.toDouble())
+              .where((v) => v != null)
+              .cast<double>()
+              .toList()
+            ..sort();
+      final median = _median(amounts);
+
+      // ----- 4) LAST 7 DAYS SERIES (sum per day) -----
+      final since7 = DateTime.now().subtract(const Duration(days: 6));
+      final weekRows = await sb
+          .from('donations')
+          .select('donation_date, amount')
+          .gte(
+            'donation_date',
+            DateTime(since7.year, since7.month, since7.day).toIso8601String(),
+          );
+      final perDay = _sumByDay(weekRows as List);
+
+      // ----- 5) DONATION FREQUENCY (last 12 months) -----
+      final since12m = DateTime.now().subtract(const Duration(days: 365));
+      final freqRows = await sb
+          .from('donations')
+          .select('donor_name')
+          .not('donor_name', 'is', null)
+          .gte(
+            'donation_date',
+            DateTime(
+              since12m.year,
+              since12m.month,
+              since12m.day,
+            ).toIso8601String(),
+          );
+
+      final Map<String, int> perDonorCounts = {};
+      for (final r in (freqRows as List)) {
+        final dn = r['donor_name'];
+        if (dn == null) continue;
+        final name = (dn as String).trim();
+        if (name.isEmpty) continue;
+        perDonorCounts.update(name, (v) => v + 1, ifAbsent: () => 1);
+      }
+      final totalDonors = perDonorCounts.length;
+      int frequent = 0, occasional = 0, oneTime = 0;
+      for (final n in perDonorCounts.values) {
+        if (n >= 12)
+          frequent++; // ≥ 12 in last 12 months
+        else if (n >= 2)
+          occasional++; // 2–11
+        else
+          oneTime++; // = 1
+      }
+      double pct(int x) => totalDonors == 0 ? 0.0 : (x * 100.0 / totalDonors);
+      final freqPctVal = pct(frequent);
+      final occPctVal = pct(occasional);
+      final onePctVal = pct(oneTime);
+
+      setState(() {
+        _weekData = perDay;
+        _totalReceivedText = _formatCurrency(totalReceived);
+        _topDonorsText = topDonorsJoined;
+        _avgGiftText = _formatCurrency(median);
+
+        _freqPct = '${freqPctVal.toStringAsFixed(0)}%';
+        _occPct = '${occPctVal.toStringAsFixed(0)}%';
+        _onePct = '${onePctVal.toStringAsFixed(0)}%';
+
+        _loading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _weekData = const [0, 0, 0, 0, 0, 0, 0];
+        _totalReceivedText = '₱0.00';
+        _topDonorsText = '—';
+        _avgGiftText = '₱0.00';
+        _freqPct = '0%';
+        _occPct = '0%';
+        _onePct = '0%';
+        _loading = false;
+      });
+    }
+  }
+
+  // Build 7 daily totals (last 7 calendar days, oldest→newest)
+  List<double> _sumByDay(List rows) {
+    final now = DateTime.now();
+    final start = DateTime(
+      now.year,
+      now.month,
+      now.day,
+    ).subtract(const Duration(days: 6));
+
+    final keys = <String>[];
+    final buckets = <String, double>{};
+    for (int i = 0; i < 7; i++) {
+      final d = start.add(Duration(days: i));
+      final k =
+          '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+      keys.add(k);
+      buckets[k] = 0.0;
+    }
+
+    for (final r in rows) {
+      final ts = r['donation_date'] as String?;
+      final amt = (r['amount'] as num?)?.toDouble() ?? 0.0;
+      if (ts == null) continue;
+      final d = DateTime.tryParse(ts);
+      if (d == null) continue;
+      final day = DateTime(d.year, d.month, d.day);
+      final k =
+          '${day.year}-${day.month.toString().padLeft(2, '0')}-${day.day.toString().padLeft(2, '0')}';
+      if (buckets.containsKey(k)) {
+        buckets[k] = (buckets[k] ?? 0) + amt;
+      }
+    }
+
+    return keys.map((k) => buckets[k] ?? 0.0).toList(growable: false);
+  }
+
+  double _median(List<double> xs) {
+    if (xs.isEmpty) return 0.0;
+    final n = xs.length;
+    if (n.isOdd) return xs[n ~/ 2];
+    return (xs[n ~/ 2 - 1] + xs[n ~/ 2]) / 2.0;
+  }
+
+  String _formatCurrency(double v) => '₱${v.toStringAsFixed(2)}';
 
   @override
   Widget build(BuildContext context) {
     const navy = Color(0xFF0F2D50);
-    const lightNavy = Color(0xFF173A63);
-    const subtitle = Color(0xFF6E7B8A);
 
     return Scaffold(
       backgroundColor: const Color(0xFFF6F7F9),
@@ -41,132 +221,134 @@ class _DonorsAnalyticsState extends State<DonorsAnalytics> {
         ),
         centerTitle: false,
       ),
-      body: ListView(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        children: [
-          // Chart card
-          _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: _loading
+          ? const Center(child: CircularProgressIndicator())
+          : ListView(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               children: [
-                const _SectionTitle(''),
-                AspectRatio(
-                  aspectRatio: 1.6,
-                  child: CustomPaint(
-                    painter: _GridChartPainter(
-                      data: _weekData,
-                      gridColor: Colors.grey.shade300,
-                      lineColor: lightNavy,
-                    ),
+                // === Trend ===
+                _Card(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const _SectionHeader(
+                        title: 'Last 7 days',
+                        subtitle: 'Amount received',
+                      ),
+                      const SizedBox(height: 4),
+                      AspectRatio(
+                        aspectRatio: 1.7,
+                        child: _SparkAreaChart(
+                          data: _weekData,
+                          maxHint: 50000,
+                          lineColor: navy,
+                          fillTop: navy.withOpacity(.16),
+                          fillBottom: Colors.white,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      const Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          _AxisLabel('Mon'),
+                          _AxisLabel('Tue'),
+                          _AxisLabel('Wed'),
+                          _AxisLabel('Thu'),
+                          _AxisLabel('Fri'),
+                          _AxisLabel('Sat'),
+                          _AxisLabel('Sun'),
+                        ],
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 8),
-                const Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _AxisLabel('Mon'),
-                    _AxisLabel('Tue'),
-                    _AxisLabel('Wed'),
-                    _AxisLabel('Thu'),
-                    _AxisLabel('Fri'),
-                    _AxisLabel('Sat'),
-                    _AxisLabel('Sun'),
-                  ],
+
+                const SizedBox(height: 12),
+
+                // === KPIs (same layout) ===
+                _Card(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 10,
+                  ),
+                  child: Row(
+                    children: [
+                      _KpiMini(
+                        title: 'Total Received',
+                        value: _totalReceivedText,
+                      ),
+                      const _KpiDivider(),
+                      _KpiMini(title: 'Top Donors', value: _topDonorsText),
+                      const _KpiDivider(),
+                      _KpiMini(title: 'Avg Gift', value: _avgGiftText),
+                    ],
+                  ),
                 ),
-                const SizedBox(height: 4),
-                // Y-axis captions
-                Row(
-                  children: const [
-                    _YTick('₱0'),
-                    Spacer(),
-                    _YTick('₱15,000'),
-                    Spacer(),
-                    _YTick('₱30,000'),
-                    Spacer(),
-                    _YTick('₱50,000'),
-                  ],
+
+                const SizedBox(height: 12),
+
+                // === Donation Frequency (now dynamic) ===
+                _Card(
+                  padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      _SectionHeader(
+                        title: 'Donation Frequency',
+                        subtitle: 'Share of donors',
+                      ),
+                      SizedBox(height: 8),
+                    ],
+                  ),
                 ),
+                _Card(
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _StatChip(
+                              title: 'Frequent',
+                              value: _freqPct,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StatChip(
+                              title: 'Occasional',
+                              value: _occPct,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: _StatChip(title: 'One-time', value: _onePct),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      const Text(
+                        'Frequent = ≥1/mo · Occasional = 1–3/yr',
+                        style: TextStyle(color: Colors.black54, fontSize: 11),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 20),
               ],
             ),
-          ),
-
-          const SizedBox(height: 14),
-
-          // KPI 3-up
-          _Card(
-            padding: const EdgeInsets.symmetric(vertical: 14),
-            child: Row(
-              children: const [
-                _KpiTile(
-                  titleTop: 'Total Donation',
-                  titleBottom: 'This Month',
-                  value: 'PHP 1,500.00',
-                ),
-                _VerticalDivider(),
-                _KpiTile(
-                  titleTop: 'Top',
-                  titleBottom: 'Donor',
-                  value: 'John De Guzman',
-                ),
-                _VerticalDivider(),
-                _KpiTile(
-                  titleTop: 'Average',
-                  titleBottom: 'Donation',
-                  value: 'PHP 25.00',
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 14),
-
-          // Donation Frequency
-          _Card(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: const [
-                _SectionTitle('Donation Frequency'),
-                SizedBox(height: 6),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _PillStat(
-                        headline: 'Frequent\nDonors',
-                        percent: '45%',
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _PillStat(
-                        headline: 'Occasional\nDonors',
-                        percent: '30%',
-                      ),
-                    ),
-                    SizedBox(width: 12),
-                    Expanded(
-                      child: _PillStat(
-                        headline: 'One time\nDonors',
-                        percent: '25%',
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-        ],
-      ),
     );
   }
 }
 
-/// Reusable card container
+/// ======= Widgets =======
+
 class _Card extends StatelessWidget {
   final Widget child;
   final EdgeInsetsGeometry? padding;
-
   const _Card({required this.child, this.padding});
 
   @override
@@ -175,7 +357,8 @@ class _Card extends StatelessWidget {
       padding: padding ?? const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(.05),
@@ -183,54 +366,60 @@ class _Card extends StatelessWidget {
             offset: const Offset(0, 4),
           ),
         ],
-        border: Border.all(color: Colors.grey.shade200),
       ),
       child: child,
     );
   }
 }
 
-class _SectionTitle extends StatelessWidget {
-  final String text;
-  const _SectionTitle(this.text);
+class _SectionHeader extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  const _SectionHeader({required this.title, this.subtitle});
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      text,
-      style: const TextStyle(
-        color: Color(0xFF0F2D50),
-        fontSize: 20,
-        fontWeight: FontWeight.w800,
-      ),
+    final titleStyle = const TextStyle(
+      color: Color(0xFF0F2D50),
+      fontSize: 18,
+      fontWeight: FontWeight.w800,
+      height: 1.1,
+    );
+    final subStyle = TextStyle(color: Colors.grey.shade600, fontSize: 12);
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: titleStyle),
+              if (subtitle != null) ...[
+                const SizedBox(height: 2),
+                Text(subtitle!, style: subStyle),
+              ],
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
 
-/// KPI Column
-class _KpiTile extends StatelessWidget {
-  final String titleTop;
-  final String titleBottom;
+class _KpiMini extends StatelessWidget {
+  final String title;
   final String value;
-
-  const _KpiTile({
-    required this.titleTop,
-    required this.titleBottom,
-    required this.value,
-  });
+  const _KpiMini({required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
-    final subtle = Colors.grey.shade600;
     return Expanded(
       child: Column(
         children: [
           Text(
-            '$titleTop\n$titleBottom',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: subtle, fontSize: 12, height: 1.2),
+            title,
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
           ),
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
           Text(
             value,
             textAlign: TextAlign.center,
@@ -242,61 +431,48 @@ class _KpiTile extends StatelessWidget {
   }
 }
 
-class _VerticalDivider extends StatelessWidget {
-  const _VerticalDivider();
+class _KpiDivider extends StatelessWidget {
+  const _KpiDivider();
 
   @override
   Widget build(BuildContext context) {
     return Container(
       width: 1,
-      height: 52,
+      height: 44,
       margin: const EdgeInsets.symmetric(horizontal: 8),
       color: Colors.grey.shade200,
     );
   }
 }
 
-class _PillStat extends StatelessWidget {
-  final String headline;
-  final String percent;
-
-  const _PillStat({required this.headline, required this.percent});
+class _StatChip extends StatelessWidget {
+  final String title;
+  final String value;
+  const _StatChip({required this.title, required this.value});
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16),
+      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
       decoration: BoxDecoration(
         color: const Color(0xFF0F2D50),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.08),
-            blurRadius: 12,
-            offset: const Offset(0, 6),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
         children: [
           Text(
-            headline,
-            textAlign: TextAlign.center,
-            style: const TextStyle(
-              color: Colors.white,
-              height: 1.1,
-              fontWeight: FontWeight.w700,
-            ),
+            title,
+            style: const TextStyle(color: Colors.white70, fontSize: 12),
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 6),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 10),
             decoration: BoxDecoration(
               color: Colors.white,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(10),
             ),
             child: Text(
-              percent,
+              value,
               style: const TextStyle(fontWeight: FontWeight.w800),
             ),
           ),
@@ -319,95 +495,118 @@ class _AxisLabel extends StatelessWidget {
   }
 }
 
-class _YTick extends StatelessWidget {
-  final String label;
-  const _YTick(this.label);
+/// ======= Chart =======
+
+class _SparkAreaChart extends StatelessWidget {
+  final List<double> data;
+  final double maxHint; // e.g., 50000
+  final Color lineColor;
+  final Color fillTop;
+  final Color fillBottom;
+
+  const _SparkAreaChart({
+    required this.data,
+    required this.maxHint,
+    required this.lineColor,
+    required this.fillTop,
+    required this.fillBottom,
+  });
 
   @override
   Widget build(BuildContext context) {
-    return Text(
-      label,
-      style: TextStyle(fontSize: 10, color: Colors.grey.shade600),
+    return CustomPaint(
+      painter: _SparkAreaPainter(
+        data: data,
+        maxHint: maxHint,
+        lineColor: lineColor,
+        fillTop: fillTop,
+        fillBottom: fillBottom,
+        gridColor: Colors.grey.shade300,
+      ),
     );
   }
 }
 
-/// Simple grid + polyline painter for the chart
-class _GridChartPainter extends CustomPainter {
+class _SparkAreaPainter extends CustomPainter {
   final List<double> data;
-  final Color gridColor;
+  final double maxHint;
   final Color lineColor;
+  final Color fillTop;
+  final Color fillBottom;
+  final Color gridColor;
 
-  _GridChartPainter({
+  _SparkAreaPainter({
     required this.data,
-    required this.gridColor,
+    required this.maxHint,
     required this.lineColor,
+    required this.fillTop,
+    required this.fillBottom,
+    required this.gridColor,
   });
 
   @override
   void paint(Canvas canvas, Size size) {
+    if (data.isEmpty) return;
+
+    // Grid (light, 4 horizontal lines)
     final gridPaint = Paint()
       ..color = gridColor
       ..strokeWidth = 1;
-
-    // Draw grid (5 horizontal, 5 vertical)
-    const rows = 5;
-    const cols = 5;
-
+    const rows = 4;
     for (int r = 0; r <= rows; r++) {
       final dy = size.height / rows * r;
       canvas.drawLine(Offset(0, dy), Offset(size.width, dy), gridPaint);
     }
-    for (int c = 0; c <= cols; c++) {
-      final dx = size.width / cols * c;
-      canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), gridPaint);
+
+    // Build smooth path
+    final maxVal = math.max(data.reduce(math.max), 1);
+    final cap = math.max(maxHint, maxVal);
+    final p = Path();
+    for (int i = 0; i < data.length; i++) {
+      final x = (size.width / (data.length - 1)) * i;
+      final y = size.height - (data[i].clamp(0, cap) / cap) * size.height;
+      if (i == 0) {
+        p.moveTo(x, y);
+      } else {
+        final prevX = (size.width / (data.length - 1)) * (i - 1);
+        final prevY =
+            size.height - (data[i - 1].clamp(0, cap) / cap) * size.height;
+        final c = (prevX + x) / 2;
+        p.cubicTo(c, prevY, c, y, x, y);
+      }
     }
 
-    if (data.isEmpty) return;
+    // Area fill
+    final area = Path.from(p)
+      ..lineTo(size.width, size.height)
+      ..lineTo(0, size.height)
+      ..close();
 
-    // Normalize data to the canvas height (assume max 50k)
-    const maxValue = 50000.0;
-    final line = Paint()
+    final shader = LinearGradient(
+      begin: Alignment.topCenter,
+      end: Alignment.bottomCenter,
+      colors: [fillTop, fillBottom],
+    ).createShader(Rect.fromLTWH(0, 0, size.width, size.height));
+
+    final fillPaint = Paint()..shader = shader;
+    canvas.drawPath(area, fillPaint);
+
+    // Line
+    final linePaint = Paint()
       ..color = lineColor
       ..strokeWidth = 3
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
-
-    final path = Path();
-
-    for (int i = 0; i < data.length; i++) {
-      final x = (size.width / (data.length - 1)) * i;
-      final y =
-          size.height - (data[i].clamp(0, maxValue) / maxValue) * size.height;
-
-      if (i == 0) {
-        path.moveTo(x, y);
-      } else {
-        // smooth-ish curve
-        final prevX = (size.width / (data.length - 1)) * (i - 1);
-        final prevY =
-            size.height -
-            (data[i - 1].clamp(0, maxValue) / maxValue) * size.height;
-        final controlX = (prevX + x) / 2;
-        path.cubicTo(controlX, prevY, controlX, y, x, y);
-      }
-    }
-
-    // Shadow under the line
-    final shadow = Paint()
-      ..color = lineColor.withOpacity(0.15)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6)
-      ..strokeWidth = 3
-      ..style = PaintingStyle.stroke;
-
-    canvas.drawPath(path, shadow);
-    canvas.drawPath(path, line);
+    canvas.drawPath(p, linePaint);
   }
 
   @override
-  bool shouldRepaint(covariant _GridChartPainter oldDelegate) {
-    return oldDelegate.data != data ||
-        oldDelegate.gridColor != gridColor ||
-        oldDelegate.lineColor != lineColor;
+  bool shouldRepaint(covariant _SparkAreaPainter old) {
+    return old.data != data ||
+        old.maxHint != maxHint ||
+        old.lineColor != lineColor ||
+        old.fillTop != fillTop ||
+        old.fillBottom != fillBottom ||
+        old.gridColor != gridColor;
   }
 }
