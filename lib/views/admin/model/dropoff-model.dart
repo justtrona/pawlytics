@@ -42,7 +42,7 @@ class DropoffLocation {
     return {
       'organization': organization,
       'address': address,
-      // use ISO8601 string for timestamp columns
+      // use ISO8601 string for t imestamp columns
       'scheduled_at': scheduledAt.toIso8601String(),
       'phone': phone,
       'status': status,
