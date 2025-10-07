@@ -2,9 +2,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction Process/DonationSuccessPage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/Transaction Process/PayQrCodePage.dart';
 import 'package:pawlytics/views/donors/model/donation-model.dart';
+
+// Your model + controller
+import 'package:pawlytics/views/admin/model/dropoff-model.dart';
+import 'package:pawlytics/views/admin/controllers/dropoff-controller.dart';
 
 class DonatePage extends StatefulWidget {
   final String? petId;
@@ -37,16 +42,21 @@ class DonatePage extends StatefulWidget {
 class _DonatePageState extends State<DonatePage>
     with SingleTickerProviderStateMixin {
   final _sb = Supabase.instance.client;
+
+  // Text fields
   final TextEditingController _amount = TextEditingController(text: '0.00');
   final TextEditingController _quantity = TextEditingController();
   final TextEditingController _notes = TextEditingController();
 
+  // In-kind state
   String? _item;
-  String? _dropOff;
+  String? _dropOff; // org name (switch to id if preferred)
   DateTime? _date;
 
+  // Tabs
   late TabController _tabs;
 
+  // Quick buttons
   final quick = const [
     '5',
     '20',
@@ -59,10 +69,43 @@ class _DonatePageState extends State<DonatePage>
     '1000',
   ];
 
+  // ---------- Drop-off locations ----------
+  final _dropController = DropoffLocationController();
+  List<DropoffLocation> _locations = <DropoffLocation>[];
+  bool _loadingLocations = false;
+  String? _locationError;
+
+  Future<void> _loadDropoffLocations() async {
+    setState(() {
+      _loadingLocations = true;
+      _locationError = null;
+    });
+    try {
+      final all = await _dropController.getAll();
+      // show only Active; remove filter if you want all
+      _locations = all
+          .where((e) => e.status == 'Active')
+          .toList(growable: false);
+
+      // Reset selection if it’s no longer valid
+      if (_dropOff != null &&
+          !_locations.any((e) => e.organization == _dropOff)) {
+        _dropOff = null;
+      }
+      // debugPrint('locations -> ${_locations.map((e) => e.organization).toList()}');
+    } catch (e) {
+      _locationError = e.toString();
+    } finally {
+      if (mounted) setState(() => _loadingLocations = false);
+    }
+  }
+  // ---------------------------------------
+
   @override
   void initState() {
     super.initState();
     _tabs = TabController(length: widget.allowInKind ? 2 : 1, vsync: this);
+    _loadDropoffLocations();
   }
 
   @override
@@ -97,7 +140,7 @@ class _DonatePageState extends State<DonatePage>
     } else if (widget.opexId != null) {
       m['pet_id'] = null;
       m['campaign_id'] = null;
-      m['allocation_id'] = widget.opexId; // <— IMPORTANT
+      m['allocation_id'] = widget.opexId; // IMPORTANT
       m['is_operational'] = true;
     } else {
       // fallback: untargeted donation
@@ -114,15 +157,7 @@ class _DonatePageState extends State<DonatePage>
       final base = donation.toInsertMap();
       final payload = _payloadForTarget(base);
 
-      // Debug: verify allocation_id is present for operational donations
-      // Example print: { ..., allocation_id: 1 }
-      // ignore: avoid_print
-      print('Saving donation with payload: $payload');
-
-      // IMPORTANT: call .select() if you want returned rows
       final response = await _sb.from('donations').insert(payload).select();
-
-      // Supabase v2 throws on error; explicit check for completeness:
       if (response.isEmpty) {
         throw PostgrestException(message: 'Insert returned no rows');
       }
@@ -278,7 +313,6 @@ class _DonatePageState extends State<DonatePage>
                       amount: amount,
                       paymentMethod: 'QR',
                       notes: _notes.text.isEmpty ? null : _notes.text,
-                      // If you also pass a target at the page level, wire it into the controller/model.
                       opexId: widget.opexId,
                     );
 
@@ -358,6 +392,7 @@ class _DonatePageState extends State<DonatePage>
               onChanged: (v) => setState(() => _item = v),
             ),
             const SizedBox(height: 12),
+
             const Text('Quantity'),
             const SizedBox(height: 6),
             TextField(
@@ -369,16 +404,116 @@ class _DonatePageState extends State<DonatePage>
               ),
             ),
             const SizedBox(height: 12),
+
             const Text('Drop-Off Location'),
             const SizedBox(height: 6),
-            DropdownButtonFormField<String>(
-              items: const [
-                'Shelter A',
-                'Shelter B',
-                'Main Office',
-              ].map((x) => DropdownMenuItem(value: x, child: Text(x))).toList(),
-              onChanged: (v) => setState(() => _dropOff = v),
+            Builder(
+              builder: (_) {
+                if (_loadingLocations) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    ),
+                  );
+                }
+                if (_locationError != null) {
+                  return Text(
+                    'Could not load locations: $_locationError',
+                    style: const TextStyle(color: Colors.red),
+                  );
+                }
+                if (_locations.isEmpty) {
+                  return DropdownButtonFormField<String>(
+                    items: const [],
+                    onChanged: null,
+                    decoration: const InputDecoration(
+                      border: OutlineInputBorder(),
+                      hintText: 'No drop-off locations available',
+                      contentPadding: EdgeInsets.symmetric(
+                        vertical: 14,
+                        horizontal: 12,
+                      ),
+                    ),
+                  );
+                }
+
+                // Menu entries (two-line)
+                final items = _locations
+                    .where((l) => l.organization.isNotEmpty)
+                    .map<DropdownMenuItem<String>>(
+                      (DropoffLocation loc) => DropdownMenuItem<String>(
+                        value: loc.organization,
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              loc.organization,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            if (loc.address.isNotEmpty)
+                              Text(
+                                loc.address,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                  color: Colors.grey.shade700,
+                                  fontSize: 12,
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    )
+                    .toList(growable: false);
+
+                // Closed field shows a compact single-line label
+                final selectedBuilders = _locations
+                    .map<Widget>((loc) {
+                      return Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          loc.organization,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: const TextStyle(fontWeight: FontWeight.w600),
+                        ),
+                      );
+                    })
+                    .toList(growable: false);
+
+                return DropdownButtonFormField<String>(
+                  isExpanded: true,
+                  itemHeight:
+                      null, // allow variable-height menu items (fixes overflow)
+                  menuMaxHeight: 360,
+                  value:
+                      (_dropOff != null &&
+                          _locations.any((l) => l.organization == _dropOff))
+                      ? _dropOff
+                      : null,
+                  items: items,
+                  selectedItemBuilder: (_) => selectedBuilders,
+                  onChanged: (v) => setState(() => _dropOff = v),
+                  decoration: const InputDecoration(
+                    border: OutlineInputBorder(),
+                    hintText: 'Select a drop-off location',
+                    contentPadding: EdgeInsets.symmetric(
+                      vertical: 14,
+                      horizontal: 12,
+                    ),
+                  ),
+                );
+              },
             ),
+
             const SizedBox(height: 12),
             const Text('Date'),
             const SizedBox(height: 6),
@@ -397,6 +532,7 @@ class _DonatePageState extends State<DonatePage>
                 ),
               ),
             ),
+
             const SizedBox(height: 12),
             const Text('Notes (optional)'),
             const SizedBox(height: 6),
@@ -408,6 +544,7 @@ class _DonatePageState extends State<DonatePage>
                 hintText: 'Enter notes',
               ),
             ),
+
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -420,8 +557,9 @@ class _DonatePageState extends State<DonatePage>
                   if ((_item ?? '').isEmpty)
                     issues.add('Please select an item.');
                   if (qty <= 0) issues.add('Quantity must be greater than 0.');
-                  if ((_dropOff ?? '').isEmpty)
+                  if ((_dropOff ?? '').isEmpty) {
                     issues.add('Please select a drop-off location.');
+                  }
                   if (issues.isNotEmpty) {
                     ScaffoldMessenger.of(
                       context,
@@ -436,7 +574,7 @@ class _DonatePageState extends State<DonatePage>
                     item: _item ?? '',
                     quantity: qty,
                     fairValueAmount: null, // set if you compute fair value
-                    dropOffLocation: _dropOff ?? '',
+                    dropOffLocation: _dropOff ?? '', // org name
                     notes: _notes.text.isEmpty ? null : _notes.text,
                     opexId: widget.opexId,
                   );
