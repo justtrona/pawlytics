@@ -1,11 +1,9 @@
 // lib/views/donors/goals/goal_page.dart
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 
 import 'package:pawlytics/views/donors/controller/goal-opex-controller.dart';
 import 'package:pawlytics/views/donors/model/goal-opex-model.dart';
-import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 
 class GoalPage extends StatefulWidget {
   const GoalPage({super.key});
@@ -24,7 +22,6 @@ class _GoalPageState extends State<GoalPage> {
     decimalDigits: 0,
   );
   final _dateFmt = DateFormat('MMM d, yyyy');
-  final _monthFmt = DateFormat('MMMM yyyy');
 
   String _searchQuery = "";
 
@@ -57,48 +54,31 @@ class _GoalPageState extends State<GoalPage> {
     }
     if (s.contains('food')) return Icons.restaurant_outlined;
     if (s.contains('rent')) return Icons.home_outlined;
-    return Icons.payments_outlined;
-  }
-
-  String _percent(double value) =>
-      '${(value * 100).clamp(0, 100).toStringAsFixed(0)}%';
-
-  Color _statusColor(String s) {
-    switch (s) {
-      case 'completed':
-        return Colors.green;
-      case 'closed':
-        return Colors.grey;
-      default:
-        return const Color(0xFF1F2C47); // active
-    }
+    return Icons.receipt_long_outlined;
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filtered list for the allocations section only
+    // Filtered list (for categories section only)
     final filtered = _controller.items
         .where(
           (e) => e.category.toLowerCase().contains(_searchQuery.toLowerCase()),
         )
         .toList();
 
-    // Header totals should use ALL items
-    final allItems = _controller.items;
-    final headerGoal = allItems.fold<double>(0, (s, e) => s + e.amount);
-    final headerRaised = allItems.fold<double>(0, (s, e) => s + e.raised);
-    final headerProg = headerGoal > 0
-        ? (headerRaised / headerGoal).clamp(0.0, 1.0)
-        : 0.0;
+    // Header total uses ALL items (amount = manual + raised = tracked)
+    final totalThisMonth = _controller.items.fold<double>(
+      0,
+      (s, e) => s + (e.amount + e.raised),
+    );
 
     // Month status
-    final isClosed = _controller.isClosed; // provided by controller
+    final isClosed = _controller.isClosed;
     final dueStr = _controller.monthEnd == null
         ? '—'
         : _dateFmt.format(_controller.monthEnd!);
 
     const brand = Color(0xFF1F2C47);
-    const peach = Color(0xFFEC8C69);
     final cardBorder = BorderSide(color: Colors.grey.shade300);
 
     return Scaffold(
@@ -109,7 +89,7 @@ class _GoalPageState extends State<GoalPage> {
         foregroundColor: Colors.black,
         centerTitle: true,
         title: const Text(
-          'Goals',
+          'Organization Expenses',
           style: TextStyle(fontWeight: FontWeight.w700),
         ),
         actions: [
@@ -127,7 +107,7 @@ class _GoalPageState extends State<GoalPage> {
             : RefreshIndicator(
                 onRefresh: () async => _controller.loadAllocations(),
                 child: ListView(
-                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+                  padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
                     // Search
                     _SearchBar(
@@ -136,24 +116,30 @@ class _GoalPageState extends State<GoalPage> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Summary Card — decoupled from search
-                    _SummaryCard(
+                    // Summary Card — TOTAL ONLY
+                    _SummaryExpensesCard(
                       brand: brand,
-                      peach: peach,
                       border: cardBorder,
-                      title: "This Month’s Goal",
-                      raisedLabel: _php.format(headerRaised),
-                      goalLabel: _php.format(headerGoal),
-                      progress: headerProg,
-                      percentText: _percent(headerProg),
+                      title: "This Month’s Expenses",
+                      amountLabel: _php.format(totalThisMonth),
                       statusChip: _StatusChip(
                         label: isClosed ? 'Closed' : 'Active',
                         color: isClosed ? Colors.grey : brand,
                       ),
-                      dueText: 'Due: $dueStr',
+                      periodText: 'As of: $dueStr',
                       showClosedNote: isClosed,
                     ),
                     const SizedBox(height: 16),
+
+                    // Categories list (amount only)
+                    Text(
+                      "Expense Categories (This Month)",
+                      style: const TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
 
                     if (filtered.isEmpty)
                       _EmptyState(
@@ -165,210 +151,28 @@ class _GoalPageState extends State<GoalPage> {
                     else
                       ...List.generate(filtered.length, (i) {
                         final e = filtered[i];
-                        final progress = e.amount > 0
-                            ? (e.raised / e.amount).clamp(0.0, 1.0)
-                            : 0.0;
-                        final remaining = (e.amount - e.raised).clamp(
+                        final spent = (e.amount + e.raised).clamp(
                           0,
                           double.infinity,
                         );
 
-                        return _GoalCard(
+                        return _ExpenseCard(
                           icon: _iconFor(e.category),
                           title: e.category,
                           subtitle: e.statusLabel,
-                          trailingLabel: _percent(progress),
-                          progress: progress,
-                          amountNeededLabel:
-                              '${_php.format(e.raised)} of ${_php.format(e.amount)}',
-                          remainingLabel: remaining <= 0
-                              ? 'Fully funded'
-                              : 'Remaining: ${_php.format(remaining)}',
+                          amountLabel: _php.format(spent),
                           border: cardBorder,
                           brand: brand,
                         );
                       }),
-
-                    // ------- Previous Months -------
-                    if ((_controller.history ?? []).isNotEmpty) ...[
-                      const SizedBox(height: 24),
-                      Text(
-                        "Previous Months",
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      ..._controller.history!.map((m) {
-                        final c = _statusColor(m.state);
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: Colors.grey.shade300),
-                            boxShadow: const [
-                              BoxShadow(
-                                color: Colors.black12,
-                                blurRadius: 8,
-                                offset: Offset(0, 3),
-                              ),
-                            ],
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Icon(Icons.history, color: c),
-                                  const SizedBox(width: 8),
-                                  Expanded(
-                                    child: Text(
-                                      _monthFmt.format(m.monthStart),
-                                      style: const TextStyle(
-                                        fontWeight: FontWeight.w800,
-                                      ),
-                                    ),
-                                  ),
-                                  Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 10,
-                                      vertical: 6,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: c.withOpacity(.1),
-                                      borderRadius: BorderRadius.circular(999),
-                                    ),
-                                    child: Text(
-                                      m.state,
-                                      style: TextStyle(
-                                        color: c,
-                                        fontWeight: FontWeight.w700,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 10),
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(8),
-                                child: LinearProgressIndicator(
-                                  value: m.progressRatio.clamp(0.0, 1.0),
-                                  minHeight: 10,
-                                  backgroundColor: Colors.grey.shade200,
-                                  valueColor: AlwaysStoppedAnimation(c),
-                                ),
-                              ),
-                              const SizedBox(height: 8),
-                              Row(
-                                children: [
-                                  const Icon(
-                                    Icons.payments_outlined,
-                                    size: 16,
-                                    color: Colors.black54,
-                                  ),
-                                  const SizedBox(width: 6),
-                                  Expanded(
-                                    child: Text(
-                                      '${_php.format(m.cashRaised)} of ${_php.format(m.goalAmount)} • ${(m.progressRatio * 100).toStringAsFixed(0)}%',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 2),
-                              Text(
-                                'Period: ${_dateFmt.format(m.monthStart)} — ${_dateFmt.format(m.monthEnd)}',
-                                style: const TextStyle(
-                                  fontSize: 12,
-                                  color: Colors.black54,
-                                ),
-                              ),
-                            ],
-                          ),
-                        );
-                      }),
-                    ],
                   ],
                 ),
               ),
       ),
 
-      // Donate FAB — disabled when the month is closed
+      // No FAB in transparency view
+      floatingActionButton: null,
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: _controller.items.isEmpty
-          ? null
-          : SafeArea(
-              minimum: const EdgeInsets.all(16),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)],
-                  ),
-                  borderRadius: BorderRadius.circular(36),
-                  boxShadow: const [
-                    BoxShadow(
-                      blurRadius: 14,
-                      offset: Offset(0, 8),
-                      color: Colors.black26,
-                    ),
-                  ],
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(36),
-                  child: FloatingActionButton.extended(
-                    heroTag: 'donateFab',
-                    backgroundColor: _controller.isClosed
-                        ? Colors.grey
-                        : Colors.transparent,
-                    foregroundColor: Colors.white,
-                    elevation: 0,
-                    icon: const Icon(Icons.volunteer_activism_rounded),
-                    label: Text(
-                      _controller.isClosed ? 'Donations Closed' : 'Donate Now',
-                      style: const TextStyle(fontWeight: FontWeight.w700),
-                    ),
-                    tooltip: _controller.isClosed
-                        ? 'This goal month is closed'
-                        : 'Support the animals',
-                    onPressed: _controller.isClosed
-                        ? null
-                        : () async {
-                            HapticFeedback.lightImpact();
-                            final target = _controller.items.reduce((a, b) {
-                              final aRem = (a.amount - a.raised).clamp(
-                                0,
-                                double.infinity,
-                              );
-                              final bRem = (b.amount - b.raised).clamp(
-                                0,
-                                double.infinity,
-                              );
-                              return aRem >= bRem ? a : b;
-                            });
-                            await Navigator.push(
-                              context,
-                              MaterialPageRoute(
-                                builder: (_) => DonatePage(
-                                  opexId: target.id,
-                                  campaignTitle: 'General Fund',
-                                ),
-                              ),
-                            );
-                            await _controller.loadAllocations();
-                          },
-                  ),
-                ),
-              ),
-            ),
     );
   }
 }
@@ -413,7 +217,7 @@ class _SearchBar extends StatelessWidget {
       controller: controller,
       textInputAction: TextInputAction.search,
       decoration: InputDecoration(
-        hintText: 'Search utility needs',
+        hintText: 'Search expense categories',
         prefixIcon: const Icon(Icons.search),
         suffixIcon: controller.text.isEmpty
             ? null
@@ -441,31 +245,23 @@ class _SearchBar extends StatelessWidget {
   }
 }
 
-class _SummaryCard extends StatelessWidget {
-  const _SummaryCard({
+class _SummaryExpensesCard extends StatelessWidget {
+  const _SummaryExpensesCard({
     required this.brand,
-    required this.peach,
     required this.border,
     required this.title,
-    required this.raisedLabel,
-    required this.goalLabel,
-    required this.progress,
-    required this.percentText,
+    required this.amountLabel,
     required this.statusChip,
-    required this.dueText,
+    required this.periodText,
     required this.showClosedNote,
   });
 
   final Color brand;
-  final Color peach;
   final BorderSide border;
   final String title;
-  final String raisedLabel;
-  final String goalLabel;
-  final double progress;
-  final String percentText;
+  final String amountLabel;
   final Widget statusChip;
-  final String dueText;
+  final String periodText;
   final bool showClosedNote;
 
   @override
@@ -501,77 +297,25 @@ class _SummaryCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            dueText,
+            periodText,
             style: const TextStyle(fontSize: 12, color: Colors.black54),
           ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Column(
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Text(
-                          raisedLabel,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w800,
-                            fontSize: 16,
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        const Text(
-                          'raised',
-                          style: TextStyle(color: Colors.grey),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'of $goalLabel',
-                      style: const TextStyle(
-                        fontSize: 13,
-                        color: Colors.black54,
-                      ),
-                    ),
-                  ],
-                ),
+          const SizedBox(height: 10),
+          Center(
+            child: Text(
+              amountLabel,
+              style: TextStyle(
+                fontWeight: FontWeight.w900,
+                fontSize: 26,
+                color: brand,
+                letterSpacing: .2,
               ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: peach.withOpacity(.12),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: peach.withOpacity(.35)),
-                ),
-                child: Text(
-                  percentText,
-                  style: TextStyle(
-                    fontWeight: FontWeight.w700,
-                    color: peach.darken(0.12),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 12,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation(brand),
             ),
           ),
           if (showClosedNote) ...[
             const SizedBox(height: 8),
             const Text(
-              'This month is closed. New donations are not accepted.',
+              'This month is closed.',
               style: TextStyle(fontSize: 12, color: Colors.redAccent),
             ),
           ],
@@ -581,15 +325,12 @@ class _SummaryCard extends StatelessWidget {
   }
 }
 
-class _GoalCard extends StatelessWidget {
-  const _GoalCard({
+class _ExpenseCard extends StatelessWidget {
+  const _ExpenseCard({
     required this.icon,
     required this.title,
     required this.subtitle,
-    required this.trailingLabel,
-    required this.progress,
-    required this.amountNeededLabel,
-    required this.remainingLabel,
+    required this.amountLabel,
     required this.border,
     required this.brand,
   });
@@ -597,10 +338,7 @@ class _GoalCard extends StatelessWidget {
   final IconData icon;
   final String title;
   final String subtitle;
-  final String trailingLabel;
-  final double progress;
-  final String amountNeededLabel;
-  final String remainingLabel;
+  final String amountLabel;
   final BorderSide border;
   final Color brand;
 
@@ -617,115 +355,42 @@ class _GoalCard extends StatelessWidget {
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
         ],
       ),
-      child: Column(
+      child: Row(
         children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: brand.withOpacity(.08),
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(icon, color: brand, size: 22),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      subtitle,
-                      style: const TextStyle(fontSize: 12, color: Colors.grey),
-                    ),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  trailingLabel,
+          Container(
+            width: 40,
+            height: 40,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: brand.withOpacity(.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: brand, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
                   style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontSize: 15,
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(8),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              backgroundColor: Colors.grey.shade200,
-              valueColor: AlwaysStoppedAnimation(brand),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  style: const TextStyle(fontSize: 12, color: Colors.grey),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              const Icon(
-                Icons.payments_outlined,
-                size: 16,
-                color: Colors.black54,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  amountNeededLabel,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 4),
-          Row(
-            children: [
-              Icon(
-                remainingLabel == 'Fully funded'
-                    ? Icons.verified_rounded
-                    : Icons.timelapse_rounded,
-                size: 16,
-                color: remainingLabel == 'Fully funded'
-                    ? Colors.green
-                    : Colors.black54,
-              ),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  remainingLabel,
-                  style: TextStyle(
-                    fontSize: 12,
-                    color: remainingLabel == 'Fully funded'
-                        ? Colors.green
-                        : Colors.black87,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-            ],
+          const SizedBox(width: 12),
+          Text(
+            amountLabel,
+            style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
           ),
         ],
       ),
@@ -751,7 +416,7 @@ class _EmptyState extends StatelessWidget {
           const Icon(Icons.inbox_outlined, size: 56, color: Colors.black26),
           const SizedBox(height: 10),
           const Text(
-            'No utilities found',
+            'No categories found',
             style: TextStyle(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 6),
@@ -772,26 +437,800 @@ class _EmptyState extends StatelessWidget {
   }
 }
 
-/* ---------- Small color helper ---------- */
-extension ColorShade on Color {
-  Color darken([double amount = .1]) {
-    assert(amount >= 0 && amount <= 1);
-    final f = 1 - amount;
-    return Color.fromARGB(
-      alpha,
-      (red * f).round(),
-      (green * f).round(),
-      (blue * f).round(),
-    );
-  }
+// // lib/views/donors/goals/goal_page.dart
+// import 'package:flutter/material.dart';
+// import 'package:flutter/services.dart';
+// import 'package:intl/intl.dart';
 
-  Color lighten([double amount = .1]) {
-    assert(amount >= 0 && amount <= 1);
-    return Color.fromARGB(
-      alpha,
-      (red + (255 - red) * amount).round(),
-      (green + (255 - green) * amount).round(),
-      (blue + (255 - blue) * amount).round(),
-    );
-  }
-}
+// import 'package:pawlytics/views/donors/controller/goal-opex-controller.dart';
+// import 'package:pawlytics/views/donors/model/goal-opex-model.dart';
+// import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
+
+// class GoalPage extends StatefulWidget {
+//   const GoalPage({super.key});
+
+//   @override
+//   State<GoalPage> createState() => _GoalPageState();
+// }
+
+// class _GoalPageState extends State<GoalPage> {
+//   final _controller = OpexAllocationsController();
+//   final _searchController = TextEditingController();
+
+//   final _php = NumberFormat.currency(
+//     locale: 'en_PH',
+//     symbol: '₱',
+//     decimalDigits: 0,
+//   );
+//   final _dateFmt = DateFormat('MMM d, yyyy');
+//   final _monthFmt = DateFormat('MMMM yyyy');
+
+//   String _searchQuery = "";
+
+//   @override
+//   void initState() {
+//     super.initState();
+//     _controller.addListener(_onChange);
+//     _controller.loadAllocations();
+//   }
+
+//   void _onChange() {
+//     if (mounted) setState(() {});
+//   }
+
+//   @override
+//   void dispose() {
+//     _controller.removeListener(_onChange);
+//     _controller.dispose();
+//     _searchController.dispose();
+//     super.dispose();
+//   }
+
+//   IconData _iconFor(String name) {
+//     final s = name.toLowerCase();
+//     if (s.contains('electric')) return Icons.flash_on_outlined;
+//     if (s.contains('drink') || s.contains('water')) {
+//       return s.contains('drink')
+//           ? Icons.local_drink_outlined
+//           : Icons.water_drop_outlined;
+//     }
+//     if (s.contains('food')) return Icons.restaurant_outlined;
+//     if (s.contains('rent')) return Icons.home_outlined;
+//     return Icons.payments_outlined;
+//   }
+
+//   String _percent(double value) =>
+//       '${(value * 100).clamp(0, 100).toStringAsFixed(0)}%';
+
+//   Color _statusColor(String s) {
+//     switch (s) {
+//       case 'completed':
+//         return Colors.green;
+//       case 'closed':
+//         return Colors.grey;
+//       default:
+//         return const Color(0xFF1F2C47); // active
+//     }
+//   }
+
+//   @override
+//   Widget build(BuildContext context) {
+//     // Filtered list for the allocations section only
+//     final filtered = _controller.items
+//         .where(
+//           (e) => e.category.toLowerCase().contains(_searchQuery.toLowerCase()),
+//         )
+//         .toList();
+
+//     // Header totals should use ALL items
+//     final allItems = _controller.items;
+//     final headerGoal = allItems.fold<double>(0, (s, e) => s + e.amount);
+//     final headerRaised = allItems.fold<double>(0, (s, e) => s + e.raised);
+//     final headerProg = headerGoal > 0
+//         ? (headerRaised / headerGoal).clamp(0.0, 1.0)
+//         : 0.0;
+
+//     // Month status
+//     final isClosed = _controller.isClosed; // provided by controller
+//     final dueStr = _controller.monthEnd == null
+//         ? '—'
+//         : _dateFmt.format(_controller.monthEnd!);
+
+//     const brand = Color(0xFF1F2C47);
+//     const peach = Color(0xFFEC8C69);
+//     final cardBorder = BorderSide(color: Colors.grey.shade300);
+
+//     return Scaffold(
+//       backgroundColor: const Color(0xFFF6F7F9),
+//       appBar: AppBar(
+//         backgroundColor: Colors.transparent,
+//         elevation: 0,
+//         foregroundColor: Colors.black,
+//         centerTitle: true,
+//         title: const Text(
+//           'Goals',
+//           style: TextStyle(fontWeight: FontWeight.w700),
+//         ),
+//         actions: [
+//           IconButton(
+//             icon: const Icon(Icons.refresh),
+//             tooltip: 'Refresh',
+//             onPressed: _controller.loadAllocations,
+//           ),
+//         ],
+//       ),
+//       body: AnimatedSwitcher(
+//         duration: const Duration(milliseconds: 250),
+//         child: _controller.loading
+//             ? const Center(child: CircularProgressIndicator())
+//             : RefreshIndicator(
+//                 onRefresh: () async => _controller.loadAllocations(),
+//                 child: ListView(
+//                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
+//                   children: [
+//                     // Search
+//                     _SearchBar(
+//                       controller: _searchController,
+//                       onChanged: (v) => setState(() => _searchQuery = v),
+//                     ),
+//                     const SizedBox(height: 16),
+
+//                     // Summary Card — decoupled from search
+//                     _SummaryCard(
+//                       brand: brand,
+//                       peach: peach,
+//                       border: cardBorder,
+//                       title: "This Month’s Goal",
+//                       raisedLabel: _php.format(headerRaised),
+//                       goalLabel: _php.format(headerGoal),
+//                       progress: headerProg,
+//                       percentText: _percent(headerProg),
+//                       statusChip: _StatusChip(
+//                         label: isClosed ? 'Closed' : 'Active',
+//                         color: isClosed ? Colors.grey : brand,
+//                       ),
+//                       dueText: 'Due: $dueStr',
+//                       showClosedNote: isClosed,
+//                     ),
+//                     const SizedBox(height: 16),
+
+//                     if (filtered.isEmpty)
+//                       _EmptyState(
+//                         onClear: () {
+//                           _searchController.clear();
+//                           setState(() => _searchQuery = '');
+//                         },
+//                       )
+//                     else
+//                       ...List.generate(filtered.length, (i) {
+//                         final e = filtered[i];
+//                         final progress = e.amount > 0
+//                             ? (e.raised / e.amount).clamp(0.0, 1.0)
+//                             : 0.0;
+//                         final remaining = (e.amount - e.raised).clamp(
+//                           0,
+//                           double.infinity,
+//                         );
+
+//                         return _GoalCard(
+//                           icon: _iconFor(e.category),
+//                           title: e.category,
+//                           subtitle: e.statusLabel,
+//                           trailingLabel: _percent(progress),
+//                           progress: progress,
+//                           amountNeededLabel:
+//                               '${_php.format(e.raised)} of ${_php.format(e.amount)}',
+//                           remainingLabel: remaining <= 0
+//                               ? 'Fully funded'
+//                               : 'Remaining: ${_php.format(remaining)}',
+//                           border: cardBorder,
+//                           brand: brand,
+//                         );
+//                       }),
+
+//                     // ------- Previous Months -------
+//                     if ((_controller.history ?? []).isNotEmpty) ...[
+//                       const SizedBox(height: 24),
+//                       Text(
+//                         "Previous Months",
+//                         style: const TextStyle(
+//                           fontSize: 16,
+//                           fontWeight: FontWeight.w800,
+//                         ),
+//                       ),
+//                       const SizedBox(height: 8),
+//                       ..._controller.history!.map((m) {
+//                         final c = _statusColor(m.state);
+//                         return Container(
+//                           margin: const EdgeInsets.only(bottom: 12),
+//                           padding: const EdgeInsets.all(14),
+//                           decoration: BoxDecoration(
+//                             color: Colors.white,
+//                             borderRadius: BorderRadius.circular(14),
+//                             border: Border.all(color: Colors.grey.shade300),
+//                             boxShadow: const [
+//                               BoxShadow(
+//                                 color: Colors.black12,
+//                                 blurRadius: 8,
+//                                 offset: Offset(0, 3),
+//                               ),
+//                             ],
+//                           ),
+//                           child: Column(
+//                             crossAxisAlignment: CrossAxisAlignment.start,
+//                             children: [
+//                               Row(
+//                                 children: [
+//                                   Icon(Icons.history, color: c),
+//                                   const SizedBox(width: 8),
+//                                   Expanded(
+//                                     child: Text(
+//                                       _monthFmt.format(m.monthStart),
+//                                       style: const TextStyle(
+//                                         fontWeight: FontWeight.w800,
+//                                       ),
+//                                     ),
+//                                   ),
+//                                   Container(
+//                                     padding: const EdgeInsets.symmetric(
+//                                       horizontal: 10,
+//                                       vertical: 6,
+//                                     ),
+//                                     decoration: BoxDecoration(
+//                                       color: c.withOpacity(.1),
+//                                       borderRadius: BorderRadius.circular(999),
+//                                     ),
+//                                     child: Text(
+//                                       m.state,
+//                                       style: TextStyle(
+//                                         color: c,
+//                                         fontWeight: FontWeight.w700,
+//                                         fontSize: 12,
+//                                       ),
+//                                     ),
+//                                   ),
+//                                 ],
+//                               ),
+//                               const SizedBox(height: 10),
+//                               ClipRRect(
+//                                 borderRadius: BorderRadius.circular(8),
+//                                 child: LinearProgressIndicator(
+//                                   value: m.progressRatio.clamp(0.0, 1.0),
+//                                   minHeight: 10,
+//                                   backgroundColor: Colors.grey.shade200,
+//                                   valueColor: AlwaysStoppedAnimation(c),
+//                                 ),
+//                               ),
+//                               const SizedBox(height: 8),
+//                               Row(
+//                                 children: [
+//                                   const Icon(
+//                                     Icons.payments_outlined,
+//                                     size: 16,
+//                                     color: Colors.black54,
+//                                   ),
+//                                   const SizedBox(width: 6),
+//                                   Expanded(
+//                                     child: Text(
+//                                       '${_php.format(m.cashRaised)} of ${_php.format(m.goalAmount)} • ${(m.progressRatio * 100).toStringAsFixed(0)}%',
+//                                       style: const TextStyle(
+//                                         fontSize: 12,
+//                                         fontWeight: FontWeight.w600,
+//                                       ),
+//                                     ),
+//                                   ),
+//                                 ],
+//                               ),
+//                               const SizedBox(height: 2),
+//                               Text(
+//                                 'Period: ${_dateFmt.format(m.monthStart)} — ${_dateFmt.format(m.monthEnd)}',
+//                                 style: const TextStyle(
+//                                   fontSize: 12,
+//                                   color: Colors.black54,
+//                                 ),
+//                               ),
+//                             ],
+//                           ),
+//                         );
+//                       }),
+//                     ],
+//                   ],
+//                 ),
+//               ),
+//       ),
+
+//       // Donate FAB — disabled when the month is closed
+//       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+//       floatingActionButton: _controller.items.isEmpty
+//           ? null
+//           : SafeArea(
+//               minimum: const EdgeInsets.all(16),
+//               child: DecoratedBox(
+//                 decoration: BoxDecoration(
+//                   gradient: const LinearGradient(
+//                     begin: Alignment.topLeft,
+//                     end: Alignment.bottomRight,
+//                     colors: [Color(0xFF0F2D50), Color(0xFFEC8C69)],
+//                   ),
+//                   borderRadius: BorderRadius.circular(36),
+//                   boxShadow: const [
+//                     BoxShadow(
+//                       blurRadius: 14,
+//                       offset: Offset(0, 8),
+//                       color: Colors.black26,
+//                     ),
+//                   ],
+//                 ),
+//                 child: ClipRRect(
+//                   borderRadius: BorderRadius.circular(36),
+//                   child: FloatingActionButton.extended(
+//                     heroTag: 'donateFab',
+//                     backgroundColor: _controller.isClosed
+//                         ? Colors.grey
+//                         : Colors.transparent,
+//                     foregroundColor: Colors.white,
+//                     elevation: 0,
+//                     icon: const Icon(Icons.volunteer_activism_rounded),
+//                     label: Text(
+//                       _controller.isClosed ? 'Donations Closed' : 'Donate Now',
+//                       style: const TextStyle(fontWeight: FontWeight.w700),
+//                     ),
+//                     tooltip: _controller.isClosed
+//                         ? 'This goal month is closed'
+//                         : 'Support the animals',
+//                     onPressed: _controller.isClosed
+//                         ? null
+//                         : () async {
+//                             HapticFeedback.lightImpact();
+//                             final target = _controller.items.reduce((a, b) {
+//                               final aRem = (a.amount - a.raised).clamp(
+//                                 0,
+//                                 double.infinity,
+//                               );
+//                               final bRem = (b.amount - b.raised).clamp(
+//                                 0,
+//                                 double.infinity,
+//                               );
+//                               return aRem >= bRem ? a : b;
+//                             });
+//                             await Navigator.push(
+//                               context,
+//                               MaterialPageRoute(
+//                                 builder: (_) => DonatePage(
+//                                   opexId: target.id,
+//                                   campaignTitle: 'General Fund',
+//                                 ),
+//                               ),
+//                             );
+//                             await _controller.loadAllocations();
+//                           },
+//                   ),
+//                 ),
+//               ),
+//             ),
+//     );
+//   }
+// }
+
+// /* ---------- UI Pieces ---------- */
+
+// class _StatusChip extends StatelessWidget {
+//   const _StatusChip({required this.label, required this.color});
+//   final String label;
+//   final Color color;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+//       decoration: BoxDecoration(
+//         color: color.withOpacity(.08),
+//         borderRadius: BorderRadius.circular(999),
+//         border: Border.all(color: color.withOpacity(.25)),
+//       ),
+//       child: Text(
+//         label,
+//         style: TextStyle(
+//           fontWeight: FontWeight.w700,
+//           color: color,
+//           fontSize: 12,
+//         ),
+//       ),
+//     );
+//   }
+// }
+
+// class _SearchBar extends StatelessWidget {
+//   const _SearchBar({required this.controller, required this.onChanged});
+
+//   final TextEditingController controller;
+//   final ValueChanged<String> onChanged;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return TextField(
+//       controller: controller,
+//       textInputAction: TextInputAction.search,
+//       decoration: InputDecoration(
+//         hintText: 'Search utility needs',
+//         prefixIcon: const Icon(Icons.search),
+//         suffixIcon: controller.text.isEmpty
+//             ? null
+//             : IconButton(
+//                 tooltip: 'Clear',
+//                 icon: const Icon(Icons.close_rounded),
+//                 onPressed: () {
+//                   controller.clear();
+//                   onChanged('');
+//                 },
+//               ),
+//         filled: true,
+//         fillColor: Colors.white,
+//         contentPadding: const EdgeInsets.symmetric(
+//           horizontal: 14,
+//           vertical: 14,
+//         ),
+//         border: OutlineInputBorder(
+//           borderRadius: BorderRadius.circular(14),
+//           borderSide: BorderSide.none,
+//         ),
+//       ),
+//       onChanged: onChanged,
+//     );
+//   }
+// }
+
+// class _SummaryCard extends StatelessWidget {
+//   const _SummaryCard({
+//     required this.brand,
+//     required this.peach,
+//     required this.border,
+//     required this.title,
+//     required this.raisedLabel,
+//     required this.goalLabel,
+//     required this.progress,
+//     required this.percentText,
+//     required this.statusChip,
+//     required this.dueText,
+//     required this.showClosedNote,
+//   });
+
+//   final Color brand;
+//   final Color peach;
+//   final BorderSide border;
+//   final String title;
+//   final String raisedLabel;
+//   final String goalLabel;
+//   final double progress;
+//   final String percentText;
+//   final Widget statusChip;
+//   final String dueText;
+//   final bool showClosedNote;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.all(16),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(16),
+//         border: Border.fromBorderSide(border),
+//         boxShadow: const [
+//           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+//         ],
+//       ),
+//       child: Column(
+//         crossAxisAlignment: CrossAxisAlignment.start,
+//         children: [
+//           // title + status
+//           Row(
+//             children: [
+//               Expanded(
+//                 child: Text(
+//                   title,
+//                   style: TextStyle(
+//                     fontSize: 18,
+//                     fontWeight: FontWeight.w800,
+//                     color: brand,
+//                   ),
+//                 ),
+//               ),
+//               statusChip,
+//             ],
+//           ),
+//           const SizedBox(height: 6),
+//           Text(
+//             dueText,
+//             style: const TextStyle(fontSize: 12, color: Colors.black54),
+//           ),
+//           const SizedBox(height: 12),
+//           Row(
+//             children: [
+//               Expanded(
+//                 child: Column(
+//                   children: [
+//                     Row(
+//                       mainAxisAlignment: MainAxisAlignment.center,
+//                       children: [
+//                         Text(
+//                           raisedLabel,
+//                           style: const TextStyle(
+//                             fontWeight: FontWeight.w800,
+//                             fontSize: 16,
+//                           ),
+//                         ),
+//                         const SizedBox(width: 6),
+//                         const Text(
+//                           'raised',
+//                           style: TextStyle(color: Colors.grey),
+//                         ),
+//                       ],
+//                     ),
+//                     const SizedBox(height: 2),
+//                     Text(
+//                       'of $goalLabel',
+//                       style: const TextStyle(
+//                         fontSize: 13,
+//                         color: Colors.black54,
+//                       ),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//               Container(
+//                 padding: const EdgeInsets.symmetric(
+//                   horizontal: 10,
+//                   vertical: 6,
+//                 ),
+//                 decoration: BoxDecoration(
+//                   color: peach.withOpacity(.12),
+//                   borderRadius: BorderRadius.circular(999),
+//                   border: Border.all(color: peach.withOpacity(.35)),
+//                 ),
+//                 child: Text(
+//                   percentText,
+//                   style: TextStyle(
+//                     fontWeight: FontWeight.w700,
+//                     color: peach.darken(0.12),
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: 12),
+//           ClipRRect(
+//             borderRadius: BorderRadius.circular(10),
+//             child: LinearProgressIndicator(
+//               value: progress,
+//               minHeight: 12,
+//               backgroundColor: Colors.grey.shade200,
+//               valueColor: AlwaysStoppedAnimation(brand),
+//             ),
+//           ),
+//           if (showClosedNote) ...[
+//             const SizedBox(height: 8),
+//             const Text(
+//               'This month is closed. New donations are not accepted.',
+//               style: TextStyle(fontSize: 12, color: Colors.redAccent),
+//             ),
+//           ],
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+// class _GoalCard extends StatelessWidget {
+//   const _GoalCard({
+//     required this.icon,
+//     required this.title,
+//     required this.subtitle,
+//     required this.trailingLabel,
+//     required this.progress,
+//     required this.amountNeededLabel,
+//     required this.remainingLabel,
+//     required this.border,
+//     required this.brand,
+//   });
+
+//   final IconData icon;
+//   final String title;
+//   final String subtitle;
+//   final String trailingLabel;
+//   final double progress;
+//   final String amountNeededLabel;
+//   final String remainingLabel;
+//   final BorderSide border;
+//   final Color brand;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       margin: const EdgeInsets.only(bottom: 14),
+//       padding: const EdgeInsets.all(14),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(14),
+//         border: Border.fromBorderSide(border),
+//         boxShadow: const [
+//           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
+//         ],
+//       ),
+//       child: Column(
+//         children: [
+//           Row(
+//             children: [
+//               Container(
+//                 width: 40,
+//                 height: 40,
+//                 alignment: Alignment.center,
+//                 decoration: BoxDecoration(
+//                   color: brand.withOpacity(.08),
+//                   borderRadius: BorderRadius.circular(10),
+//                 ),
+//                 child: Icon(icon, color: brand, size: 22),
+//               ),
+//               const SizedBox(width: 12),
+//               Expanded(
+//                 child: Column(
+//                   crossAxisAlignment: CrossAxisAlignment.start,
+//                   children: [
+//                     Text(
+//                       title,
+//                       style: const TextStyle(
+//                         fontSize: 15,
+//                         fontWeight: FontWeight.w800,
+//                       ),
+//                     ),
+//                     const SizedBox(height: 2),
+//                     Text(
+//                       subtitle,
+//                       style: const TextStyle(fontSize: 12, color: Colors.grey),
+//                     ),
+//                   ],
+//                 ),
+//               ),
+//               Container(
+//                 padding: const EdgeInsets.symmetric(
+//                   horizontal: 10,
+//                   vertical: 6,
+//                 ),
+//                 decoration: BoxDecoration(
+//                   color: Colors.grey.shade100,
+//                   borderRadius: BorderRadius.circular(999),
+//                 ),
+//                 child: Text(
+//                   trailingLabel,
+//                   style: const TextStyle(
+//                     fontSize: 12,
+//                     fontWeight: FontWeight.w700,
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: 12),
+//           ClipRRect(
+//             borderRadius: BorderRadius.circular(8),
+//             child: LinearProgressIndicator(
+//               value: progress,
+//               minHeight: 10,
+//               backgroundColor: Colors.grey.shade200,
+//               valueColor: AlwaysStoppedAnimation(brand),
+//             ),
+//           ),
+//           const SizedBox(height: 8),
+//           Row(
+//             children: [
+//               const Icon(
+//                 Icons.payments_outlined,
+//                 size: 16,
+//                 color: Colors.black54,
+//               ),
+//               const SizedBox(width: 6),
+//               Expanded(
+//                 child: Text(
+//                   amountNeededLabel,
+//                   style: const TextStyle(
+//                     fontSize: 12,
+//                     fontWeight: FontWeight.w600,
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//           const SizedBox(height: 4),
+//           Row(
+//             children: [
+//               Icon(
+//                 remainingLabel == 'Fully funded'
+//                     ? Icons.verified_rounded
+//                     : Icons.timelapse_rounded,
+//                 size: 16,
+//                 color: remainingLabel == 'Fully funded'
+//                     ? Colors.green
+//                     : Colors.black54,
+//               ),
+//               const SizedBox(width: 6),
+//               Expanded(
+//                 child: Text(
+//                   remainingLabel,
+//                   style: TextStyle(
+//                     fontSize: 12,
+//                     color: remainingLabel == 'Fully funded'
+//                         ? Colors.green
+//                         : Colors.black87,
+//                     fontWeight: FontWeight.w600,
+//                   ),
+//                 ),
+//               ),
+//             ],
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+// class _EmptyState extends StatelessWidget {
+//   const _EmptyState({required this.onClear});
+//   final VoidCallback onClear;
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return Container(
+//       padding: const EdgeInsets.symmetric(vertical: 32, horizontal: 16),
+//       decoration: BoxDecoration(
+//         color: Colors.white,
+//         borderRadius: BorderRadius.circular(16),
+//         border: Border.all(color: Colors.grey.shade300),
+//       ),
+//       child: Column(
+//         children: [
+//           const Icon(Icons.inbox_outlined, size: 56, color: Colors.black26),
+//           const SizedBox(height: 10),
+//           const Text(
+//             'No utilities found',
+//             style: TextStyle(fontWeight: FontWeight.w700),
+//           ),
+//           const SizedBox(height: 6),
+//           const Text(
+//             'Try a different keyword or clear your search.',
+//             style: TextStyle(color: Colors.black54, fontSize: 12),
+//             textAlign: TextAlign.center,
+//           ),
+//           const SizedBox(height: 12),
+//           OutlinedButton.icon(
+//             onPressed: onClear,
+//             icon: const Icon(Icons.close_rounded),
+//             label: const Text('Clear search'),
+//           ),
+//         ],
+//       ),
+//     );
+//   }
+// }
+
+// /* ---------- Small color helper ---------- */
+// extension ColorShade on Color {
+//   Color darken([double amount = .1]) {
+//     assert(amount >= 0 && amount <= 1);
+//     final f = 1 - amount;
+//     return Color.fromARGB(
+//       alpha,
+//       (red * f).round(),
+//       (green * f).round(),
+//       (blue * f).round(),
+//     );
+//   }
+
+//   Color lighten([double amount = .1]) {
+//     assert(amount >= 0 && amount <= 1);
+//     return Color.fromARGB(
+//       alpha,
+//       (red + (255 - red) * amount).round(),
+//       (green + (255 - green) * amount).round(),
+//       (blue + (255 - blue) * amount).round(),
+//     );
+//   }
+// }
