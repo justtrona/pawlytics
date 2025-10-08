@@ -14,13 +14,186 @@ class _CampaignPageState extends State<CampaignPage> {
   final controller = CampaignsController();
   late Future<List<CampaignCardModel>> _campaigns;
 
+  // highlight palette (soft/warm)
+  static const hiBg = Color(0xFFFFF7EC);
+  static const hiBorder = Color(0xFFFFB74D);
+  static const hiAccent = Color(0xFFFB8C00);
+
+  // Filters / search state
+  final TextEditingController _searchCtrl = TextEditingController();
+  String _statusFilter = 'All'; // All, Active, Due, Inactive
+  String _timeFilter =
+      'All Time'; // Last 30 Days, This Month, This Year, All Time
+
   @override
   void initState() {
     super.initState();
     _campaigns = controller.fetchCampaigns(
-      useView: true,
-    ); // reads campaigns_with_totals
+      useView: false, // pull base rows from `campaigns` table
+    );
+    _searchCtrl.addListener(() => setState(() {}));
   }
+
+  @override
+  void dispose() {
+    _searchCtrl.dispose();
+    super.dispose();
+  }
+
+  // ---------- Pin & priority helpers ----------
+  bool _isHighCategory(CampaignCardModel m) {
+    // try to read a category via tags (first tag) if present
+    String cat = '';
+    try {
+      final val = (m as dynamic).tags;
+      if (val is List && val.isNotEmpty && val.first is String) {
+        cat = val.first as String;
+      }
+    } catch (_) {}
+    final v = cat.trim().toLowerCase();
+    return v == 'urgent' ||
+        v == 'emergency care' ||
+        v == 'operational' ||
+        v == 'operational support';
+  }
+
+  int _pinScore(CampaignCardModel m) {
+    bool isFeatured = false;
+    int priority = 0;
+    DateTime? pinnedAt;
+
+    try {
+      final dyn = m as dynamic;
+      final f = dyn.is_featured ?? dyn.isFeatured;
+      if (f is bool) isFeatured = f;
+      final p = dyn.priority;
+      if (p is num) priority = p.toInt();
+      final pa = dyn.pinned_at ?? dyn.pinnedAt;
+      if (pa is DateTime) {
+        pinnedAt = pa;
+      } else if (pa is String) {
+        pinnedAt = DateTime.tryParse(pa);
+      }
+    } catch (_) {}
+
+    final catBoost = _isHighCategory(m) ? 1 : 0;
+    final pinBoost = isFeatured ? 2 : 0;
+    final timeBoost = pinnedAt == null ? 0 : 1;
+    return (pinBoost * 10000) +
+        (catBoost * 5000) +
+        (timeBoost * 1000) +
+        priority;
+  }
+  // --------------------------------------------
+
+  // ---------- Status computation ----------
+  /// Returns one of: 'active' | 'due' | 'inactive'
+  String _computedStatus(CampaignCardModel m) {
+    // 1) Respect explicit status if present.
+    try {
+      final s = (m as dynamic).status;
+      if (s != null) {
+        final key = _statusKey(s);
+        if (key == 'inactive') return 'inactive';
+        if (key == 'due') return 'due';
+        if (key == 'active') return 'active';
+      }
+    } catch (_) {}
+
+    // 2) Else compute from deadline.
+    DateTime? deadline;
+    try {
+      final d = (m as dynamic).deadline;
+      if (d is DateTime) {
+        deadline = d;
+      } else if (d is String) {
+        deadline = DateTime.tryParse(d);
+      }
+    } catch (_) {}
+    if (deadline != null && deadline.isBefore(DateTime.now())) return 'due';
+
+    // 3) Default.
+    return 'active';
+  }
+  // -----------------------------------------
+
+  // ---------- Filters ----------
+  bool _matchesStatus(CampaignCardModel m) {
+    if (_statusFilter == 'All') return true;
+    final st = _computedStatus(m);
+    return st == _statusFilter.toLowerCase();
+  }
+
+  bool _matchesTime(CampaignCardModel m) {
+    if (_timeFilter == 'All Time') return true;
+
+    DateTime? created;
+    try {
+      final c = (m as dynamic).created_at ?? (m as dynamic).createdAt;
+      if (c is DateTime) {
+        created = c;
+      } else if (c is String) {
+        created = DateTime.tryParse(c);
+      }
+    } catch (_) {}
+
+    created ??= DateTime.fromMillisecondsSinceEpoch(0);
+
+    final now = DateTime.now();
+    switch (_timeFilter) {
+      case 'Last 30 Days':
+        return created.isAfter(now.subtract(const Duration(days: 30)));
+      case 'This Month':
+        final first = DateTime(now.year, now.month, 1);
+        return created.isAfter(first);
+      case 'This Year':
+        final first = DateTime(now.year, 1, 1);
+        return created.isAfter(first);
+      default:
+        return true;
+    }
+  }
+
+  bool _matchesSearch(CampaignCardModel m) {
+    final q = _searchCtrl.text.trim().toLowerCase();
+    if (q.isEmpty) return true;
+
+    // status words act as filters
+    const statusWords = {'active', 'due', 'inactive'};
+    if (statusWords.contains(q)) {
+      return _computedStatus(m) == q;
+    }
+
+    final hay = <String>[
+      m.title,
+      m.description,
+      ...m.tags,
+      (() {
+        try {
+          final cat = (m as dynamic).category?.toString() ?? '';
+          return cat;
+        } catch (_) {
+          return '';
+        }
+      })(),
+    ].join(' ').toLowerCase();
+
+    return hay.contains(q);
+  }
+  // -----------------------------------------
+
+  // ---------- UI helpers ----------
+  String _statusKey(dynamic status) {
+    try {
+      final n = (status as dynamic).name;
+      if (n is String && n.isNotEmpty) return n.toLowerCase();
+    } catch (_) {}
+    var s = status?.toString() ?? '';
+    final dot = s.lastIndexOf('.');
+    if (dot != -1) s = s.substring(dot + 1);
+    return s.trim().toLowerCase();
+  }
+  // -----------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -46,7 +219,7 @@ class _CampaignPageState extends State<CampaignPage> {
       ),
       body: Column(
         children: [
-          // Filters & search (UI only)
+          // Filters & search (functional)
           Padding(
             padding: const EdgeInsets.all(12.0),
             child: Column(
@@ -56,9 +229,10 @@ class _CampaignPageState extends State<CampaignPage> {
                 const SizedBox(height: 12),
                 Row(
                   children: [
+                    // Status filter
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: "All Campaigns",
+                        value: _statusFilter,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.grey.shade300,
@@ -68,18 +242,22 @@ class _CampaignPageState extends State<CampaignPage> {
                           ),
                         ),
                         dropdownColor: Colors.white,
-                        items: const ["All Campaigns", "Ongoing", "Completed"]
+                        items: const ['All', 'Active', 'Due', 'Inactive']
                             .map(
                               (e) => DropdownMenuItem(value: e, child: Text(e)),
                             )
                             .toList(),
-                        onChanged: (_) {},
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() => _statusFilter = v);
+                        },
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // Time filter
                     Expanded(
                       child: DropdownButtonFormField<String>(
-                        value: "Last 30 Days",
+                        value: _timeFilter,
                         decoration: InputDecoration(
                           filled: true,
                           fillColor: Colors.grey.shade300,
@@ -89,20 +267,33 @@ class _CampaignPageState extends State<CampaignPage> {
                           ),
                         ),
                         dropdownColor: Colors.white,
-                        items: const ["Last 30 Days", "This Month", "This Year"]
-                            .map(
-                              (e) => DropdownMenuItem(value: e, child: Text(e)),
-                            )
-                            .toList(),
-                        onChanged: (_) {},
+                        items:
+                            const [
+                                  'All Time',
+                                  'Last 30 Days',
+                                  'This Month',
+                                  'This Year',
+                                ]
+                                .map(
+                                  (e) => DropdownMenuItem(
+                                    value: e,
+                                    child: Text(e),
+                                  ),
+                                )
+                                .toList(),
+                        onChanged: (v) {
+                          if (v == null) return;
+                          setState(() => _timeFilter = v);
+                        },
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 12),
                 TextField(
+                  controller: _searchCtrl,
                   decoration: InputDecoration(
-                    hintText: "Search Campaign",
+                    hintText: "Search Campaign (try: active, due, inactive…)",
                     prefixIcon: const Icon(Icons.search),
                     filled: true,
                     fillColor: Colors.grey.shade300,
@@ -129,20 +320,45 @@ class _CampaignPageState extends State<CampaignPage> {
                 if (snapshot.hasError) {
                   return Center(child: Text("Error: ${snapshot.error}"));
                 }
-                final campaigns = snapshot.data;
-                if (campaigns == null || campaigns.isEmpty) {
+
+                final List<CampaignCardModel> data =
+                    snapshot.data ?? const <CampaignCardModel>[];
+
+                if (data.isEmpty) {
                   return const Center(child: Text("No campaigns found"));
                 }
 
+                // 1) Filter
+                final filtered = data.where((c) {
+                  return _matchesStatus(c) &&
+                      _matchesTime(c) &&
+                      _matchesSearch(c);
+                }).toList();
+
+                if (filtered.isEmpty) {
+                  return const Center(child: Text("No results match filters"));
+                }
+
+                // 2) Sort: pinned first, then by progress desc
+                filtered.sort((a, b) {
+                  final ps = _pinScore(b).compareTo(_pinScore(a));
+                  if (ps != 0) return ps;
+                  return b.progress.compareTo(a.progress);
+                });
+
+                // 3) Render
                 return ListView.builder(
                   padding: const EdgeInsets.all(20),
-                  itemCount: campaigns.length,
+                  itemCount: filtered.length,
                   itemBuilder: (context, index) {
-                    final c = campaigns[index];
+                    final c = filtered[index];
+                    final isPinned = _pinScore(c) > 0;
+
                     return CampaignCard(
                       model: c,
+                      pinned: isPinned,
+                      highlight: isPinned,
                       onDonate: () {
-                        // Pass the campaignId so DonatePage will record it
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -173,13 +389,21 @@ class _CampaignPageState extends State<CampaignPage> {
 class CampaignCard extends StatelessWidget {
   final CampaignCardModel model;
   final VoidCallback onDonate;
+  final bool pinned; // shows pin icon
+  final bool highlight; // special design
 
-  const CampaignCard({super.key, required this.model, required this.onDonate});
+  const CampaignCard({
+    super.key,
+    required this.model,
+    required this.onDonate,
+    this.pinned = false,
+    this.highlight = false,
+  });
 
-  // ---------- Status helpers (accept enum or string and render nice chip) ----------
+  // ---------- Status helpers ----------
   String _statusKey(dynamic status) {
     try {
-      final n = (status as dynamic).name; // enum.name on Dart >= 2.15
+      final n = (status as dynamic).name;
       if (n is String && n.isNotEmpty) return n.toLowerCase();
     } catch (_) {}
     var s = status?.toString() ?? '';
@@ -227,14 +451,72 @@ class CampaignCard extends StatelessWidget {
         return Colors.blueGrey.shade600;
     }
   }
-  // -------------------------------------------------------------------------------
+  // ------------------------------------
+
+  // ---------- Deadline helpers (NEW) ----------
+  DateTime? _readDeadline(CampaignCardModel m) {
+    try {
+      final v = (m as dynamic).deadline;
+      if (v is DateTime) return v;
+      if (v is String) return DateTime.tryParse(v);
+    } catch (_) {}
+    return null;
+  }
+
+  String _fmtDate(DateTime d) {
+    const months = [
+      '',
+      'January',
+      'February',
+      'March',
+      'April',
+      'May',
+      'June',
+      'July',
+      'August',
+      'September',
+      'October',
+      'November',
+      'December',
+    ];
+    return '${months[d.month]} ${d.day}, ${d.year}';
+  }
+
+  String _deadlineSuffix(DateTime d) {
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final dueDate = DateTime(d.year, d.month, d.day);
+    final diff = dueDate.difference(today).inDays;
+
+    if (diff < 0) return '(overdue)';
+    if (diff == 0) return '(today)';
+    if (diff == 1) return '(1 day left)';
+    return '($diff days left)';
+    // remove suffix if you only want the raw date
+  }
+  // -------------------------------------------
 
   @override
   Widget build(BuildContext context) {
-    final status = model.status; // make sure your model exposes this
+    final status = model.status;
+
+    final Color cardBg = highlight
+        ? _CampaignPageState.hiBg
+        : const Color(0xFFC3D8E7);
+    final BoxBorder cardBorder = highlight
+        ? Border.all(color: _CampaignPageState.hiBorder, width: 1.5)
+        : Border.all(color: const Color.fromARGB(255, 20, 11, 11), width: 1);
+
+    final Color accent = highlight
+        ? _CampaignPageState.hiAccent
+        : const Color(0xFF23344E);
+
+    final DateTime? deadline = _readDeadline(model);
+    final bool isOverdue =
+        deadline != null && deadline.isBefore(DateTime.now());
 
     return Card(
-      color: const Color.fromARGB(255, 195, 216, 231),
+      color: cardBg,
       margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: Padding(
@@ -242,14 +524,12 @@ class CampaignCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Image + chips
             Stack(
               children: [
                 Container(
                   decoration: BoxDecoration(
-                    border: Border.all(
-                      color: const Color.fromARGB(255, 20, 11, 11),
-                      width: 1,
-                    ),
+                    border: cardBorder,
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: ClipRRect(
@@ -270,69 +550,135 @@ class CampaignCard extends StatelessWidget {
                   ),
                 ),
 
-                // Status chip (top-right)
-                if (status != null && _statusKey(status).isNotEmpty)
-                  Positioned(
+                // High priority chip OR status chip (top-right)
+                Positioned(
+                  top: 8,
+                  right: 8,
+                  child: highlight
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: _CampaignPageState.hiAccent.withOpacity(.12),
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: _CampaignPageState.hiAccent.withOpacity(
+                                .35,
+                              ),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                Icons.local_fire_department_rounded,
+                                size: 14,
+                                color: _CampaignPageState.hiAccent,
+                              ),
+                              SizedBox(width: 6),
+                              Text(
+                                'HIGH PRIORITY',
+                                style: TextStyle(
+                                  color: _CampaignPageState.hiAccent,
+                                  fontWeight: FontWeight.w800,
+                                  fontSize: 11,
+                                  letterSpacing: .2,
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : (status != null && _statusKey(status).isNotEmpty)
+                      ? Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: _statusBorder(status),
+                              width: 1.2,
+                            ),
+                          ),
+                          child: Text(
+                            _statusLabel(status),
+                            style: TextStyle(
+                              color: _statusText(status),
+                              fontWeight: FontWeight.w800,
+                              fontSize: 11,
+                              letterSpacing: .2,
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
+                ),
+
+                // Pin icon (top-left) when highlighted
+                if (pinned)
+                  const Positioned(
                     top: 8,
-                    right: 8,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(999),
-                        border: Border.all(
-                          color: _statusBorder(status),
-                          width: 1.2,
-                        ),
-                      ),
-                      child: Text(
-                        _statusLabel(status),
-                        style: TextStyle(
-                          color: _statusText(status),
-                          fontWeight: FontWeight.w800,
-                          fontSize: 11,
-                          letterSpacing: .2,
-                        ),
-                      ),
-                    ),
+                    left: 8,
+                    child: Icon(Icons.push_pin, size: 18, color: Colors.orange),
                   ),
               ],
             ),
+
             const SizedBox(height: 8),
-            Text(
-              model.title,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF23344E),
-              ),
+
+            // Title
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    model.title,
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: accent,
+                    ),
+                  ),
+                ),
+              ],
             ),
+
             const SizedBox(height: 6),
+
+            // Tags
             Wrap(
               spacing: 6,
               children: model.tags
                   .map(
                     (t) => Chip(
                       label: Text(t),
-                      backgroundColor: const Color.fromARGB(255, 218, 215, 215),
+                      backgroundColor: highlight
+                          ? Colors.white
+                          : Color(0xFFDAD7D7).withOpacity(0.9),
                     ),
                   )
                   .toList(),
             ),
+
             const SizedBox(height: 6),
+
+            // Progress
             ClipRRect(
               borderRadius: BorderRadius.circular(10),
               child: LinearProgressIndicator(
                 value: model.progress,
                 minHeight: 8,
-                color: const Color(0xFF23344E),
+                color: accent,
                 backgroundColor: Colors.grey.shade300,
               ),
             ),
+
             const SizedBox(height: 6),
+
+            // Money
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -353,20 +699,53 @@ class CampaignCard extends StatelessWidget {
                 ),
               ],
             ),
+
             const SizedBox(height: 6),
+
+            // ---------- Deadline (NEW visible to donors) ----------
+            Row(
+              children: [
+                Icon(
+                  Icons.event,
+                  size: 18,
+                  color: isOverdue ? const Color(0xFFB45309) : Colors.blueGrey,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  deadline != null
+                      ? 'Deadline: ${_fmtDate(deadline)} ${_deadlineSuffix(deadline)}'
+                      : 'Deadline: —',
+                  style: TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w700,
+                    color: isOverdue
+                        ? const Color(0xFF92400E)
+                        : const Color(0xFF23344E),
+                  ),
+                ),
+              ],
+            ),
+
+            // ------------------------------------------------------
+            const SizedBox(height: 6),
+
+            // Description
             Text(
               model.description,
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(color: Color(0xFF23344E)),
             ),
+
             const SizedBox(height: 12),
+
+            // CTA
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
                 onPressed: onDonate,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF23344E),
+                  backgroundColor: accent,
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(10),
                   ),

@@ -128,6 +128,7 @@ class CampaignsController {
         raised: raised,
         progress: progress,
         status: status,
+        deadline: deadline, // 👈 pass it through
       );
     }).toList();
   }
@@ -163,6 +164,7 @@ class CampaignsController {
       raised: raised,
       progress: progress,
       status: status,
+      deadline: deadline, // 👈 pass it through
     );
   }
 }

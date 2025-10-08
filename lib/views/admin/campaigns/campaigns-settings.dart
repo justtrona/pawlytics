@@ -119,6 +119,15 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
     return _status; // Active/Inactive from dropdown
   }
 
+  // High-priority categories (will be highlighted/pinned when schema supports it)
+  bool get _isHighPriority {
+    final v = _category.toLowerCase();
+    return v == 'urgent' ||
+        v == 'emergency care' ||
+        // v == 'operational' ||
+        v == 'operational support';
+  }
+
   Future<void> _postCampaign() async {
     // Resolve chosen program (custom or preset)
     final String resolvedProgram = _useCustomProgram
@@ -147,34 +156,64 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
       return;
     }
 
-    try {
-      final isActive = (_status == 'Active'); // what we persist
-      final response = await Supabase.instance.client.from('campaigns').insert({
-        'program': resolvedProgram, // saves either custom or preset
-        'category': _category,
-        'fundraising_goal': goal,
-        'deadline': _deadline!.toIso8601String(),
-        'currency': _currency,
-        'description': _descCtrl.text,
-        'notify_at_75': _notifyAt75,
-        'is_active': isActive,
-        'created_at': DateTime.now().toIso8601String(),
-      }).select();
+    final sb = Supabase.instance.client;
 
-      if (response.isNotEmpty) {
+    // Base payload
+    final base = <String, dynamic>{
+      'program': resolvedProgram,
+      'category': _category,
+      'fundraising_goal': goal,
+      'deadline': _deadline!.toIso8601String(),
+      'currency': _currency,
+      'description': _descCtrl.text,
+      'notify_at_75': _notifyAt75,
+      'is_active': (_status == 'Active'),
+      'created_at': DateTime.now().toIso8601String(),
+    };
+
+    // Try to include feature/pin fields (if your DB has these columns)
+    final withPriority = Map<String, dynamic>.from(base);
+    if (_isHighPriority) {
+      withPriority['is_featured'] = true;
+      withPriority['priority'] = 100;
+      withPriority['pinned_at'] = DateTime.now().toIso8601String();
+    }
+
+    try {
+      // Attempt insert with priority fields
+      final res = await sb.from('campaigns').insert(withPriority).select();
+      if (res.isNotEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Campaign posted successfully!')),
+          SnackBar(
+            content: Text(
+              _isHighPriority
+                  ? 'Campaign posted & highlighted!'
+                  : 'Campaign posted successfully!',
+            ),
+          ),
         );
-        Navigator.pop(context);
-      } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Failed to post campaign.')),
-        );
+        if (mounted) Navigator.pop(context);
+        return;
       }
-    } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error posting campaign: $e')));
+      // Extremely rare path
+      throw Exception('Insert returned empty result.');
+    } catch (_) {
+      // Silent fallback: insert without extra columns (no tips shown)
+      try {
+        final res2 = await sb.from('campaigns').insert(base).select();
+        if (res2.isNotEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Campaign posted successfully!')),
+          );
+          if (mounted) Navigator.pop(context);
+          return;
+        }
+        throw Exception('Fallback insert returned empty result.');
+      } catch (e2) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Error posting campaign: $e2')));
+      }
     }
   }
 
@@ -198,7 +237,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
           children: [
             // -------- Program (input first, toggle below) --------
             _sectionLabel('Program'),
-            // Control (TextField if custom, otherwise Dropdown)
             if (_useCustomProgram)
               TextField(
                 controller: _programCtrl,
@@ -249,7 +287,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                 onChanged: (v) => setState(() => _program = v!),
               ),
             const SizedBox(height: 8),
-            // Toggle BELOW the input
             SwitchListTile.adaptive(
               contentPadding: EdgeInsets.zero,
               title: const Text(
@@ -260,7 +297,6 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
               onChanged: (v) {
                 setState(() {
                   _useCustomProgram = v;
-                  // Initialize custom field with current preset when toggled on
                   if (v && _programCtrl.text.isEmpty) {
                     _programCtrl.text = _program;
                   }
@@ -293,9 +329,47 @@ class _CampaignSettingsScreenState extends State<CampaignSettingsScreen> {
                   value: 'Community and Advocacy',
                   child: Text('Community and Advocacy'),
                 ),
+                DropdownMenuItem(
+                  value: 'Operational Support',
+                  child: Text('Operational Support'),
+                ),
+                // DropdownMenuItem(
+                //   value: 'Operational',
+                //   child: Text('Operational'),
+                // ),
               ],
               onChanged: (v) => setState(() => _category = v!),
             ),
+            if (_isHighPriority)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 12,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(.12),
+                    border: Border.all(color: Colors.orange.withOpacity(.35)),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(
+                    children: const [
+                      Icon(Icons.push_pin, color: Colors.orange),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'This campaign will be highlighted and pinned to the top (if supported by your schema).',
+                          style: TextStyle(
+                            color: Colors.orange,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
 
             _vGap,
 

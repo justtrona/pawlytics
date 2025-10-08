@@ -13,6 +13,9 @@ class CampaignCardModel {
   final double progress; // 0.0..1.0 (from view or computed)
   final CampaignStatus status;
 
+  // 👇 NEW: expose deadline so the UI can show it
+  final DateTime? deadline;
+
   const CampaignCardModel({
     required this.id,
     required this.title,
@@ -23,6 +26,7 @@ class CampaignCardModel {
     required this.raised,
     required this.progress,
     required this.status,
+    this.deadline,
   });
 
   // ---------------- parsing helpers ----------------
@@ -130,6 +134,7 @@ class CampaignCardModel {
       raised: raised,
       progress: progress,
       status: status,
+      deadline: deadline, // 👈 store it
     );
   }
 
@@ -145,5 +150,42 @@ class CampaignCardModel {
       default:
         return '';
     }
+  }
+
+  // --------- NEW display helpers for deadline ---------
+  bool get isDue => deadline != null && deadline!.isBefore(DateTime.now());
+
+  /// Returns positive days until deadline, 0 if due/past, null if unknown.
+  int? get daysUntilDeadline {
+    if (deadline == null) return null;
+    final diff = deadline!.difference(DateTime.now()).inDays;
+    return diff < 0 ? 0 : diff;
+  }
+
+  /// e.g., "Oct 15, 2025 (3 days left)" or "Oct 15, 2025 (due)"
+  String get deadlineLabel {
+    if (deadline == null) return 'No deadline';
+    final d = deadline!;
+    const months = [
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec',
+    ];
+    final base = '${months[d.month]} ${d.day}, ${d.year}';
+    if (isDue) return '$base (due)';
+    final days = daysUntilDeadline ?? 0;
+    return days == 0
+        ? '$base (today)'
+        : '$base ($days day${days == 1 ? '' : 's'} left)';
   }
 }

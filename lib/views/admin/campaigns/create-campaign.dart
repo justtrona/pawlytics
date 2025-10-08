@@ -27,6 +27,11 @@ class _CreateCampaignState extends State<CreateCampaign> {
   static const warn = Color(0xFFF59E0B);
   static const danger = Color(0xFFE74C3C);
 
+  // Highlight scheme
+  static const hiBg = Color(0xFFFFF7EC); // soft warm
+  static const hiBorder = Color(0xFFFFB74D); // orange border
+  static const hiAccent = Color(0xFFFB8C00); // chip/progress
+
   final CampaignController _controller = CampaignController();
 
   // Base table rows
@@ -112,6 +117,63 @@ class _CreateCampaignState extends State<CreateCampaign> {
         .subscribe();
   }
 
+  // ---- Pinning & high-need helpers ----
+  bool _isHighCategory(Campaign c) {
+    final v = c.category.trim().toLowerCase();
+    return v == 'urgent' ||
+        v == 'emergency care' ||
+        v == 'operational' ||
+        v == 'operational support';
+  }
+
+  /// Reads optional DB pin fields if present on the model / row.
+  /// Higher value = more pinned.
+  int _pinScore(Campaign c) {
+    // tolerant dynamic reads so your model doesn't need to declare them
+    bool isFeatured = false;
+    int priority = 0;
+    DateTime? pinnedAt;
+
+    try {
+      final dyn = c as dynamic;
+      final f = dyn.is_featured ?? dyn.isFeatured;
+      if (f is bool) isFeatured = f;
+      final p = dyn.priority;
+      if (p is num) priority = p.toInt();
+      final pa = dyn.pinned_at ?? dyn.pinnedAt;
+      if (pa is DateTime) {
+        pinnedAt = pa;
+      } else if (pa is String) {
+        pinnedAt = DateTime.tryParse(pa);
+      }
+    } catch (_) {}
+
+    final catBoost = _isHighCategory(c) ? 1 : 0;
+    final pinBoost = isFeatured ? 2 : 0;
+    final timeBoost = pinnedAt == null ? 0 : 1; // any pinned_at bumps it
+
+    // weight scheme: (featured 2x) + (category 1x) + (has pinned_at) + (priority)
+    return (pinBoost * 10000) +
+        (catBoost * 5000) +
+        (timeBoost * 1000) +
+        priority;
+  }
+
+  int _cmpBySelected(Campaign a, Campaign b) {
+    switch (_sortBy) {
+      case 'Deadline':
+        return a.deadline.compareTo(b.deadline);
+      case 'Goal Amount':
+        return b.fundraisingGoal.compareTo(a.fundraisingGoal);
+      case 'Progress':
+        double p(Campaign c) => _progressById[c.id] ?? _safeProgressFor(c);
+        return p(b).compareTo(p(a));
+      case 'Date Created':
+      default:
+        return b.createdAt.compareTo(a.createdAt);
+    }
+  }
+
   List<Campaign> get _filtered {
     var list = _campaigns.where((c) {
       if (_statusFilter == 'All Statuses') return true;
@@ -120,21 +182,13 @@ class _CreateCampaignState extends State<CreateCampaign> {
       return true;
     }).toList();
 
-    switch (_sortBy) {
-      case 'Date Created':
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-        break;
-      case 'Deadline':
-        list.sort((a, b) => a.deadline.compareTo(b.deadline));
-        break;
-      case 'Goal Amount':
-        list.sort((a, b) => b.fundraisingGoal.compareTo(a.fundraisingGoal));
-        break;
-      case 'Progress':
-        double p(Campaign c) => _progressById[c.id] ?? _safeProgressFor(c);
-        list.sort((a, b) => p(b).compareTo(p(a)));
-        break;
-    }
+    // Combined comparator: pin score DESC, then selected sort
+    list.sort((a, b) {
+      final ps = _pinScore(b).compareTo(_pinScore(a));
+      if (ps != 0) return ps;
+      return _cmpBySelected(a, b);
+    });
+
     return list;
   }
 
@@ -369,6 +423,8 @@ class _CreateCampaignState extends State<CreateCampaign> {
                         final progress =
                             _progressById[c.id] ?? _safeProgressFor(c);
 
+                        final isHi = _pinScore(c) > 0; // high-need / pinned
+
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: _CampaignTile(
@@ -377,7 +433,6 @@ class _CreateCampaignState extends State<CreateCampaign> {
                             progress: progress,
                             money: _fmtMoney,
                             dateFmt: _fmtDate,
-                            // ⬇️ Navigate to details, refresh on return
                             onTap: () async {
                               final changed = await Navigator.push<bool>(
                                 context,
@@ -389,6 +444,8 @@ class _CreateCampaignState extends State<CreateCampaign> {
                                 _fetchCampaigns();
                               }
                             },
+                            pinned: isHi, // show pin icon
+                            highlight: isHi, // 🔥 use special design
                           ),
                         );
                       }),
@@ -546,7 +603,9 @@ class _CampaignTile extends StatelessWidget {
   final double progress; // 0..1
   final String Function(num) money;
   final String Function(DateTime) dateFmt;
-  final VoidCallback? onTap; // ⬅️ NEW (to open details)
+  final VoidCallback? onTap; // open details
+  final bool pinned; // show pin badge
+  final bool highlight; // 🔥 special design for high-need
 
   const _CampaignTile({
     required this.data,
@@ -554,7 +613,9 @@ class _CampaignTile extends StatelessWidget {
     required this.progress,
     required this.money,
     required this.dateFmt,
-    this.onTap, // ⬅️ NEW
+    this.onTap,
+    this.pinned = false,
+    this.highlight = false,
   });
 
   // --- status helpers (UI only) ---
@@ -629,184 +690,284 @@ class _CampaignTile extends StatelessWidget {
         (data as dynamic).status ??
         (data.deadline.isBefore(DateTime.now()) ? 'due' : 'active');
 
+    // ✅ Always supply a BoxBorder (Border), not a BorderSide
+    final BoxBorder cardBorder = highlight
+        ? Border.all(color: _CreateCampaignState.hiBorder, width: 1.5)
+        : Border.all(color: _CreateCampaignState.line, width: 1);
+
+    final Color cardColor = highlight
+        ? _CreateCampaignState.hiBg
+        : Colors.white;
+
+    final List<BoxShadow> shadow = highlight
+        ? const [
+            BoxShadow(
+              color: Color(0x22FB8C00), // orange glow
+              blurRadius: 18,
+              offset: Offset(0, 10),
+            ),
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, 6),
+            ),
+          ]
+        : const [
+            BoxShadow(
+              color: Colors.black12,
+              blurRadius: 10,
+              offset: Offset(0, 6),
+            ),
+          ];
+
+    final Color progressColor = highlight
+        ? _CreateCampaignState.hiAccent
+        : _CreateCampaignState.brand;
+
     return Material(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
-        side: const BorderSide(color: _CreateCampaignState.line),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: onTap, // ⬅️ open details
-        child: Padding(
-          padding: const EdgeInsets.all(14),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Header
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Thumbnail placeholder
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
-                    child: Container(
-                      width: 96,
-                      height: 72,
-                      color: _CreateCampaignState.softGrey,
-                      alignment: Alignment.center,
-                      child: const Icon(
-                        Icons.campaign,
-                        size: 40,
-                        color: _CreateCampaignState.brand,
+      color: Colors.transparent,
+      child: Container(
+        decoration: BoxDecoration(
+          color: cardColor,
+          borderRadius: BorderRadius.circular(16),
+          border: cardBorder,
+          boxShadow: shadow,
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(16),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Thumbnail placeholder
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(12),
+                      child: Container(
+                        width: 96,
+                        height: 72,
+                        color: _CreateCampaignState.softGrey,
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.campaign,
+                          size: 40,
+                          color: highlight
+                              ? _CreateCampaignState.hiAccent
+                              : _CreateCampaignState.brand,
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 12),
-                  // Title + meta
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          data.program,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: _CreateCampaignState.brand,
-                            fontWeight: FontWeight.w900,
-                            fontSize: 16,
+                    const SizedBox(width: 12),
+                    // Title + meta
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  data.program,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: TextStyle(
+                                    color: highlight
+                                        ? _CreateCampaignState.hiAccent
+                                        : _CreateCampaignState.brand,
+                                    fontWeight: FontWeight.w900,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              if (pinned) ...[
+                                const SizedBox(width: 6),
+                                const Icon(
+                                  Icons.push_pin,
+                                  size: 18,
+                                  color: Colors.orange,
+                                ),
+                              ],
+                            ],
                           ),
-                        ),
-                        const SizedBox(height: 6),
-                        Text(
-                          '${data.category} • Goal: ${money(data.fundraisingGoal)} ${data.currency}',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: _CreateCampaignState.brandDark,
-                            fontWeight: FontWeight.w700,
-                            fontSize: 12.5,
+                          const SizedBox(height: 6),
+                          Text(
+                            '${data.category} • Goal: ${money(data.fundraisingGoal)} ${data.currency}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                              color: _CreateCampaignState.brandDark,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 12.5,
+                            ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  // Status chip
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: _statusBg(st),
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: _statusFg(st).withOpacity(.35)),
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(_statusIcon(st), size: 14, color: _statusFg(st)),
-                        const SizedBox(width: 6),
-                        Text(
-                          _statusLabel(st),
-                          style: TextStyle(
-                            color: _statusFg(st),
-                            fontWeight: FontWeight.w800,
-                            fontSize: 11,
-                            letterSpacing: .2,
+                    const SizedBox(width: 8),
+                    // Status chip OR High priority chip
+                    highlight
+                        ? Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _CreateCampaignState.hiAccent.withOpacity(
+                                .12,
+                              ),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: _CreateCampaignState.hiAccent
+                                    .withOpacity(.35),
+                              ),
+                            ),
+                            child: const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.local_fire_department_rounded,
+                                  size: 14,
+                                  color: _CreateCampaignState.hiAccent,
+                                ),
+                                SizedBox(width: 6),
+                                Text(
+                                  'HIGH PRIORITY',
+                                  style: TextStyle(
+                                    color: _CreateCampaignState.hiAccent,
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11,
+                                    letterSpacing: .2,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          )
+                        : Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _statusBg(st),
+                              borderRadius: BorderRadius.circular(999),
+                              border: Border.all(
+                                color: _statusFg(st).withOpacity(.35),
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  _statusIcon(st),
+                                  size: 14,
+                                  color: _statusFg(st),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _statusLabel(st),
+                                  style: TextStyle(
+                                    color: _statusFg(st),
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 11,
+                                    letterSpacing: .2,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
-                        ),
-                      ],
+                  ],
+                ),
+
+                // Description
+                if (data.description.isNotEmpty) ...[
+                  const SizedBox(height: 10),
+                  Text(
+                    data.description,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      color: _CreateCampaignState.textMuted,
+                      fontSize: 13,
+                      height: 1.35,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ],
-              ),
 
-              // Description
-              if (data.description.isNotEmpty) ...[
-                const SizedBox(height: 10),
-                Text(
-                  data.description,
-                  maxLines: 3,
-                  overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: _CreateCampaignState.textMuted,
-                    fontSize: 13,
-                    height: 1.35,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ],
+                const SizedBox(height: 12),
 
-              const SizedBox(height: 12),
-
-              // Progress
-              ClipRRect(
-                borderRadius: BorderRadius.circular(8),
-                child: Stack(
-                  alignment: Alignment.centerLeft,
-                  children: [
-                    LinearProgressIndicator(
-                      value: progress,
-                      minHeight: 12,
-                      backgroundColor: _CreateCampaignState.softGrey,
-                      color: _CreateCampaignState.brand,
-                    ),
-                    // percent label on top
-                    Positioned.fill(
-                      child: Align(
-                        alignment: Alignment.center,
-                        child: Text(
-                          '${(progress * 100).toStringAsFixed(0)}%',
-                          style: const TextStyle(
-                            fontSize: 11,
-                            fontWeight: FontWeight.w900,
-                            color: Colors.white,
-                            letterSpacing: .2,
+                // Progress
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(8),
+                  child: Stack(
+                    alignment: Alignment.centerLeft,
+                    children: [
+                      LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 12,
+                        backgroundColor: _CreateCampaignState.softGrey,
+                        color: progressColor,
+                      ),
+                      // percent label on top
+                      Positioned.fill(
+                        child: Align(
+                          alignment: Alignment.center,
+                          child: Text(
+                            '${(progress * 100).toStringAsFixed(0)}%',
+                            style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.white,
+                              letterSpacing: .2,
+                            ),
                           ),
                         ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 8),
+
+                // Money + dates
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      raisedLabel,
+                      style: TextStyle(
+                        color: highlight
+                            ? _CreateCampaignState.hiAccent
+                            : _CreateCampaignState.brand,
+                        fontWeight: FontWeight.w800,
+                        fontSize: 12.5,
+                      ),
+                    ),
+                    Text(
+                      'Deadline: ${dateFmt(data.deadline)}',
+                      style: const TextStyle(
+                        color: _CreateCampaignState.textMuted,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 12,
                       ),
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 8),
-
-              // Money + dates
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    raisedLabel,
-                    style: const TextStyle(
-                      color: _CreateCampaignState.brand,
-                      fontWeight: FontWeight.w800,
-                      fontSize: 12.5,
-                    ),
+                const SizedBox(height: 6),
+                Text(
+                  'Created: ${dateFmt(data.createdAt)} • Updated: ${dateFmt(data.updatedAt)}',
+                  style: const TextStyle(
+                    color: Colors.grey,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
-                  Text(
-                    'Deadline: ${dateFmt(data.deadline)}',
-                    style: const TextStyle(
-                      color: _CreateCampaignState.textMuted,
-                      fontWeight: FontWeight.w700,
-                      fontSize: 12,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                'Created: ${dateFmt(data.createdAt)} • Updated: ${dateFmt(data.updatedAt)}',
-                style: const TextStyle(
-                  color: Colors.grey,
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
