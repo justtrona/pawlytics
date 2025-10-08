@@ -1,7 +1,8 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'package:pawlytics/views/donors/HomeScreenButtons/DonatePage.dart';
 import 'package:pawlytics/views/donors/HomeScreenButtons/ViewMore.dart';
@@ -12,10 +13,9 @@ import 'package:pawlytics/views/donors/donors scrollable/PetPage.dart';
 import 'package:pawlytics/views/donors/donors scrollable/RecommendationPage.dart';
 import 'package:pawlytics/views/donors/donors scrollable/connections/PetDetailsPage.dart';
 
-// Monthly goal/expenses controller/model
-import 'package:pawlytics/views/donors/controller/goal-opex-controller.dart';
+// Admin controller – source of truth for monthly expenses
+import 'package:pawlytics/views/admin/controllers/operational-expense-controller.dart';
 
-/// ---- tiny color helper
 Color darker(Color c, [double amount = .12]) {
   final double t = amount.clamp(0.0, 1.0) as double;
   return Color.lerp(c, Colors.black, t)!;
@@ -24,14 +24,12 @@ Color darker(Color c, [double amount = .12]) {
 class HomePage extends StatelessWidget {
   const HomePage({super.key});
 
-  /// Use your real “All Campaigns / General Fund” id here
-  static const int defaultCampaignId = 26; // TODO: replace with your actual id
+  static const int defaultCampaignId = 26; // your General Fund id
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.grey[100],
-
       appBar: AppBar(
         automaticallyImplyLeading: false,
         backgroundColor: const Color(0xFF1A2C50),
@@ -146,30 +144,24 @@ class HomePage extends StatelessWidget {
                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                 children: [
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const CampaignPage()),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const CampaignPage()),
+                    ),
                     child: buildCircleIcon(Icons.campaign, "Campaigns"),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const PetPage()),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const PetPage()),
+                    ),
                     child: buildCircleIcon(Icons.pets, "Pets"),
                   ),
                   GestureDetector(
-                    onTap: () {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => const GoalPage()),
-                      );
-                    },
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const GoalPage()),
+                    ),
                     child: buildCircleIcon(Icons.flag, "Expenses"),
                   ),
                 ],
@@ -179,10 +171,14 @@ class HomePage extends StatelessWidget {
             const SizedBox(height: 15),
             const Divider(thickness: 2, indent: 10, endIndent: 10),
 
-            // ===== Monthly Expenses (Summary) ABOVE recommendations =====
-            const Padding(
-              padding: EdgeInsets.symmetric(horizontal: 16),
-              child: _MonthlyGoalHeader(),
+            // ===== Remaining Funds (donations this month - expenses this month) =====
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              child: ChangeNotifierProvider(
+                create: (_) =>
+                    OperationalExpenseController()..loadAllocations(),
+                child: const _RemainingFundsHeader(), // <-- does the deduction
+              ),
             ),
             const SizedBox(height: 16),
 
@@ -195,7 +191,6 @@ class HomePage extends StatelessWidget {
         ),
       ),
 
-      // Global donate button → donate to general fund (defaultCampaignId)
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: SafeArea(
         minimum: const EdgeInsets.all(16),
@@ -247,8 +242,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // ---------------- Helpers ----------------
-
   Widget buildCircleIcon(IconData icon, String label) {
     return Column(
       children: [
@@ -295,12 +288,10 @@ class HomePage extends StatelessWidget {
             style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
           ),
           GestureDetector(
-            onTap: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (_) => RecommendationPage()),
-              );
-            },
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => RecommendationPage()),
+            ),
             child: const Text(
               "View More",
               style: TextStyle(
@@ -327,7 +318,6 @@ class _UserGreeting extends StatelessWidget {
     final sb = Supabase.instance.client;
     final user = sb.auth.currentUser;
 
-    // 1) Try auth metadata
     if (user != null) {
       final md = user.userMetadata ?? {};
       final metaName =
@@ -335,12 +325,10 @@ class _UserGreeting extends StatelessWidget {
           (md['name'] as String?) ??
           (md['username'] as String?) ??
           (md['display_name'] as String?);
-      if (metaName != null && metaName.trim().isNotEmpty) {
+      if (metaName != null && metaName.trim().isNotEmpty)
         return metaName.trim();
-      }
     }
 
-    // 2) Try profiles table
     try {
       if (user != null) {
         final Map<String, dynamic>? res = await sb
@@ -348,22 +336,17 @@ class _UserGreeting extends StatelessWidget {
             .select('full_name, name, username')
             .eq('id', user.id)
             .maybeSingle();
-
         if (res != null) {
           final nameFromProfile =
               (res['full_name'] as String?) ??
               (res['name'] as String?) ??
               (res['username'] as String?);
-          if (nameFromProfile != null && nameFromProfile.trim().isNotEmpty) {
+          if (nameFromProfile != null && nameFromProfile.trim().isNotEmpty)
             return nameFromProfile.trim();
-          }
         }
       }
-    } catch (_) {
-      // safely ignore
-    }
+    } catch (_) {}
 
-    // 3) Fallback to email local part or "there"
     final email = user?.email ?? '';
     if (email.contains('@')) return email.split('@').first;
     return 'there';
@@ -385,18 +368,17 @@ class _UserGreeting extends StatelessWidget {
 }
 
 /* -------------------------------------------------------------------------- */
-/*                     MONTHLY EXPENSES HEADER (SUMMARY)                      */
+/*                   REMAINING FUNDS HEADER (SUMMARY)                         */
 /* -------------------------------------------------------------------------- */
 
-class _MonthlyGoalHeader extends StatefulWidget {
-  const _MonthlyGoalHeader({Key? key}) : super(key: key);
+class _RemainingFundsHeader extends StatefulWidget {
+  const _RemainingFundsHeader({Key? key}) : super(key: key);
 
   @override
-  State<_MonthlyGoalHeader> createState() => _MonthlyGoalHeaderState();
+  State<_RemainingFundsHeader> createState() => _RemainingFundsHeaderState();
 }
 
-class _MonthlyGoalHeaderState extends State<_MonthlyGoalHeader> {
-  final _controller = OpexAllocationsController();
+class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
   final _php = NumberFormat.currency(
     locale: 'en_PH',
     symbol: '₱',
@@ -404,124 +386,163 @@ class _MonthlyGoalHeaderState extends State<_MonthlyGoalHeader> {
   );
   final _dateFmt = DateFormat('MMM d, yyyy');
 
+  bool _loading = true;
+  double _donationsToday = 0;
+  double _donationsMonth = 0;
+
+  // Expenses
+  double _manualAllocations = 0;
+  double _trackedCash = 0;
+
+  DateTime? _monthEndLocal;
+
+  double _toD(dynamic v) {
+    if (v is num) return v.toDouble();
+    if (v == null) return 0.0;
+    return double.tryParse('$v') ?? 0.0;
+  }
+
+  DateTime? _toDate(dynamic v) {
+    if (v == null) return null;
+    try {
+      return DateTime.parse('$v');
+    } catch (_) {
+      return null;
+    }
+  }
+
   @override
   void initState() {
     super.initState();
-    _controller.addListener(_onChange);
-    _controller.loadAllocations();
+    _hydrate();
   }
 
-  void _onChange() {
-    if (mounted) setState(() {});
+  Future<void> _hydrate() async {
+    final sb = Supabase.instance.client;
+    try {
+      // ---- resolve active month
+      Map<String, dynamic>? monthRow = await sb
+          .from('opex_months')
+          .select('month_start, month_end, status')
+          .eq('status', 'active')
+          .maybeSingle();
+
+      if (monthRow == null) {
+        final latest = await sb
+            .from('opex_months')
+            .select('month_start, month_end, status')
+            .order('month_start', ascending: false)
+            .limit(1);
+        if (latest is List && latest.isNotEmpty) {
+          monthRow = latest.first as Map<String, dynamic>;
+        }
+      }
+
+      final nowLocal = DateTime.now();
+      final monthStartLocal =
+          _toDate(monthRow?['month_start']) ??
+          DateTime(nowLocal.year, nowLocal.month, 1);
+      _monthEndLocal =
+          _toDate(monthRow?['month_end']) ??
+          ((_monthStartLocal(monthStartLocal).month == 12)
+              ? DateTime(monthStartLocal.year + 1, 1, 0)
+              : DateTime(monthStartLocal.year, monthStartLocal.month + 1, 0));
+
+      // UTC bounds for timestamptz columns
+      final monthStartUtc = DateTime(
+        monthStartLocal.year,
+        monthStartLocal.month,
+        1,
+      ).toUtc();
+      final nextMonthStartUtc = (monthStartLocal.month == 12)
+          ? DateTime(monthStartLocal.year + 1, 1, 1).toUtc()
+          : DateTime(
+              monthStartLocal.year,
+              monthStartLocal.month + 1,
+              1,
+            ).toUtc();
+      final todayStartUtc = DateTime(
+        nowLocal.year,
+        nowLocal.month,
+        nowLocal.day,
+      ).toUtc();
+
+      // ---- donations
+      double sumToday = 0;
+      double sumMonth = 0;
+
+      final todayRows = await sb
+          .from('donations')
+          .select('amount, created_at')
+          .gte('created_at', todayStartUtc.toIso8601String())
+          .lt('created_at', nextMonthStartUtc.toIso8601String());
+      for (final r in (todayRows as List)) sumToday += _toD(r['amount']);
+
+      final monthRows = await sb
+          .from('donations')
+          .select('amount, created_at')
+          .gte('created_at', monthStartUtc.toIso8601String())
+          .lt('created_at', nextMonthStartUtc.toIso8601String());
+      for (final r in (monthRows as List)) sumMonth += _toD(r['amount']);
+
+      // ---- manual allocations (this month)
+      double manual = 0;
+      final allocRows = await sb
+          .from('operational_expense_allocations')
+          .select('amount, created_at')
+          .gte('created_at', monthStartUtc.toIso8601String())
+          .lt('created_at', nextMonthStartUtc.toIso8601String());
+      for (final r in (allocRows as List)) manual += _toD(r['amount']);
+
+      // fallback if month filter blocked by RLS/timezone
+      if (manual == 0) {
+        final all = await sb
+            .from('operational_expense_allocations')
+            .select('amount');
+        for (final r in (all as List)) manual += _toD(r['amount']);
+      }
+
+      // ---- tracked cash from the controller/view (same as admin page)
+      final c = context.read<OperationalExpenseController>();
+      // ensure latest loaded (but it's already loading in Provider create)
+      // await c.loadAllocations(); // optional
+      final progress = await sb.from('v_opex_month_progress').select().limit(1);
+      double tracked = 0;
+      if (progress is List && progress.isNotEmpty) {
+        tracked = _toD((progress.first as Map<String, dynamic>)['cash_raised']);
+      } else {
+        tracked = c.totalDonationsCash; // backup from controller
+      }
+
+      if (!mounted) return;
+      setState(() {
+        _donationsToday = sumToday;
+        _donationsMonth = sumMonth;
+        _manualAllocations = manual;
+        _trackedCash = tracked;
+        _loading = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _loading = false);
+    }
   }
 
-  @override
-  void dispose() {
-    _controller.removeListener(_onChange);
-    _controller.dispose();
-    super.dispose();
-  }
+  DateTime _monthStartLocal(DateTime d) => DateTime(d.year, d.month, 1);
 
   @override
   Widget build(BuildContext context) {
     const brand = Color(0xFF1F2C47);
     final border = BorderSide(color: Colors.grey.shade300);
 
-    if (_controller.loading) {
-      return Container(
-        height: 112,
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.fromBorderSide(border),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: const Align(
-          alignment: Alignment.centerLeft,
-          child: SizedBox(
-            width: 160,
-            child: LinearProgressIndicator(minHeight: 10),
-          ),
-        ),
-      );
-    }
+    final totalExpenses = _manualAllocations + _trackedCash;
+    final remaining = _donationsMonth - totalExpenses;
+    final isNegative = remaining < 0;
 
-    // TOTAL EXPENSES = manual amounts + tracked entries
-    final items = _controller.items;
-    final totalThisMonth = items.fold<double>(
-      0,
-      (s, e) => s + (e.amount + e.raised),
-    );
-
-    final isClosed = _controller.isClosed;
-    final dueStr = _controller.monthEnd == null
+    final asOfStr = _monthEndLocal == null
         ? '—'
-        : _dateFmt.format(_controller.monthEnd!);
+        : _dateFmt.format(_monthEndLocal!);
 
-    return _SummaryExpensesCard(
-      brand: brand,
-      border: border,
-      title: "This Month’s Expenses",
-      amountLabel: _php.format(totalThisMonth),
-      statusChip: _StatusChip(
-        label: isClosed ? 'Closed' : 'Active',
-        color: isClosed ? Colors.grey : brand,
-      ),
-      periodText: 'As of: $dueStr',
-      showClosedNote: isClosed,
-    );
-  }
-}
-
-/* ---------- Shared UI pieces for expenses summary ---------- */
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.label, required this.color});
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withOpacity(.08),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withOpacity(.25)),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontWeight: FontWeight.w700,
-          color: color,
-          fontSize: 12,
-        ),
-      ),
-    );
-  }
-}
-
-class _SummaryExpensesCard extends StatelessWidget {
-  const _SummaryExpensesCard({
-    required this.brand,
-    required this.border,
-    required this.title,
-    required this.amountLabel,
-    required this.statusChip,
-    required this.periodText,
-    required this.showClosedNote,
-  });
-
-  final Color brand;
-  final BorderSide border;
-  final String title;
-  final String amountLabel;
-  final Widget statusChip;
-  final String periodText;
-  final bool showClosedNote;
-
-  @override
-  Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -532,51 +553,81 @@ class _SummaryExpensesCard extends StatelessWidget {
           BoxShadow(color: Colors.black12, blurRadius: 8, offset: Offset(0, 3)),
         ],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // title + status
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  title,
+      child: _loading
+          ? const Center(
+              child: SizedBox(height: 42, child: CircularProgressIndicator()),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  "Remaining Funds",
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w800,
                     color: brand,
                   ),
                 ),
-              ),
-              statusChip,
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            periodText,
-            style: const TextStyle(fontSize: 12, color: Colors.black54),
-          ),
-          const SizedBox(height: 10),
-          Center(
-            child: Text(
-              amountLabel,
-              style: TextStyle(
-                fontWeight: FontWeight.w900,
-                fontSize: 26,
-                color: brand,
-                letterSpacing: .2,
-              ),
+                const SizedBox(height: 6),
+                Text(
+                  'As of: $asOfStr',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                const SizedBox(height: 10),
+                Center(
+                  child: Text(
+                    _php.format(remaining),
+                    style: TextStyle(
+                      fontWeight: FontWeight.w900,
+                      fontSize: 26,
+                      color: isNegative ? Colors.redAccent : brand,
+                      letterSpacing: .2,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    _miniStat("Today", _php.format(_donationsToday)),
+                    _miniStat("This Month", _php.format(_donationsMonth)),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Debug lines (helps verify numbers; remove if you don't want them)
+                Text(
+                  'Expenses (alloc): ${_php.format(_manualAllocations)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                Text(
+                  'Expenses (tracked): ${_php.format(_trackedCash)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+              ],
             ),
+    );
+  }
+
+  Widget _miniStat(String label, String value) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            color: Colors.black54,
+            fontWeight: FontWeight.w600,
           ),
-          if (showClosedNote) ...[
-            const SizedBox(height: 8),
-            const Text(
-              'This month is closed.',
-              style: TextStyle(fontSize: 12, color: Colors.redAccent),
-            ),
-          ],
-        ],
-      ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: const TextStyle(
+            fontWeight: FontWeight.w800,
+            color: Color(0xFF1F2C47),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -603,8 +654,6 @@ class _RecommendedPetsRow extends StatelessWidget {
   String? _resolveImageUrl(String? raw) {
     if (raw == null || raw.isEmpty) return null;
     if (raw.startsWith('http')) return raw;
-    // If you store Supabase Storage paths, convert to public URL here:
-    // return Supabase.instance.client.storage.from('your-bucket').getPublicUrl(raw);
     return null;
   }
 
@@ -614,7 +663,6 @@ class _RecommendedPetsRow extends StatelessWidget {
       future: _fetch(),
       builder: (context, snap) {
         if (snap.connectionState == ConnectionState.waiting) {
-          // skeletons
           return ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.symmetric(horizontal: 16),

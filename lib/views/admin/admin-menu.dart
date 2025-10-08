@@ -169,7 +169,7 @@ class _menuBarState extends State<menuBar> {
 
                       _MenuItem(
                         icon: Icons.money_rounded,
-                        label: 'Operational Expense',
+                        label: 'Expense Tracking',
                         onTap: () => Navigator.pushNamed(
                           context,
                           route.operationalExpenseModule,
@@ -178,7 +178,7 @@ class _menuBarState extends State<menuBar> {
 
                       _MenuItem(
                         icon: Icons.money_rounded,
-                        label: 'Manual Donation',
+                        label: 'Walk-in Donation',
                         onTap: () =>
                             Navigator.pushNamed(context, route.manualDonation),
                       ),

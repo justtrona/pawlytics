@@ -241,7 +241,7 @@ class _PetProfilesState extends State<PetProfiles> {
         foregroundColor: _brandDark,
         leading: const BackButton(color: _brandDark),
         title: const Text(
-          'Pet Management',
+          'Pet Profiles',
           style: TextStyle(
             fontSize: 18,
             fontWeight: FontWeight.w800,

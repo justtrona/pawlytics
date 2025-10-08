@@ -1,4 +1,4 @@
-/// Donors-facing model for campaign cards & details.
+// Donors-facing model for campaign cards & details.
 
 enum CampaignStatus { active, inactive, due, unknown }
 
@@ -13,7 +13,8 @@ class CampaignCardModel {
   final double progress; // 0.0..1.0 (from view or computed)
   final CampaignStatus status;
 
-  // 👇 NEW: expose deadline so the UI can show it
+  // NEW
+  final DateTime? createdAt;
   final DateTime? deadline;
 
   const CampaignCardModel({
@@ -26,6 +27,7 @@ class CampaignCardModel {
     required this.raised,
     required this.progress,
     required this.status,
+    this.createdAt,
     this.deadline,
   });
 
@@ -87,9 +89,7 @@ class CampaignCardModel {
     return [if (c != null && c.isNotEmpty) c else 'General'];
   }
 
-  /// Prefer whatever the admin saved in the DB (`status`) and only infer when
-  /// it is missing. If `status` is null/empty: mark as DUE when deadline passed,
-  /// otherwise INACTIVE as a safe default.
+  /// Prefer DB status if present; mark as DUE when deadline passed.
   static CampaignStatus _status(dynamic raw, {DateTime? deadline}) {
     if (raw != null) {
       final s = raw.toString().trim().toLowerCase();
@@ -97,18 +97,13 @@ class CampaignCardModel {
       if (s == 'inactive') return CampaignStatus.inactive;
       if (s == 'due') return CampaignStatus.due;
     }
-
-    // If no status saved, infer from time (optional, but helpful).
     if (deadline != null && deadline.isBefore(DateTime.now())) {
       return CampaignStatus.due;
     }
-
-    return CampaignStatus.inactive; // sensible fallback when missing
+    return CampaignStatus.inactive;
   }
 
   /// Build from a row (works with `campaigns_with_totals` view or base table).
-  /// Expected keys: id, program/title, description, category/tags, image_url,
-  /// fundraising_goal, raised_amount, progress_ratio, status, deadline
   factory CampaignCardModel.fromMap(Map<String, dynamic> map) {
     final id = _i(map['id']);
     final title = _s(map['program'] ?? map['title'], 'Untitled Campaign');
@@ -122,6 +117,13 @@ class CampaignCardModel {
     progress = progress.clamp(0.0, 1.0);
 
     final deadline = _date(map['deadline']);
+    final createdAt = _date(
+      map['created_at'] ??
+          map['inserted_at'] ??
+          map['createdAt'] ??
+          map['created'],
+    );
+
     final status = _status(map['status'], deadline: deadline);
 
     return CampaignCardModel(
@@ -134,7 +136,8 @@ class CampaignCardModel {
       raised: raised,
       progress: progress,
       status: status,
-      deadline: deadline, // 👈 store it
+      createdAt: createdAt,
+      deadline: deadline,
     );
   }
 
@@ -150,42 +153,5 @@ class CampaignCardModel {
       default:
         return '';
     }
-  }
-
-  // --------- NEW display helpers for deadline ---------
-  bool get isDue => deadline != null && deadline!.isBefore(DateTime.now());
-
-  /// Returns positive days until deadline, 0 if due/past, null if unknown.
-  int? get daysUntilDeadline {
-    if (deadline == null) return null;
-    final diff = deadline!.difference(DateTime.now()).inDays;
-    return diff < 0 ? 0 : diff;
-  }
-
-  /// e.g., "Oct 15, 2025 (3 days left)" or "Oct 15, 2025 (due)"
-  String get deadlineLabel {
-    if (deadline == null) return 'No deadline';
-    final d = deadline!;
-    const months = [
-      '',
-      'Jan',
-      'Feb',
-      'Mar',
-      'Apr',
-      'May',
-      'Jun',
-      'Jul',
-      'Aug',
-      'Sep',
-      'Oct',
-      'Nov',
-      'Dec',
-    ];
-    final base = '${months[d.month]} ${d.day}, ${d.year}';
-    if (isDue) return '$base (due)';
-    final days = daysUntilDeadline ?? 0;
-    return days == 0
-        ? '$base (today)'
-        : '$base ($days day${days == 1 ? '' : 's'} left)';
   }
 }

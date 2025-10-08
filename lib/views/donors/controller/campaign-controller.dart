@@ -13,6 +13,7 @@ class CampaignsController {
   int _i(dynamic v) =>
       v is int ? v : (v is num ? v.toInt() : int.tryParse('${v ?? ''}') ?? 0);
 
+  /// Local date parser (can't call CampaignCardModel._date because it's private)
   DateTime? _date(dynamic v) {
     if (v == null) return null;
     if (v is DateTime) return v;
@@ -22,6 +23,7 @@ class CampaignsController {
       } catch (_) {}
     }
     if (v is int) {
+      // Heuristic: big numbers are ms, small are seconds.
       return v > 1000000000000
           ? DateTime.fromMillisecondsSinceEpoch(v)
           : DateTime.fromMillisecondsSinceEpoch(v * 1000);
@@ -84,6 +86,8 @@ class CampaignsController {
   }
 
   // ---------- queries ----------
+  /// If [useView] is true, reads from `campaigns_with_totals`; otherwise from
+  /// the base `campaigns` table. Maps rows to [CampaignCardModel].
   Future<List<CampaignCardModel>> fetchCampaigns({bool useView = true}) async {
     final table = useView ? 'campaigns_with_totals' : 'campaigns';
 
@@ -118,6 +122,9 @@ class CampaignsController {
         deadline: deadline,
       );
 
+      // Note: CampaignCardModel does not have a `deadline` field.
+      // If you want the UI to read it, either add `deadline` to the model
+      // or keep accessing it dynamically from the row where needed.
       return CampaignCardModel(
         id: id,
         title: title,
@@ -128,7 +135,6 @@ class CampaignsController {
         raised: raised,
         progress: progress,
         status: status,
-        deadline: deadline, // 👈 pass it through
       );
     }).toList();
   }
@@ -164,7 +170,6 @@ class CampaignsController {
       raised: raised,
       progress: progress,
       status: status,
-      deadline: deadline, // 👈 pass it through
     );
   }
 }

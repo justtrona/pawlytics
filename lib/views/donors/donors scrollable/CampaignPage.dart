@@ -22,15 +22,12 @@ class _CampaignPageState extends State<CampaignPage> {
   // Filters / search state
   final TextEditingController _searchCtrl = TextEditingController();
   String _statusFilter = 'All'; // All, Active, Due, Inactive
-  String _timeFilter =
-      'All Time'; // Last 30 Days, This Month, This Year, All Time
+  String _timeFilter = 'All Time'; // Last 30 Days, This Month, This Year
 
   @override
   void initState() {
     super.initState();
-    _campaigns = controller.fetchCampaigns(
-      useView: false, // pull base rows from `campaigns` table
-    );
+    _campaigns = controller.fetchCampaigns(useView: false);
     _searchCtrl.addListener(() => setState(() {}));
   }
 
@@ -42,15 +39,8 @@ class _CampaignPageState extends State<CampaignPage> {
 
   // ---------- Pin & priority helpers ----------
   bool _isHighCategory(CampaignCardModel m) {
-    // try to read a category via tags (first tag) if present
-    String cat = '';
-    try {
-      final val = (m as dynamic).tags;
-      if (val is List && val.isNotEmpty && val.first is String) {
-        cat = val.first as String;
-      }
-    } catch (_) {}
-    final v = cat.trim().toLowerCase();
+    // use first tag as a "category" hint
+    final v = (m.tags.isNotEmpty ? m.tags.first : '').trim().toLowerCase();
     return v == 'urgent' ||
         v == 'emergency care' ||
         v == 'operational' ||
@@ -58,61 +48,27 @@ class _CampaignPageState extends State<CampaignPage> {
   }
 
   int _pinScore(CampaignCardModel m) {
-    bool isFeatured = false;
-    int priority = 0;
-    DateTime? pinnedAt;
-
-    try {
-      final dyn = m as dynamic;
-      final f = dyn.is_featured ?? dyn.isFeatured;
-      if (f is bool) isFeatured = f;
-      final p = dyn.priority;
-      if (p is num) priority = p.toInt();
-      final pa = dyn.pinned_at ?? dyn.pinnedAt;
-      if (pa is DateTime) {
-        pinnedAt = pa;
-      } else if (pa is String) {
-        pinnedAt = DateTime.tryParse(pa);
-      }
-    } catch (_) {}
-
+    // you can wire real DB pin fields later; for now category bump only
     final catBoost = _isHighCategory(m) ? 1 : 0;
-    final pinBoost = isFeatured ? 2 : 0;
-    final timeBoost = pinnedAt == null ? 0 : 1;
-    return (pinBoost * 10000) +
-        (catBoost * 5000) +
-        (timeBoost * 1000) +
-        priority;
+    return catBoost * 5000 + (m.progress * 1000).toInt();
   }
   // --------------------------------------------
 
   // ---------- Status computation ----------
-  /// Returns one of: 'active' | 'due' | 'inactive'
   String _computedStatus(CampaignCardModel m) {
-    // 1) Respect explicit status if present.
-    try {
-      final s = (m as dynamic).status;
-      if (s != null) {
-        final key = _statusKey(s);
-        if (key == 'inactive') return 'inactive';
-        if (key == 'due') return 'due';
-        if (key == 'active') return 'active';
-      }
-    } catch (_) {}
-
-    // 2) Else compute from deadline.
-    DateTime? deadline;
-    try {
-      final d = (m as dynamic).deadline;
-      if (d is DateTime) {
-        deadline = d;
-      } else if (d is String) {
-        deadline = DateTime.tryParse(d);
-      }
-    } catch (_) {}
-    if (deadline != null && deadline.isBefore(DateTime.now())) return 'due';
-
-    // 3) Default.
+    switch (m.status) {
+      case CampaignStatus.inactive:
+        return 'inactive';
+      case CampaignStatus.due:
+        return 'due';
+      case CampaignStatus.active:
+        return 'active';
+      default:
+        break;
+    }
+    // Fallback: infer from deadline if status unknown
+    final d = m.deadline;
+    if (d != null && d.isBefore(DateTime.now())) return 'due';
     return 'active';
   }
   // -----------------------------------------
@@ -127,28 +83,20 @@ class _CampaignPageState extends State<CampaignPage> {
   bool _matchesTime(CampaignCardModel m) {
     if (_timeFilter == 'All Time') return true;
 
-    DateTime? created;
-    try {
-      final c = (m as dynamic).created_at ?? (m as dynamic).createdAt;
-      if (c is DateTime) {
-        created = c;
-      } else if (c is String) {
-        created = DateTime.tryParse(c);
-      }
-    } catch (_) {}
-
-    created ??= DateTime.fromMillisecondsSinceEpoch(0);
+    // IMPORTANT: use createdAt if present, else fallback to deadline
+    final DateTime? basis = m.createdAt ?? m.deadline;
+    if (basis == null) return true; // don't exclude if we don't know
 
     final now = DateTime.now();
     switch (_timeFilter) {
       case 'Last 30 Days':
-        return created.isAfter(now.subtract(const Duration(days: 30)));
+        return basis.isAfter(now.subtract(const Duration(days: 30)));
       case 'This Month':
         final first = DateTime(now.year, now.month, 1);
-        return created.isAfter(first);
+        return basis.isAfter(first);
       case 'This Year':
         final first = DateTime(now.year, 1, 1);
-        return created.isAfter(first);
+        return basis.isAfter(first);
       default:
         return true;
     }
@@ -168,30 +116,9 @@ class _CampaignPageState extends State<CampaignPage> {
       m.title,
       m.description,
       ...m.tags,
-      (() {
-        try {
-          final cat = (m as dynamic).category?.toString() ?? '';
-          return cat;
-        } catch (_) {
-          return '';
-        }
-      })(),
     ].join(' ').toLowerCase();
 
     return hay.contains(q);
-  }
-  // -----------------------------------------
-
-  // ---------- UI helpers ----------
-  String _statusKey(dynamic status) {
-    try {
-      final n = (status as dynamic).name;
-      if (n is String && n.isNotEmpty) return n.toLowerCase();
-    } catch (_) {}
-    var s = status?.toString() ?? '';
-    final dot = s.lastIndexOf('.');
-    if (dot != -1) s = s.substring(dot + 1);
-    return s.trim().toLowerCase();
   }
   // -----------------------------------------
 
@@ -329,11 +256,14 @@ class _CampaignPageState extends State<CampaignPage> {
                 }
 
                 // 1) Filter
-                final filtered = data.where((c) {
-                  return _matchesStatus(c) &&
-                      _matchesTime(c) &&
-                      _matchesSearch(c);
-                }).toList();
+                final filtered = data
+                    .where(
+                      (c) =>
+                          _matchesStatus(c) &&
+                          _matchesTime(c) &&
+                          _matchesSearch(c),
+                    )
+                    .toList();
 
                 if (filtered.isEmpty) {
                   return const Center(child: Text("No results match filters"));
@@ -453,16 +383,7 @@ class CampaignCard extends StatelessWidget {
   }
   // ------------------------------------
 
-  // ---------- Deadline helpers (NEW) ----------
-  DateTime? _readDeadline(CampaignCardModel m) {
-    try {
-      final v = (m as dynamic).deadline;
-      if (v is DateTime) return v;
-      if (v is String) return DateTime.tryParse(v);
-    } catch (_) {}
-    return null;
-  }
-
+  // ---------- Deadline helpers ----------
   String _fmtDate(DateTime d) {
     const months = [
       '',
@@ -492,9 +413,8 @@ class CampaignCard extends StatelessWidget {
     if (diff == 0) return '(today)';
     if (diff == 1) return '(1 day left)';
     return '($diff days left)';
-    // remove suffix if you only want the raw date
   }
-  // -------------------------------------------
+  // -------------------------------------
 
   @override
   Widget build(BuildContext context) {
@@ -511,7 +431,7 @@ class CampaignCard extends StatelessWidget {
         ? _CampaignPageState.hiAccent
         : const Color(0xFF23344E);
 
-    final DateTime? deadline = _readDeadline(model);
+    final DateTime? deadline = model.deadline;
     final bool isOverdue =
         deadline != null && deadline.isBefore(DateTime.now());
 
@@ -657,7 +577,7 @@ class CampaignCard extends StatelessWidget {
                       label: Text(t),
                       backgroundColor: highlight
                           ? Colors.white
-                          : Color(0xFFDAD7D7).withOpacity(0.9),
+                          : const Color(0xFFDAD7D7),
                     ),
                   )
                   .toList(),
@@ -702,7 +622,7 @@ class CampaignCard extends StatelessWidget {
 
             const SizedBox(height: 6),
 
-            // ---------- Deadline (NEW visible to donors) ----------
+            // Deadline (visible to donors)
             Row(
               children: [
                 Icon(
@@ -726,7 +646,6 @@ class CampaignCard extends StatelessWidget {
               ],
             ),
 
-            // ------------------------------------------------------
             const SizedBox(height: 6),
 
             // Description
