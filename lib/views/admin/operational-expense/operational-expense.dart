@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 
 import 'package:pawlytics/views/admin/controllers/operational-expense-controller.dart';
 import 'package:pawlytics/views/admin/model/operational-expense-model.dart';
-import 'package:pawlytics/views/admin/model/donation-model.dart';
 
 class OperationalExpense extends StatefulWidget {
   const OperationalExpense({super.key});
@@ -14,32 +13,41 @@ class OperationalExpense extends StatefulWidget {
   State<OperationalExpense> createState() => _OperationalExpenseState();
 }
 
-class _OperationalExpenseState extends State<OperationalExpense> {
+class _OperationalExpenseState extends State<OperationalExpense>
+    with WidgetsBindingObserver {
   final _dateFmt = DateFormat('MMM d, yyyy');
   final _monthFmt = DateFormat('MMMM yyyy');
   final _php = NumberFormat.currency(locale: 'en_PH', symbol: '₱');
 
+  /// Dropdown selection. `null` => current (active) month.
+  int? _selectedHistoryIndex;
+
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<OperationalExpenseController>().loadAllocations();
+    WidgetsBinding.instance.addObserver(this);
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<OperationalExpenseController>().loadAllocations();
+      if (mounted) setState(() {});
     });
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed && mounted) {
+      _refresh();
+    }
   }
 
   Future<void> _refresh() async {
     await context.read<OperationalExpenseController>().loadAllocations();
-  }
-
-  Color _statusColor(String s) {
-    switch (s) {
-      case 'completed':
-        return Colors.green;
-      case 'closed':
-        return Colors.grey;
-      default:
-        return Colors.blue;
-    }
+    if (mounted) setState(() {});
   }
 
   Future<bool> _confirm({
@@ -72,20 +80,35 @@ class _OperationalExpenseState extends State<OperationalExpense> {
   Widget build(BuildContext context) {
     final c = context.watch<OperationalExpenseController>();
 
+    // ---- Month filter items ----
+    final monthChoices = <_MonthChoice>[
+      _MonthChoice.current(
+        label:
+            'Current (${c.currentMonthEnd == null ? '—' : _monthFmt.format(c.currentMonthEnd!.subtract(const Duration(days: 1)))})',
+      ),
+      ...c.history.asMap().entries.map(
+        (e) => _MonthChoice.history(
+          indexInHistory: e.key,
+          label: _monthFmt.format(e.value.monthStart),
+        ),
+      ),
+    ];
+
+    final selectedChoice = _selectedHistoryIndex == null
+        ? monthChoices.first
+        : monthChoices
+              .skip(1)
+              .firstWhere((m) => m.indexInHistory == _selectedHistoryIndex);
+
+    final viewingCurrent = _selectedHistoryIndex == null;
+
+    // Header fields for current view
     final isClosed = c.isCurrentMonthClosed;
     final isCompleted = c.isCurrentMonthCompleted;
     final dueStr = c.currentMonthEnd == null
         ? '—'
         : _dateFmt.format(c.currentMonthEnd!);
-
-    // Sum of all manual category amounts (admin-entered) this month
-    final manualTotal = c.operationalExpenseList.fold<double>(
-      0.0,
-      (sum, e) => sum + (e.amount),
-    );
-
-    // Overall total = manual category amounts + tracked entries (your existing total)
-    final totalThisMonth = manualTotal + c.totalDonationsCash;
+    final totalThisMonth = c.totalExpensesThisMonth; // manual + tracked
 
     return Scaffold(
       appBar: AppBar(
@@ -111,548 +134,576 @@ class _OperationalExpenseState extends State<OperationalExpense> {
                   physics: const AlwaysScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
                   children: [
-                    // ------- HEADER: TOTAL ONLY (no progress) -------
-                    Container(
-                      margin: const EdgeInsets.only(top: 8, bottom: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 16,
-                      ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFF8F4FF),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                "Total Expenses (This Month)",
-                                style: Theme.of(context).textTheme.titleMedium
-                                    ?.copyWith(color: Colors.black87),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color:
-                                      (isCompleted
-                                              ? Colors.green
-                                              : (isClosed
-                                                    ? Colors.black54
-                                                    : Colors.blue))
-                                          .withOpacity(.12),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Row(
-                                  children: [
-                                    Icon(
-                                      isCompleted
-                                          ? Icons.check_circle
-                                          : (isClosed
-                                                ? Icons.lock_clock
-                                                : Icons.bolt),
-                                      size: 16,
-                                      color: isCompleted
-                                          ? Colors.green
-                                          : (isClosed
-                                                ? Colors.black54
-                                                : Colors.blue),
-                                    ),
-                                    const SizedBox(width: 6),
-                                    Text(
-                                      isCompleted
-                                          ? 'Completed'
-                                          : (isClosed ? 'Closed' : 'Active'),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w600,
-                                        color: isCompleted
-                                            ? Colors.green
-                                            : (isClosed
-                                                  ? Colors.black54
-                                                  : Colors.blue),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            _php.format(totalThisMonth),
-                            style: Theme.of(context).textTheme.headlineSmall
-                                ?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                  color: Colors.blue.shade600,
-                                  letterSpacing: 0.2,
-                                ),
-                          ),
-                          const SizedBox(height: 6),
-                          Text(
-                            'As of: $dueStr',
-                            style: Theme.of(context).textTheme.labelMedium
-                                ?.copyWith(color: Colors.black54),
-                          ),
-                          if (isClosed && !isCompleted) ...[
-                            const SizedBox(height: 8),
-                            const Text(
-                              'Month is closed. Adding new entries should be disabled.',
-                              textAlign: TextAlign.center,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: Colors.redAccent,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-
-                    const Divider(height: 40),
-
-                    // ------- CATEGORIES LIST (amount only) -------
+                    // ------- Month filter -------
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          "Expense Categories (This Month)",
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.bold),
+                        const Icon(Icons.calendar_month, color: Colors.blue),
+                        const SizedBox(width: 8),
+                        const Text(
+                          'Month:',
+                          style: TextStyle(fontWeight: FontWeight.w600),
                         ),
-                        Text(
-                          "Long press to delete",
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: Colors.grey[600],
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: DropdownButton<_MonthChoice>(
+                            value: selectedChoice,
+                            isExpanded: true,
+                            underline: const SizedBox(),
+                            items: monthChoices
+                                .map(
+                                  (m) => DropdownMenuItem<_MonthChoice>(
+                                    value: m,
+                                    child: Row(
+                                      children: [
+                                        if (m.isCurrent)
+                                          const Icon(
+                                            Icons.bolt,
+                                            size: 16,
+                                            color: Colors.blue,
+                                          )
+                                        else
+                                          const Icon(
+                                            Icons.history,
+                                            size: 16,
+                                            color: Colors.grey,
+                                          ),
+                                        const SizedBox(width: 8),
+                                        Text(m.label),
+                                      ],
+                                    ),
+                                  ),
+                                )
+                                .toList(),
+                            onChanged: (m) {
+                              if (m == null) return;
+                              setState(() {
+                                _selectedHistoryIndex = m.isCurrent
+                                    ? null
+                                    : m.indexInHistory;
+                              });
+                            },
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
 
-                    if (c.operationalExpenseList.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: Text(
-                            "No categories yet.",
-                            style: TextStyle(color: Colors.grey),
+                    const SizedBox(height: 12),
+
+                    // ------------- CURRENT MONTH -------------
+                    if (viewingCurrent) ...[
+                      _HeaderCard(
+                        title: "Total Expenses (This Month)",
+                        value: _php.format(totalThisMonth),
+                        statusText: isCompleted
+                            ? 'Completed'
+                            : (isClosed ? 'Closed' : 'Active'),
+                        statusColor: isCompleted
+                            ? Colors.green
+                            : (isClosed ? Colors.black54 : Colors.blue),
+                        icon: isCompleted
+                            ? Icons.check_circle
+                            : (isClosed ? Icons.lock_clock : Icons.bolt),
+                        subText: 'As of: $dueStr',
+                        warnClosed: isClosed && !isCompleted,
+                      ),
+
+                      const Divider(height: 40),
+
+                      // ------- CATEGORIES (manual + tracked shown as "spent") -------
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            "Expense Categories (This Month)",
+                            style: Theme.of(context).textTheme.titleMedium
+                                ?.copyWith(fontWeight: FontWeight.bold),
                           ),
-                        ),
-                      )
-                    else
-                      ...c.operationalExpenseList.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final expense = entry.value;
+                          Text(
+                            "Long press to delete",
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: Colors.grey[600],
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
 
-                        // manual (expense.amount) + tracked entries for this category
-                        final tracked = c.raisedForAllocationId(expense.id);
-                        final spent = tracked + expense.amount;
+                      if (c.operationalExpenseList.isEmpty)
+                        const Padding(
+                          padding: EdgeInsets.symmetric(vertical: 24),
+                          child: Center(
+                            child: Text(
+                              "No categories yet.",
+                              style: TextStyle(color: Colors.grey),
+                            ),
+                          ),
+                        )
+                      else
+                        ...c.operationalExpenseList.asMap().entries.map((
+                          entry,
+                        ) {
+                          final index = entry.key;
+                          final expense = entry.value;
+                          final tracked = c.raisedForAllocationId(expense.id);
+                          final spent = tracked + expense.amount;
 
-                        Future<void> _deleteThis() async {
-                          final ok = await _confirm(
-                            title: 'Delete category?',
-                            message:
-                                'This will permanently remove “${expense.category}”.',
+                          Future<void> _deleteThis() async {
+                            final ok = await _confirm(
+                              title: 'Delete category?',
+                              message:
+                                  'This will permanently remove “${expense.category}”.',
+                            );
+                            if (!ok) return;
+                            final success = await c.removeAllocation(index);
+                            if (!mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              SnackBar(
+                                content: Text(
+                                  success
+                                      ? 'Category deleted'
+                                      : 'Failed to delete category',
+                                ),
+                              ),
+                            );
+                          }
+
+                          final categoryController = TextEditingController(
+                            text: expense.category,
                           );
-                          if (!ok) return;
-                          final success = await c.removeAllocation(index);
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(
-                              content: Text(
-                                success
-                                    ? 'Category deleted'
-                                    : 'Failed to delete category',
-                              ),
-                            ),
+                          final amountController = TextEditingController(
+                            text: expense.amount.toString(),
                           );
-                        }
 
-                        final categoryController = TextEditingController(
-                          text: expense.category,
-                        );
-                        final amountController = TextEditingController(
-                          text: expense.amount.toString(),
-                        );
-
-                        return Card(
-                          key: ValueKey(
-                            expense.id ?? '${expense.category}-$index',
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            onLongPress: _deleteThis,
-                            leading: const Icon(
-                              Icons.receipt,
-                              color: Colors.blue,
+                          return Card(
+                            key: ValueKey(
+                              expense.id ?? '${expense.category}-$index',
                             ),
-                            title: Text(
-                              expense.category,
-                              style: const TextStyle(
-                                fontWeight: FontWeight.w600,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            elevation: 2,
+                            margin: const EdgeInsets.symmetric(vertical: 6),
+                            child: ListTile(
+                              onLongPress: _deleteThis,
+                              leading: const Icon(
+                                Icons.receipt,
+                                color: Colors.blue,
                               ),
-                            ),
-                            subtitle: Padding(
-                              padding: const EdgeInsets.only(top: 4.0),
-                              child: Text(
-                                '${_php.format(spent)} spent this month',
+                              title: Text(
+                                expense.category,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
                               ),
-                            ),
-                            trailing: Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.edit,
-                                    color: Colors.orange,
-                                  ),
-                                  onPressed: () {
-                                    final opex = context
-                                        .read<OperationalExpenseController>();
-
-                                    showDialog(
-                                      context: context,
-                                      builder: (context) => AlertDialog(
-                                        title: const Text("Edit Category"),
-                                        content: Column(
-                                          mainAxisSize: MainAxisSize.min,
-                                          children: [
-                                            TextField(
-                                              controller: categoryController,
-                                              decoration: const InputDecoration(
-                                                labelText: "Category",
+                              subtitle: Padding(
+                                padding: const EdgeInsets.only(top: 4.0),
+                                child: Text(
+                                  '${_php.format(spent)} spent this month',
+                                ),
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.edit,
+                                      color: Colors.orange,
+                                    ),
+                                    onPressed: () {
+                                      showDialog(
+                                        context: context,
+                                        builder: (context) => AlertDialog(
+                                          title: const Text("Edit Category"),
+                                          content: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              TextField(
+                                                controller: categoryController,
+                                                decoration:
+                                                    const InputDecoration(
+                                                      labelText: "Category",
+                                                    ),
+                                              ),
+                                              TextField(
+                                                controller: amountController,
+                                                decoration:
+                                                    const InputDecoration(
+                                                      labelText: "Amount (₱)",
+                                                      prefixText: "₱ ",
+                                                    ),
+                                                keyboardType:
+                                                    const TextInputType.numberWithOptions(
+                                                      signed: false,
+                                                      decimal: true,
+                                                    ),
+                                              ),
+                                            ],
+                                          ),
+                                          actions: [
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pop(context),
+                                              child: const Text(
+                                                "Cancel",
+                                                style: TextStyle(
+                                                  color: Colors.red,
+                                                ),
                                               ),
                                             ),
-                                            TextField(
-                                              controller: amountController,
-                                              decoration: const InputDecoration(
-                                                labelText: "Amount (₱)",
-                                                prefixText: "₱ ",
-                                              ),
-                                              keyboardType:
-                                                  const TextInputType.numberWithOptions(
-                                                    signed: false,
-                                                    decimal: true,
+                                            ElevatedButton(
+                                              onPressed: () async {
+                                                final newCategory =
+                                                    categoryController.text
+                                                        .trim();
+                                                final newAmount =
+                                                    double.tryParse(
+                                                      amountController.text,
+                                                    ) ??
+                                                    expense.amount;
+                                                await c.updateAllocation(
+                                                  index,
+                                                  OperationalExpenseModel(
+                                                    id: expense.id,
+                                                    category:
+                                                        newCategory.isEmpty
+                                                        ? expense.category
+                                                        : newCategory,
+                                                    amount: newAmount,
                                                   ),
+                                                );
+                                                if (context.mounted) {
+                                                  Navigator.pop(context);
+                                                }
+                                              },
+                                              child: const Text("Update"),
                                             ),
                                           ],
                                         ),
-                                        actions: [
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pop(context),
-                                            child: const Text(
-                                              "Cancel",
-                                              style: TextStyle(
-                                                color: Colors.red,
-                                              ),
-                                            ),
-                                          ),
-                                          ElevatedButton(
-                                            onPressed: () async {
-                                              final newCategory =
-                                                  categoryController.text
-                                                      .trim();
-                                              final newAmount =
-                                                  double.tryParse(
-                                                    amountController.text,
-                                                  ) ??
-                                                  expense.amount;
-
-                                              await opex.updateAllocation(
-                                                index,
-                                                OperationalExpenseModel(
-                                                  id: expense.id,
-                                                  category: newCategory.isEmpty
-                                                      ? expense.category
-                                                      : newCategory,
-                                                  amount: newAmount,
-                                                ),
-                                              );
-
-                                              if (context.mounted)
-                                                Navigator.pop(context);
-                                            },
-                                            child: const Text("Update"),
-                                          ),
-                                        ],
-                                      ),
-                                    );
-                                  },
-                                ),
-                                IconButton(
-                                  icon: const Icon(
-                                    Icons.delete,
-                                    color: Colors.red,
+                                      );
+                                    },
                                   ),
-                                  onPressed: _deleteThis,
-                                ),
-                              ],
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: _deleteThis,
+                                  ),
+                                ],
+                              ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
 
-                    const SizedBox(height: 24),
-
-                    // ------- HISTORY: totals only (no progress) -------
-                    if (c.history.isNotEmpty) ...[
-                      Text(
-                        "Previous Months",
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.bold),
+                      const SizedBox(height: 24),
+                    ]
+                    // ------------- PREVIOUS MONTH (read-only) -------------
+                    else ...[
+                      _PreviousMonthHeader(
+                        summary: c.history[_selectedHistoryIndex!],
+                        monthFmt: _monthFmt,
                       ),
-                      const SizedBox(height: 8),
-                      ...c.history.map((m) {
-                        final statusColor = _statusColor(m.state);
-                        return Card(
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            leading: Icon(Icons.history, color: statusColor),
-                            title: Text(_monthFmt.format(m.monthStart)),
-                            subtitle: Text(
-                              '${_php.format(m.cashRaised)} total',
-                            ),
-                            trailing: Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 10,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: statusColor.withOpacity(.12),
-                                borderRadius: BorderRadius.circular(999),
-                              ),
-                              child: Text(
-                                m.state,
-                                style: TextStyle(
-                                  color: statusColor,
-                                  fontWeight: FontWeight.w700,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                          ),
-                        );
-                      }),
                       const SizedBox(height: 16),
-                    ],
-
-                    const Divider(height: 40),
-
-                    // ------- TRANSACTIONS (This Month) -------
-                    Text(
-                      "Spending (This Month)",
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                      const Text(
+                        'This is a past month. Editing categories is disabled.',
+                        style: TextStyle(color: Colors.black54, fontSize: 12),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    if (c.donations.isEmpty)
-                      const Padding(
-                        padding: EdgeInsets.symmetric(vertical: 24),
-                        child: Center(
-                          child: Text(
-                            "No expenses recorded yet.",
-                            style: TextStyle(color: Colors.grey),
-                          ),
-                        ),
-                      )
-                    else
-                      ...c.donations.asMap().entries.map((entry) {
-                        final index = entry.key;
-                        final d = entry.value;
-                        final vendor = (d.donorName.isEmpty)
-                            ? '—'
-                            : d.donorName;
-                        final dateStr = _dateFmt.format(d.date);
-
-                        final isCash = d.type == DonationType.cash;
-                        final title = isCash
-                            ? "${_php.format(d.amount ?? 0)} to $vendor"
-                            : "${(d.item ?? 'Item')} × ${(d.quantity ?? 0)} to $vendor";
-                        final subtitle = isCash
-                            ? "Expense • ${d.paymentMethod ?? '—'} • $dateStr"
-                            : "In-kind • $dateStr";
-
-                        Future<void> _deleteDonation() async {
-                          final ok = await _confirm(
-                            title: 'Delete entry?',
-                            message: 'Remove this expense entry permanently?',
-                          );
-                          if (!ok) return;
-                          c.removeDonation(index);
-                          if (!mounted) return;
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Expense entry removed'),
-                            ),
-                          );
-                        }
-
-                        return Card(
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          elevation: 2,
-                          margin: const EdgeInsets.symmetric(vertical: 6),
-                          child: ListTile(
-                            leading: Icon(
-                              isCash ? Icons.receipt_long : Icons.inventory_2,
-                              color: isCash
-                                  ? Colors.redAccent
-                                  : Colors.deepPurple,
-                            ),
-                            title: Text(title),
-                            subtitle: Text(subtitle),
-                            trailing: IconButton(
-                              icon: const Icon(Icons.delete, color: Colors.red),
-                              onPressed: _deleteDonation,
-                            ),
-                          ),
-                        );
-                      }),
+                    ],
                   ],
                 ),
               ),
       ),
 
-      // ------- FAB: Add Category (with amount) -------
-      floatingActionButton: FloatingActionButton.extended(
-        icon: const Icon(Icons.add),
-        label: const Text("Add Category"),
-        onPressed: () {
-          final opex = context.read<OperationalExpenseController>();
-          final categoryController = TextEditingController();
-          final amountController = TextEditingController();
+      // FAB only for current month
+      floatingActionButton: viewingCurrent
+          ? FloatingActionButton.extended(
+              icon: const Icon(Icons.add),
+              label: const Text("Add Category"),
+              onPressed: () {
+                final opex = context.read<OperationalExpenseController>();
+                final categoryController = TextEditingController();
+                final amountController = TextEditingController();
 
-          showDialog(
-            context: context,
-            builder: (context) {
-              bool saving = false;
-              String? error;
+                showDialog(
+                  context: context,
+                  builder: (context) {
+                    bool saving = false;
+                    String? error;
 
-              return StatefulBuilder(
-                builder: (context, setState) => AlertDialog(
-                  title: const Text("Add Category"),
-                  content: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      TextField(
-                        controller: categoryController,
-                        decoration: const InputDecoration(
-                          labelText: "Category",
-                        ),
-                      ),
-                      TextField(
-                        controller: amountController,
-                        decoration: const InputDecoration(
-                          labelText: "Amount (₱)",
-                          prefixText: "₱ ",
-                        ),
-                        keyboardType: const TextInputType.numberWithOptions(
-                          signed: false,
-                          decimal: true,
-                        ),
-                      ),
-                      if (error != null) ...[
-                        const SizedBox(height: 8),
-                        Text(error!, style: const TextStyle(color: Colors.red)),
-                      ],
-                    ],
-                  ),
-                  actions: [
-                    TextButton(
-                      onPressed: saving ? null : () => Navigator.pop(context),
-                      child: const Text(
-                        "Cancel",
-                        style: TextStyle(color: Colors.red),
-                      ),
-                    ),
-                    ElevatedButton(
-                      onPressed: saving
-                          ? null
-                          : () async {
-                              final category = categoryController.text.trim();
-                              final amount =
-                                  double.tryParse(
-                                    amountController.text.trim().isEmpty
-                                        ? '0'
-                                        : amountController.text.trim(),
-                                  ) ??
-                                  0.0;
-
-                              if (category.isEmpty) {
-                                setState(
-                                  () => error = 'Please provide a category.',
-                                );
-                                return;
-                              }
-                              if (amount < 0) {
-                                setState(
-                                  () => error = 'Amount cannot be negative.',
-                                );
-                                return;
-                              }
-
-                              setState(() {
-                                saving = true;
-                                error = null;
-                              });
-
-                              try {
-                                final ok = await opex.addAllocation(
-                                  OperationalExpenseModel(
-                                    category: category,
-                                    amount: amount,
+                    return StatefulBuilder(
+                      builder: (context, setState) => AlertDialog(
+                        title: const Text("Add Category"),
+                        content: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            TextField(
+                              controller: categoryController,
+                              decoration: const InputDecoration(
+                                labelText: "Category",
+                              ),
+                            ),
+                            TextField(
+                              controller: amountController,
+                              decoration: const InputDecoration(
+                                labelText: "Amount (₱)",
+                                prefixText: "₱ ",
+                              ),
+                              keyboardType:
+                                  const TextInputType.numberWithOptions(
+                                    signed: false,
+                                    decimal: true,
                                   ),
-                                );
+                            ),
+                            if (error != null) ...[
+                              const SizedBox(height: 8),
+                              Text(
+                                error!,
+                                style: const TextStyle(color: Colors.red),
+                              ),
+                            ],
+                          ],
+                        ),
+                        actions: [
+                          TextButton(
+                            onPressed: saving
+                                ? null
+                                : () => Navigator.pop(context),
+                            child: const Text(
+                              "Cancel",
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
+                          ElevatedButton(
+                            onPressed: saving
+                                ? null
+                                : () async {
+                                    final category = categoryController.text
+                                        .trim();
+                                    final amount =
+                                        double.tryParse(
+                                          amountController.text.trim().isEmpty
+                                              ? '0'
+                                              : amountController.text.trim(),
+                                        ) ??
+                                        0.0;
 
-                                if (!mounted) return;
-                                Navigator.pop(context);
+                                    if (category.isEmpty) {
+                                      setState(
+                                        () => error =
+                                            'Please provide a category.',
+                                      );
+                                      return;
+                                    }
+                                    if (amount < 0) {
+                                      setState(
+                                        () => error =
+                                            'Amount cannot be negative.',
+                                      );
+                                      return;
+                                    }
 
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      ok
-                                          ? 'Category added'
-                                          : 'Failed to add category',
+                                    setState(() {
+                                      saving = true;
+                                      error = null;
+                                    });
+
+                                    final ok = await opex.addAllocation(
+                                      OperationalExpenseModel(
+                                        category: category,
+                                        amount: amount,
+                                      ),
+                                    );
+
+                                    if (!mounted) return;
+                                    Navigator.pop(context);
+
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(
+                                        content: Text(
+                                          ok
+                                              ? 'Category added'
+                                              : 'Failed to add category',
+                                        ),
+                                      ),
+                                    );
+                                  },
+                            child: saving
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
                                     ),
-                                  ),
-                                );
-                              } catch (e) {
-                                setState(() {
-                                  saving = false;
-                                  error = e.toString();
-                                });
-                              }
-                            },
-                      child: saving
-                          ? const SizedBox(
-                              width: 18,
-                              height: 18,
-                              child: CircularProgressIndicator(strokeWidth: 2),
-                            )
-                          : const Text("Add"),
+                                  )
+                                : const Text("Add"),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                );
+              },
+            )
+          : null,
+    );
+  }
+}
+
+/* ============================ helpers ============================ */
+
+class _MonthChoice {
+  final String label;
+  final bool isCurrent;
+  final int? indexInHistory; // used when !isCurrent
+
+  _MonthChoice.current({required this.label})
+    : isCurrent = true,
+      indexInHistory = null;
+
+  _MonthChoice.history({required this.indexInHistory, required this.label})
+    : isCurrent = false;
+}
+
+class _HeaderCard extends StatelessWidget {
+  const _HeaderCard({
+    required this.title,
+    required this.value,
+    required this.statusText,
+    required this.statusColor,
+    required this.icon,
+    required this.subText,
+    required this.warnClosed,
+  });
+
+  final String title;
+  final String value;
+  final String statusText;
+  final Color statusColor;
+  final IconData icon;
+  final String subText;
+  final bool warnClosed;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.only(top: 8, bottom: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF8F4FF),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(
+                title,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(color: Colors.black87),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
+                decoration: BoxDecoration(
+                  color: statusColor.withOpacity(.12),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Row(
+                  children: [
+                    Icon(icon, size: 16, color: statusColor),
+                    const SizedBox(width: 6),
+                    Text(
+                      statusText,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w600,
+                        color: statusColor,
+                      ),
                     ),
                   ],
                 ),
-              );
-            },
-          );
-        },
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: Colors.blue.shade600,
+              letterSpacing: 0.2,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            subText,
+            style: Theme.of(
+              context,
+            ).textTheme.labelMedium?.copyWith(color: Colors.black54),
+          ),
+          if (warnClosed) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Month is closed. Adding new entries should be disabled.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 12, color: Colors.redAccent),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _PreviousMonthHeader extends StatelessWidget {
+  const _PreviousMonthHeader({required this.summary, required this.monthFmt});
+
+  final MonthSummary summary;
+  final DateFormat monthFmt;
+
+  Color _statusColor(String s) {
+    switch (s) {
+      case 'completed':
+        return Colors.green;
+      case 'closed':
+        return Colors.grey;
+      default:
+        return Colors.blue;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusColor = _statusColor(summary.state);
+    return Card(
+      elevation: 2,
+      margin: const EdgeInsets.only(top: 8),
+      child: ListTile(
+        leading: Icon(Icons.history, color: statusColor),
+        title: Text(monthFmt.format(summary.monthStart)),
+        // 👇 removed the "₱xxx total" subtitle
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: statusColor.withOpacity(.12),
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: Text(
+            summary.state,
+            style: TextStyle(
+              color: statusColor,
+              fontWeight: FontWeight.w700,
+              fontSize: 12,
+            ),
+          ),
+        ),
       ),
     );
   }

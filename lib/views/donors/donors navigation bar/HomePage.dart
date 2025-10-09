@@ -371,6 +371,10 @@ class _UserGreeting extends StatelessWidget {
 /*                   REMAINING FUNDS HEADER (SUMMARY)                         */
 /* -------------------------------------------------------------------------- */
 
+/* -------------------------------------------------------------------------- */
+/*                   REMAINING FUNDS HEADER (SUMMARY)                         */
+/* -------------------------------------------------------------------------- */
+
 class _RemainingFundsHeader extends StatefulWidget {
   const _RemainingFundsHeader({Key? key}) : super(key: key);
 
@@ -387,13 +391,9 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
   final _dateFmt = DateFormat('MMM d, yyyy');
 
   bool _loading = true;
+
   double _donationsToday = 0;
   double _donationsMonth = 0;
-
-  // Expenses
-  double _manualAllocations = 0;
-  double _trackedCash = 0;
-
   DateTime? _monthEndLocal;
 
   double _toD(dynamic v) {
@@ -414,29 +414,18 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
   @override
   void initState() {
     super.initState();
-    _hydrate();
+    _hydrateDonations();
   }
 
-  Future<void> _hydrate() async {
+  Future<void> _hydrateDonations() async {
     final sb = Supabase.instance.client;
     try {
-      // ---- resolve active month
+      // ---- resolve active month window (local)
       Map<String, dynamic>? monthRow = await sb
           .from('opex_months')
           .select('month_start, month_end, status')
           .eq('status', 'active')
           .maybeSingle();
-
-      if (monthRow == null) {
-        final latest = await sb
-            .from('opex_months')
-            .select('month_start, month_end, status')
-            .order('month_start', ascending: false)
-            .limit(1);
-        if (latest is List && latest.isNotEmpty) {
-          monthRow = latest.first as Map<String, dynamic>;
-        }
-      }
 
       final nowLocal = DateTime.now();
       final monthStartLocal =
@@ -444,16 +433,11 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
           DateTime(nowLocal.year, nowLocal.month, 1);
       _monthEndLocal =
           _toDate(monthRow?['month_end']) ??
-          ((_monthStartLocal(monthStartLocal).month == 12)
+          ((monthStartLocal.month == 12)
               ? DateTime(monthStartLocal.year + 1, 1, 0)
               : DateTime(monthStartLocal.year, monthStartLocal.month + 1, 0));
 
       // UTC bounds for timestamptz columns
-      final monthStartUtc = DateTime(
-        monthStartLocal.year,
-        monthStartLocal.month,
-        1,
-      ).toUtc();
       final nextMonthStartUtc = (monthStartLocal.month == 12)
           ? DateTime(monthStartLocal.year + 1, 1, 1).toUtc()
           : DateTime(
@@ -461,16 +445,19 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
               monthStartLocal.month + 1,
               1,
             ).toUtc();
+      final monthStartUtc = DateTime(
+        monthStartLocal.year,
+        monthStartLocal.month,
+        1,
+      ).toUtc();
       final todayStartUtc = DateTime(
         nowLocal.year,
         nowLocal.month,
         nowLocal.day,
       ).toUtc();
 
-      // ---- donations
+      // ---- donations today
       double sumToday = 0;
-      double sumMonth = 0;
-
       final todayRows = await sb
           .from('donations')
           .select('amount, created_at')
@@ -478,6 +465,8 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
           .lt('created_at', nextMonthStartUtc.toIso8601String());
       for (final r in (todayRows as List)) sumToday += _toD(r['amount']);
 
+      // ---- donations this month
+      double sumMonth = 0;
       final monthRows = await sb
           .from('donations')
           .select('amount, created_at')
@@ -485,41 +474,10 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
           .lt('created_at', nextMonthStartUtc.toIso8601String());
       for (final r in (monthRows as List)) sumMonth += _toD(r['amount']);
 
-      // ---- manual allocations (this month)
-      double manual = 0;
-      final allocRows = await sb
-          .from('operational_expense_allocations')
-          .select('amount, created_at')
-          .gte('created_at', monthStartUtc.toIso8601String())
-          .lt('created_at', nextMonthStartUtc.toIso8601String());
-      for (final r in (allocRows as List)) manual += _toD(r['amount']);
-
-      // fallback if month filter blocked by RLS/timezone
-      if (manual == 0) {
-        final all = await sb
-            .from('operational_expense_allocations')
-            .select('amount');
-        for (final r in (all as List)) manual += _toD(r['amount']);
-      }
-
-      // ---- tracked cash from the controller/view (same as admin page)
-      final c = context.read<OperationalExpenseController>();
-      // ensure latest loaded (but it's already loading in Provider create)
-      // await c.loadAllocations(); // optional
-      final progress = await sb.from('v_opex_month_progress').select().limit(1);
-      double tracked = 0;
-      if (progress is List && progress.isNotEmpty) {
-        tracked = _toD((progress.first as Map<String, dynamic>)['cash_raised']);
-      } else {
-        tracked = c.totalDonationsCash; // backup from controller
-      }
-
       if (!mounted) return;
       setState(() {
         _donationsToday = sumToday;
         _donationsMonth = sumMonth;
-        _manualAllocations = manual;
-        _trackedCash = tracked;
         _loading = false;
       });
     } catch (_) {
@@ -528,15 +486,21 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
     }
   }
 
-  DateTime _monthStartLocal(DateTime d) => DateTime(d.year, d.month, 1);
-
   @override
   Widget build(BuildContext context) {
     const brand = Color(0xFF1F2C47);
     final border = BorderSide(color: Colors.grey.shade300);
+    final c = context.watch<OperationalExpenseController>();
 
-    final totalExpenses = _manualAllocations + _trackedCash;
+    final manualTotal = c.operationalExpenseList.fold<double>(
+      0,
+      (s, e) => s + e.amount,
+    );
+    final trackedTotal = c.totalDonationsCash; // your “tracked spend” entries
+    final totalExpenses = manualTotal + trackedTotal;
+
     final remaining = _donationsMonth - totalExpenses;
+
     final isNegative = remaining < 0;
 
     final asOfStr = _monthEndLocal == null
@@ -590,18 +554,25 @@ class _RemainingFundsHeaderState extends State<_RemainingFundsHeader> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     _miniStat("Today", _php.format(_donationsToday)),
-                    _miniStat("This Month", _php.format(_donationsMonth)),
+                    _miniStat(
+                      "This Month (Donations)",
+                      _php.format(_donationsMonth),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 6),
-                // Debug lines (helps verify numbers; remove if you don't want them)
+                // helpful breakdown (from controller)
                 Text(
-                  'Expenses (alloc): ${_php.format(_manualAllocations)}',
+                  'Expenses (manual): ${_php.format(manualTotal)}',
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
                 ),
                 Text(
-                  'Expenses (tracked): ${_php.format(_trackedCash)}',
+                  'Expenses (tracked): ${_php.format(trackedTotal)}',
                   style: const TextStyle(fontSize: 12, color: Colors.black54),
+                ),
+                Text(
+                  'Total Expenses: ${_php.format(totalExpenses)}',
+                  style: const TextStyle(fontSize: 12, color: Colors.black87),
                 ),
               ],
             ),

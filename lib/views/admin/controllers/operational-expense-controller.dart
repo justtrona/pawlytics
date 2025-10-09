@@ -1,10 +1,8 @@
-// lib/views/admin/controllers/operational-expense-controller.dart
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pawlytics/views/admin/model/operational-expense-model.dart';
 import 'package:pawlytics/views/admin/model/donation-model.dart';
 
-/// ---------- Helpers ----------
 double _toD(dynamic v) {
   if (v is num) return v.toDouble();
   if (v == null) return 0.0;
@@ -20,7 +18,6 @@ DateTime? _toDate(dynamic v) {
   }
 }
 
-/// Current-month header row (from v_opex_month_progress)
 class OpexMonthProgress {
   final DateTime? monthStart, monthEnd;
   final double goalAmount, cashRaised, inkindRaised, totalRaised, progressRatio;
@@ -48,12 +45,11 @@ class OpexMonthProgress {
   }
 }
 
-/// Historical month row (from v_opex_months_summary)
 class MonthSummary {
   final int opexId;
   final DateTime monthStart, monthEnd;
   final double goalAmount, cashRaised, progressRatio;
-  final String state; // 'active' | 'closed' | 'completed'
+  final String state;
 
   MonthSummary({
     required this.opexId,
@@ -81,32 +77,23 @@ class MonthSummary {
 class OperationalExpenseController extends ChangeNotifier {
   final SupabaseClient _sb = Supabase.instance.client;
 
-  // --- Local state ---
   final List<OperationalExpenseModel> _operationalExpenseList = [];
-  final List<DonationModel> _donations = []; // UI-only list for now
+  final List<DonationModel> _donations = []; // UI-only list
   bool _loading = false;
 
-  // Header/current month
   OpexMonthProgress? _progress;
-
-  // allocationId -> cash raised this month (from v_opex_allocation_breakdown)
   final Map<int, double> _raisedByAllocationId = {};
-
-  // History
   final List<MonthSummary> _history = [];
 
-  // --- Public getters ---
+  // --- Getters ---
   bool get loading => _loading;
-
   List<OperationalExpenseModel> get operationalExpenseList =>
       List.unmodifiable(_operationalExpenseList);
-
   List<DonationModel> get donations => List.unmodifiable(_donations);
-
   List<MonthSummary> get history => List.unmodifiable(_history);
 
   double get expenseGoal => _progress?.goalAmount ?? 0.0;
-  double get totalDonationsCash => _progress?.cashRaised ?? 0.0;
+  double get totalDonationsCash => _progress?.cashRaised ?? 0.0; // from view
   double get totalDonationsInKind => _progress?.inkindRaised ?? 0.0;
   double get totalRaised => _progress?.totalRaised ?? 0.0;
 
@@ -116,17 +103,29 @@ class OperationalExpenseController extends ChangeNotifier {
   }
 
   DateTime? get currentMonthEnd => _progress?.monthEnd;
-
   bool get isCurrentMonthClosed {
     final end = _progress?.monthEnd;
     if (end == null) return false;
     return DateTime.now().isAfter(end);
-    // If you need “end of day inclusive”, add +1 day and compare.
   }
 
   bool get isCurrentMonthCompleted => progress >= 1.0;
 
-  /// % of total goal for a given allocation
+  /// ---------------- Single source of truth totals ----------------
+  /// Sum of all manual category amounts (admin-entered)
+  double get manualAllocationsTotal =>
+      _operationalExpenseList.fold<double>(0.0, (s, e) => s + e.amount);
+
+  /// Alias: if your progress view’s cash_raised actually represents tracked expense,
+  /// keep this alias; update mapping here if your schema changes.
+  double get trackedExpensesCash => totalDonationsCash;
+
+  /// Canonical monthly expense total shown on Admin header
+  double get totalExpensesThisMonth =>
+      manualAllocationsTotal + trackedExpensesCash;
+
+  /// ---------------------------------------------------------------
+
   double allocationPercent(int index) {
     if (expenseGoal <= 0 ||
         index < 0 ||
@@ -136,13 +135,11 @@ class OperationalExpenseController extends ChangeNotifier {
     return _operationalExpenseList[index].amount / expenseGoal;
   }
 
-  /// Raised for a given allocation id (cash this month)
   double raisedForAllocationId(int? id) {
     if (id == null) return 0.0;
     return _raisedByAllocationId[id] ?? 0.0;
   }
 
-  /// Progress within a single allocation (0..1)
   double allocationProgress(int index) {
     if (index < 0 || index >= _operationalExpenseList.length) return 0.0;
     final row = _operationalExpenseList[index];
@@ -152,18 +149,15 @@ class OperationalExpenseController extends ChangeNotifier {
     return p.isFinite ? p.clamp(0.0, 1.0) : 0.0;
   }
 
-  // --- DB objects ---
   static const _allocTable = 'operational_expense_allocations';
   static const _progressView = 'v_opex_month_progress';
   static const _allocBreakdownView = 'v_opex_allocation_breakdown';
   static const _historyView = 'v_opex_months_summary';
 
-  // --- Loads ---
   Future<void> loadAllocations() async {
     _loading = true;
     notifyListeners();
     try {
-      // 1) allocations
       final rowsDyn = await _sb
           .from(_allocTable)
           .select('id, category, amount, created_at, updated_at, due_date')
@@ -173,13 +167,8 @@ class OperationalExpenseController extends ChangeNotifier {
         ..clear()
         ..addAll(rows.map(OperationalExpenseModel.fromMap));
 
-      // 2) header progress
       await _loadProgress();
-
-      // 3) per-allocation raised
       await _loadAllocationBreakdown();
-
-      // 4) monthly history
       await _loadHistory();
     } catch (e, st) {
       debugPrint('loadAllocations error: $e');
@@ -249,7 +238,6 @@ class OperationalExpenseController extends ChangeNotifier {
         );
       }
     } catch (e) {
-      // If the history view isn't present, keep history empty.
       debugPrint('load history skipped: $e');
     }
   }
@@ -261,12 +249,8 @@ class OperationalExpenseController extends ChangeNotifier {
     notifyListeners();
   }
 
-  // --- CRUD for allocations ---
-
-  /// Insert with RLS-safe fallback. Returns true if a row was inserted.
   Future<bool> addAllocation(OperationalExpenseModel input) async {
     try {
-      // 1) Try direct insert first (may be blocked by RLS)
       final inserted = await _sb
           .from(_allocTable)
           .insert(input.toInsert())
@@ -282,18 +266,11 @@ class OperationalExpenseController extends ChangeNotifier {
         return true;
       }
 
-      debugPrint('addAllocation: insert returned no row; trying RPC…');
-
-      // 2) Fallback RPC (SECURITY DEFINER)
       final rpcRes = await _sb.rpc(
         'admin_insert_opex_allocation',
         params: {'p_category': input.category, 'p_amount': input.amount},
       );
-
-      if (rpcRes == null) {
-        debugPrint('addAllocation RPC returned null.');
-        return false;
-      }
+      if (rpcRes == null) return false;
 
       _operationalExpenseList.insert(
         0,
@@ -301,9 +278,6 @@ class OperationalExpenseController extends ChangeNotifier {
       );
       await _postMutateReload();
       return true;
-    } on PostgrestException catch (e) {
-      debugPrint('addAllocation Postgrest error: ${e.code} ${e.message}');
-      return false;
     } catch (e, st) {
       debugPrint('addAllocation error: $e');
       debugPrintStack(stackTrace: st);
@@ -311,8 +285,6 @@ class OperationalExpenseController extends ChangeNotifier {
     }
   }
 
-  /// Update allocation (with RPC fallback for RLS-protected tables).
-  /// Returns true if a row was updated.
   Future<bool> updateAllocation(
     int index,
     OperationalExpenseModel updated,
@@ -328,7 +300,6 @@ class OperationalExpenseController extends ChangeNotifier {
     };
 
     try {
-      // Try standard PostgREST update first
       final updatedRow = await _sb
           .from(_allocTable)
           .update(payload)
@@ -344,11 +315,6 @@ class OperationalExpenseController extends ChangeNotifier {
         return true;
       }
 
-      debugPrint(
-        'updateAllocation: no row returned (RLS or not found). Trying RPC…',
-      );
-
-      // Fallback: RPC with SECURITY DEFINER
       final rpcRes = await _sb.rpc(
         'admin_update_opex_allocation',
         params: {
@@ -357,20 +323,13 @@ class OperationalExpenseController extends ChangeNotifier {
           'p_amount': updated.amount,
         },
       );
-
-      if (rpcRes == null) {
-        debugPrint('RPC returned null (update may be blocked).');
-        return false;
-      }
+      if (rpcRes == null) return false;
 
       _operationalExpenseList[index] = OperationalExpenseModel.fromMap(
         (rpcRes as Map<String, dynamic>),
       );
       await _postMutateReload();
       return true;
-    } on PostgrestException catch (e) {
-      debugPrint('Postgrest update error: ${e.code} ${e.message}');
-      return false;
     } catch (e, st) {
       debugPrint('updateAllocation error: $e');
       debugPrintStack(stackTrace: st);
@@ -378,7 +337,6 @@ class OperationalExpenseController extends ChangeNotifier {
     }
   }
 
-  /// Delete allocation (with RPC fallback). Returns true if a row was deleted.
   Future<bool> removeAllocation(int index) async {
     if (index < 0 || index >= _operationalExpenseList.length) return false;
     final item = _operationalExpenseList[index];
@@ -386,12 +344,11 @@ class OperationalExpenseController extends ChangeNotifier {
 
     final id = item.id!;
     try {
-      // Try direct delete with RETURNING
       final deletedRow = await _sb
           .from(_allocTable)
           .delete()
           .eq('id', id)
-          .select('id') // RETURNING id
+          .select('id')
           .maybeSingle();
 
       if (deletedRow != null) {
@@ -400,25 +357,15 @@ class OperationalExpenseController extends ChangeNotifier {
         return true;
       }
 
-      debugPrint('removeAllocation: no row returned; trying RPC…');
-
-      // Fallback: RPC
       final rpcRes = await _sb.rpc(
         'admin_delete_opex_allocation',
         params: {'p_id': id},
       );
-
-      if (rpcRes == null) {
-        debugPrint('removeAllocation RPC returned null.');
-        return false;
-      }
+      if (rpcRes == null) return false;
 
       _operationalExpenseList.removeAt(index);
       await _postMutateReload();
       return true;
-    } on PostgrestException catch (e) {
-      debugPrint('removeAllocation Postgrest error: ${e.code} ${e.message}');
-      return false;
     } catch (e, st) {
       debugPrint('removeAllocation error: $e');
       debugPrintStack(stackTrace: st);
@@ -426,7 +373,7 @@ class OperationalExpenseController extends ChangeNotifier {
     }
   }
 
-  // --- UI-only donation list (keeps your existing cards working) ---
+  // UI-only list helpers (unchanged)
   void addDonation(DonationModel d) {
     _donations.add(d);
     notifyListeners();
