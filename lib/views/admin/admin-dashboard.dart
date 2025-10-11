@@ -44,6 +44,9 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
   List<_DonationRowData> _latestDonationRows = const [];
 
+  // Top campaigns (dynamic)
+  List<_SimpleCampaign> _topCampaigns = const [];
+
   bool _loading = true;
 
   @override
@@ -51,7 +54,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<OperationalExpenseController>().loadAllocations();
-      _loadAdminIdentity(); // <- load name/email
+      _loadAdminIdentity();
       _loadDashboard();
     });
   }
@@ -62,7 +65,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
       final user = sb.auth.currentUser;
       if (user == null) return;
 
-      // Try registration table first
       final row = await sb
           .from('registration')
           .select('fullName,email')
@@ -83,9 +85,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                         : 'Admin'));
         _adminEmail = emailFromReg.isNotEmpty ? emailFromReg : emailFallback;
       });
-    } catch (e) {
-      // keep defaults on error
-    }
+    } catch (_) {}
   }
 
   Future<void> _loadDashboard() async {
@@ -176,12 +176,38 @@ class _AdminDashboardState extends State<AdminDashboard> {
           })
           .toList(growable: false);
 
+      // Top campaigns (latest 6)
+      final campRows = await sb
+          .from('campaigns')
+          .select('program,fundraising_goal,currency,created_at')
+          .order('created_at', ascending: false)
+          .limit(6);
+
+      final topCamps = (campRows as List)
+          .map<_SimpleCampaign>((r) {
+            final name = (r['program'] ?? '').toString().trim();
+            final currency = (r['currency'] ?? 'PHP')
+                .toString()
+                .trim()
+                .toUpperCase();
+            final goal = (r['fundraising_goal'] is num)
+                ? (r['fundraising_goal'] as num).toDouble()
+                : double.tryParse('${r['fundraising_goal']}') ?? 0.0;
+            return _SimpleCampaign(
+              program: name.isEmpty ? 'Campaign' : name,
+              goal: goal,
+              currency: currency,
+            );
+          })
+          .toList(growable: false);
+
       setState(() {
         _todayTotalNum = today;
         _monthTotalNum = month;
         _weekTotals = weekTotals;
         _weekLabels = labels;
         _latestDonationRows = latestRows;
+        _topCampaigns = topCamps;
         _loading = false;
       });
     } catch (e) {
@@ -191,6 +217,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
         _weekTotals = const [0, 0, 0, 0, 0, 0, 0];
         _weekLabels = const ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
         _latestDonationRows = const [];
+        _topCampaigns = const [];
         _loading = false;
       });
     }
@@ -201,8 +228,17 @@ class _AdminDashboardState extends State<AdminDashboard> {
   static String _dateKey(DateTime d) =>
       '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
 
+  // Keeps PHP for the big cards & chart tooltips
   String _formatCurrency(double v) =>
       'PHP ${v.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\\d)(?=(\\d{3})+\\.)'), (m) => '${m[1]},')}';
+
+  // Plain number (no currency) for Top Campaigns list
+  String _formatMoneyPlain(double v) => v
+      .toStringAsFixed(2)
+      .replaceAllMapped(RegExp(r'(\\d)(?=(\\d{3})+\\.)'), (m) => '${m[1]},');
+
+  // Formats with per-row currency but returns PLAIN number only (as requested)
+  String _formatCurrencyAny(double v, [String? _]) => _formatMoneyPlain(v);
 
   double _niceMax(double v) {
     if (v <= 100) return (v / 25).ceil() * 25.0;
@@ -274,7 +310,6 @@ class _AdminDashboardState extends State<AdminDashboard> {
                           ),
                         ),
                         const SizedBox(width: 10),
-                        // Name + Email (dynamic)
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -479,16 +514,20 @@ class _AdminDashboardState extends State<AdminDashboard> {
 
               const SizedBox(height: 12),
 
+              // ---- Dynamic Top Campaigns (NO PHP label) ----
               _CardListSection(
                 title: "Top Campaigns",
-                items: const [
-                  _Item("Honey's Medical Bills", "PHP 1000.00"),
-                  _Item("Utilities", "PHP 500.00"),
-                  _Item("Stray Dogs Meals", "PHP 500.00"),
-                  _Item("Shelters’ Food & Water", "PHP 5500.00"),
-                  _Item("Honorarium", "PHP 3120.00"),
-                  _Item("Emergency Medical Fund", "PHP 4890.00"),
-                ],
+                items: _topCampaigns
+                    .map(
+                      (c) => _Item(
+                        c.program,
+                        _formatCurrencyAny(
+                          c.goal,
+                          c.currency,
+                        ), // returns plain number
+                      ),
+                    )
+                    .toList(),
               ),
             ],
           ),
@@ -511,7 +550,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
               BoxShadow(
                 color: Colors.black.withOpacity(0.2),
                 blurRadius: 6,
-                offset: const Offset(0, 3),
+                offset: Offset(0, 3),
               ),
             ],
           ),
@@ -546,13 +585,23 @@ class _AdminDashboardState extends State<AdminDashboard> {
 // Helper models & widgets
 // -------------------------------------------------------------------
 
+class _SimpleCampaign {
+  final String program;
+  final double goal;
+  final String currency;
+  _SimpleCampaign({
+    required this.program,
+    required this.goal,
+    required this.currency,
+  });
+}
+
 class _DonationRowData {
   final String donor;
   final String type; // 'Cash' or 'InKind'
   final double amount;
   final String? item;
   final int? quantity;
-
   const _DonationRowData({
     required this.donor,
     required this.type,
@@ -566,8 +615,10 @@ class _LatestDonationsSection extends StatelessWidget {
   final List<_DonationRowData> items;
   const _LatestDonationsSection({required this.items});
 
-  String _formatCurrency(double v) =>
-      'PHP ${v.toStringAsFixed(2).replaceAllMapped(RegExp(r'(\\d)(?=(\\d{3})+\\.)'), (m) => '${m[1]},')}';
+  // NO PHP label here — plain number
+  String _formatMoneyPlain(double v) => v
+      .toStringAsFixed(2)
+      .replaceAllMapped(RegExp(r'(\\d)(?=(\\d{3})+\\.)'), (m) => '${m[1]},');
 
   @override
   Widget build(BuildContext context) {
@@ -580,7 +631,7 @@ class _LatestDonationsSection extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 6,
-            offset: const Offset(0, 3),
+            offset: Offset(0, 3),
           ),
         ],
       ),
@@ -684,7 +735,7 @@ class _LatestDonationsSection extends StatelessWidget {
                           ),
                         ),
                         Text(
-                          _formatCurrency(it.amount),
+                          _formatMoneyPlain(it.amount), // no PHP
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w700,
@@ -754,7 +805,7 @@ class _CardListSection extends StatelessWidget {
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
             blurRadius: 6,
-            offset: const Offset(0, 3),
+            offset: Offset(0, 3),
           ),
         ],
       ),
@@ -811,7 +862,7 @@ class _CardListSection extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Text(
-                          item.right,
+                          item.right, // already plain number
                           style: const TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,

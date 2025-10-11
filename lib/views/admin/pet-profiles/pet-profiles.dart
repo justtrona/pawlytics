@@ -239,6 +239,7 @@ class _PetProfilesState extends State<PetProfiles> {
         elevation: 0,
         backgroundColor: Colors.white,
         foregroundColor: _brandDark,
+        centerTitle: true,
         leading: const BackButton(color: _brandDark),
         title: const Text(
           'Pet Profiles',
