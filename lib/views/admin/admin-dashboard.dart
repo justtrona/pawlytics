@@ -566,7 +566,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
             onPressed: () =>
                 Navigator.pushNamed(context, route.donationReports),
             child: const Text(
-              "Manage Donations",
+              "Show Reports",
               style: TextStyle(
                 fontSize: 17,
                 color: Colors.white,

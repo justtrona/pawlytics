@@ -16,8 +16,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
   final _emailCtrl = TextEditingController();
 
   bool _donateAnonymously = false;
-
-  String? _avatarUrl; // can be http(s) or asset path
+  String? _avatarUrl;
   bool _avatarIsNetwork = false;
 
   bool _loading = true;
@@ -53,11 +52,11 @@ class _ProfileSettingsState extends State<ProfileSettings> {
         return;
       }
 
-      // ---------------- Prefill from Auth ----------------
       _emailCtrl.text = user.email ?? '';
       final md = user.userMetadata ?? {};
+
       final metaName =
-          (md['fullName'] as String?) ?? // support camelCase too
+          (md['fullName'] as String?) ??
           (md['full_name'] as String?) ??
           (md['name'] as String?) ??
           (md['username'] as String?) ??
@@ -82,7 +81,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
         _avatarIsNetwork = _avatarUrl!.startsWith('http');
       }
 
-      // ---------------- Enrich from registrations (preferred DB source) ----------------
+      // Registrations table
       try {
         Map<String, dynamic>? reg = await _sb
             .from('registrations')
@@ -90,64 +89,51 @@ class _ProfileSettingsState extends State<ProfileSettings> {
             .eq('auth_user_id', user.id)
             .maybeSingle();
 
-        // Fallback by email if auth_user_id is NULL in the table
         if (reg == null && (user.email ?? '').isNotEmpty) {
           reg = await _sb
               .from('registrations')
               .select('fullName, email, phone_number')
-              .eq('email', user.email!) // <-- non-null asserted
+              .eq('email', user.email!)
               .maybeSingle();
         }
 
         if (reg != null) {
-          final rName = (reg['fullName'] as String?);
-          final rEmail = (reg['email'] as String?);
-          final rPhone = (reg['phone_number'] as String?);
-
-          if (rName != null && rName.trim().isNotEmpty) {
-            _nameCtrl.text = rName.trim();
+          if ((reg['fullName'] as String?)?.isNotEmpty == true) {
+            _nameCtrl.text = reg['fullName'];
           }
-          if (rEmail != null && rEmail.trim().isNotEmpty) {
-            _emailCtrl.text = rEmail.trim();
+          if ((reg['email'] as String?)?.isNotEmpty == true) {
+            _emailCtrl.text = reg['email'];
           }
-          if (rPhone != null && rPhone.trim().isNotEmpty) {
-            _phoneCtrl.text = rPhone.trim();
+          if ((reg['phone_number'] as String?)?.isNotEmpty == true) {
+            _phoneCtrl.text = reg['phone_number'];
           }
         }
-      } catch (_) {
-        // table/columns may not exist or RLS; ignore to keep UX smooth
-      }
+      } catch (_) {}
 
-      // ---------------- Enrich from profiles (optional fallback) ----------------
+      // Profiles table
       try {
-        final Map<String, dynamic>? res = await _sb
+        final res = await _sb
             .from('profiles')
             .select('full_name, phone, donate_anonymously, avatar_url')
             .eq('id', user.id)
             .maybeSingle();
 
         if (res != null) {
-          final pName = (res['full_name'] as String?);
-          final pPhone = (res['phone'] as String?);
-          final pAnon = (res['donate_anonymously'] as bool?);
-          final pAvatar = (res['avatar_url'] as String?);
-
-          if (pName != null && pName.trim().isNotEmpty) {
-            _nameCtrl.text = pName.trim();
+          if ((res['full_name'] as String?)?.isNotEmpty == true) {
+            _nameCtrl.text = res['full_name'];
           }
-          if (pPhone != null && pPhone.trim().isNotEmpty) {
-            _phoneCtrl.text = pPhone.trim();
+          if ((res['phone'] as String?)?.isNotEmpty == true) {
+            _phoneCtrl.text = res['phone'];
           }
-          if (pAnon != null) _donateAnonymously = pAnon;
-
-          if (pAvatar != null && pAvatar.trim().isNotEmpty) {
-            _avatarUrl = pAvatar.trim();
+          if ((res['donate_anonymously'] as bool?) != null) {
+            _donateAnonymously = res['donate_anonymously'];
+          }
+          if ((res['avatar_url'] as String?)?.isNotEmpty == true) {
+            _avatarUrl = res['avatar_url'];
             _avatarIsNetwork = _avatarUrl!.startsWith('http');
           }
         }
-      } catch (_) {
-        // profiles table may not exist; ignore
-      }
+      } catch (_) {}
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -170,11 +156,15 @@ class _ProfileSettingsState extends State<ProfileSettings> {
     });
 
     try {
-      // ---------------- 1) Update Auth (email + metadata) ----------------
+      // Use Anonymous name if toggle is ON
+      final displayName = _donateAnonymously
+          ? 'Anonymous Donor'
+          : _nameCtrl.text.trim();
+
+      // ---------------- 1) Update Auth ----------------
       final meta = <String, dynamic>{
-        // write both cases for compatibility
-        'fullName': _nameCtrl.text.trim(),
-        'full_name': _nameCtrl.text.trim(),
+        'fullName': displayName,
+        'full_name': displayName,
         'phone': _phoneCtrl.text.trim(),
         'donate_anonymously': _donateAnonymously,
         if (_avatarUrl != null) 'avatar_url': _avatarUrl,
@@ -187,37 +177,49 @@ class _ProfileSettingsState extends State<ProfileSettings> {
         await _sb.auth.updateUser(UserAttributes(data: meta));
       }
 
-      // ---------------- 2) Upsert into registrations (preferred) ----------------
+      // ---------------- 2) registrations ----------------
       try {
         await _sb.from('registrations').upsert({
           'auth_user_id': user.id,
-          'fullName': _nameCtrl.text.trim(),
+          'fullName': displayName,
           'email': _emailCtrl.text.trim(),
           'phone_number': _phoneCtrl.text.trim(),
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'auth_user_id');
-      } catch (_) {
-        // table may not exist or no permission; skip silently
-      }
+      } catch (_) {}
 
-      // ---------------- 3) Upsert into profiles (optional) ----------------
+      // ---------------- 3) profiles ----------------
       try {
         await _sb.from('profiles').upsert({
           'id': user.id,
-          'full_name': _nameCtrl.text.trim(),
+          'full_name': displayName,
           'phone': _phoneCtrl.text.trim(),
           'donate_anonymously': _donateAnonymously,
           'avatar_url': _avatarUrl,
           'updated_at': DateTime.now().toIso8601String(),
         });
-      } catch (_) {
-        // ignore if table not present
-      }
+      } catch (_) {}
+
+      // ---------------- 4) Update past donations ----------------
+      try {
+        await _sb
+            .from('donations')
+            .update({'donor_name': displayName})
+            .eq('user_id', user.id);
+      } catch (_) {}
 
       if (!mounted) return;
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Profile saved')));
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            _donateAnonymously
+                ? 'Your donations will now appear as Anonymous.'
+                : 'Your name will now appear on your donations.',
+          ),
+        ),
+      );
+
       Navigator.pop(context);
     } on AuthException catch (e) {
       setState(() => _error = e.message);
@@ -312,14 +314,24 @@ class _ProfileSettingsState extends State<ProfileSettings> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 30),
+                  const SizedBox(height: 25),
 
+                  // Disable name field if anonymous toggle is ON
                   TextField(
                     controller: _nameCtrl,
                     textCapitalization: TextCapitalization.words,
-                    decoration: const InputDecoration(
+                    enabled: !_donateAnonymously,
+                    decoration: InputDecoration(
                       labelText: "Full Name",
-                      border: UnderlineInputBorder(),
+                      border: const UnderlineInputBorder(),
+                      labelStyle: TextStyle(
+                        color: _donateAnonymously
+                            ? Colors.grey
+                            : Colors.grey.shade800,
+                      ),
+                      helperText: _donateAnonymously
+                          ? "Disabled while anonymous"
+                          : null,
                     ),
                   ),
                   const SizedBox(height: 16),
@@ -365,9 +377,9 @@ class _ProfileSettingsState extends State<ProfileSettings> {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                "When enabled, your name will not appear on public donation records or certificate.",
+                                "Your name will appear as 'Anonymous Donor' in public donations and records.",
                                 style: TextStyle(
-                                  fontSize: 15,
+                                  fontSize: 14,
                                   color: Color(0xFF23344E),
                                 ),
                               ),
@@ -412,7 +424,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
                               style: TextStyle(
                                 fontSize: 16,
                                 fontWeight: FontWeight.bold,
-                                color: Color.fromARGB(255, 225, 227, 232),
+                                color: Colors.white,
                               ),
                             ),
                     ),

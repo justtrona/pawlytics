@@ -3,169 +3,114 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../model/manage-usermodel.dart';
 
 class ManageUserController extends ChangeNotifier {
-  ManageUserController({this.currentAdminId, this.useMocks = false});
-
-  /// ⚠️ Change if your table is not `users`
-  static const String tableName = 'users';
+  ManageUserController({required this.currentAdminId});
 
   final String? currentAdminId;
-  bool useMocks;
 
+  // UI state
   final TextEditingController searchCtl = TextEditingController();
+  UiRole? roleFilter;
+  bool loading = false;
 
-  bool _loading = false;
-  UiRole? _roleFilter; // null = all
-  List<AdminUser> _users = [];
+  // Data
+  List<AdminUser> _all = [];
 
-  bool get loading => _loading;
-  UiRole? get roleFilter => _roleFilter;
-  List<AdminUser> get users => List.unmodifiable(_users);
+  // Computed getter for visible users
+  List<AdminUser> get users {
+    final q = searchCtl.text.trim().toLowerCase();
+    Iterable<AdminUser> result = _all;
 
-  SupabaseClient get _sb => Supabase.instance.client;
+    if (roleFilter != null) {
+      result = result.where((u) => u.role == roleFilter);
+    }
 
-  // ---------------- Mock helpers ----------------
-  final List<AdminUser> _mockDb = [
-    AdminUser(
-      id: 'u1',
-      fullName: 'Juan Dela Cruz',
-      email: 'juan@example.com',
-      phoneNumber: '09171234567',
-      createdAt: DateTime.now().subtract(const Duration(days: 1)),
-      role: UiRole.donor,
-    ),
-    AdminUser(
-      id: 'u2',
-      fullName: 'Maria Santos',
-      email: 'maria@example.com',
-      phoneNumber: '09181234567',
-      createdAt: DateTime.now().subtract(const Duration(days: 2)),
-      role: UiRole.staff,
-    ),
-    AdminUser(
-      id: 'u3',
-      fullName: 'Admin Alpha',
-      email: 'alpha@example.com',
-      phoneNumber: '09191234567',
-      createdAt: DateTime.now().subtract(const Duration(days: 3)),
-      role: UiRole.admin,
-    ),
-  ];
-
-  void addMockUser() {
-    final id = 'u${_mockDb.length + 1}';
-    _mockDb.add(
-      AdminUser(
-        id: id,
-        fullName: 'New User $id',
-        email: 'user$id@example.com',
-        phoneNumber: '09${id.padLeft(9, '0')}',
-        createdAt: DateTime.now(),
-        role: UiRole.donor,
-      ),
-    );
-    load(); // refresh view
-  }
-
-  void toggleMockMode() {
-    useMocks = !useMocks;
-    load();
-  }
-
-  // ---------------- Load ----------------
-  Future<void> load() async {
-    _loading = true;
-    notifyListeners();
-    try {
-      final q = searchCtl.text.trim().toLowerCase();
-
-      if (useMocks) {
-        // Client-side filtering/sorting on mock data
-        List<AdminUser> list = [..._mockDb];
-
-        if (q.isNotEmpty) {
-          list = list.where((u) {
-            return u.fullName.toLowerCase().contains(q) ||
-                u.email.toLowerCase().contains(q);
-          }).toList();
-        }
-
-        list.sort((a, b) => b.createdAt.compareTo(a.createdAt));
-
-        if (_roleFilter != null) {
-          list = list.where((u) => u.role == _roleFilter).toList();
-        }
-
-        _users = list;
-        return;
-      }
-
-      // --- Real Supabase load ---
-      var builder = _sb
-          .from(tableName)
-          .select('id, fullName, email, phone_number, role, created_at');
-
-      if (q.isNotEmpty) {
-        builder = builder.or('fullName.ilike.%$q%,email.ilike.%$q%');
-      }
-
-      final List<dynamic> rows = await builder.order(
-        'created_at',
-        ascending: false,
+    if (q.isNotEmpty) {
+      result = result.where(
+        (u) =>
+            u.fullName.toLowerCase().contains(q) ||
+            u.email.toLowerCase().contains(q),
       );
+    }
 
-      var list = rows
-          .map((m) => AdminUser.fromMap(m as Map<String, dynamic>))
-          .toList();
+    return result.toList();
+  }
 
-      if (_roleFilter != null) {
-        list = list.where((u) => u.role == _roleFilter).toList();
+  // ------------------- Load users -------------------
+  Future<void> load() async {
+    loading = true;
+    notifyListeners();
+
+    try {
+      final sb = Supabase.instance.client;
+
+      // Start query builder
+      PostgrestFilterBuilder query = sb
+          .from('registration')
+          .select('id, fullName, email, role');
+
+      // Apply filters
+      final q = searchCtl.text.trim();
+      if (q.isNotEmpty) {
+        query = query.or('fullName.ilike.%$q%,email.ilike.%$q%');
       }
 
-      _users = list;
+      if (roleFilter != null) {
+        query = query.eq('role', roleToString(roleFilter!));
+      }
+
+      // Sort and execute
+      final List rows = await query.order('fullName', ascending: true);
+
+      _all = rows.map((r) {
+        return AdminUser(
+          id: r['id'] as String,
+          fullName: (r['fullName'] ?? '') as String,
+          email: (r['email'] ?? '') as String,
+          role: roleFromString((r['role'] ?? 'donor') as String),
+        );
+      }).toList();
     } catch (e) {
       debugPrint('Load users error: $e');
-      rethrow;
-    } finally {
-      _loading = false;
-      notifyListeners();
-    }
-  }
-
-  void setRoleFilter(UiRole? role) {
-    _roleFilter = role;
-    load();
-  }
-
-  Future<void> changeRole(AdminUser user, UiRole target) async {
-    if (currentAdminId != null &&
-        user.id != null &&
-        user.id == currentAdminId &&
-        user.role == UiRole.admin &&
-        target != UiRole.admin) {
-      throw StateError('You cannot remove your own admin role.');
+      _all = [];
     }
 
-    if (useMocks) {
-      final idx = _mockDb.indexWhere((u) => u.id == user.id);
-      if (idx != -1) {
-        // Use map: take the old map, overwrite role, reconstruct AdminUser
-        final updated = AdminUser.fromMap({
-          ..._mockDb[idx].toMap(),
-          'role': roleToString(target),
-        });
-        _mockDb[idx] = updated;
+    loading = false;
+    notifyListeners();
+  }
+
+  // ------------------- Change role -------------------
+  Future<void> changeRole(AdminUser user, UiRole newRole) async {
+    final sb = Supabase.instance.client;
+
+    // Prevent demoting last admin
+    if (user.role == UiRole.admin && newRole != UiRole.admin) {
+      final admins = await sb.from('registration').select().eq('role', 'admin');
+      if ((admins as List).length <= 1) {
+        throw Exception('Cannot demote the last admin');
       }
-      await Future<void>.delayed(const Duration(milliseconds: 150));
-      await load();
-      return;
+      if (user.id == currentAdminId) {
+        throw Exception('Cannot change your own admin role');
+      }
     }
 
-    await _sb
-        .from(tableName)
-        .update({'role': roleToString(target)})
+    // Update in Supabase
+    await sb
+        .from('registration')
+        .update({'role': roleToString(newRole)})
         .eq('id', user.id!);
 
-    await load();
+    // Update local list
+    _all = _all
+        .map((u) => u.id == user.id ? u.copyWith(role: newRole) : u)
+        .toList();
+
+    notifyListeners();
+  }
+
+  // ------------------- Filter Setter -------------------
+  void setRoleFilter(UiRole? value) {
+    roleFilter = value;
+    notifyListeners();
   }
 
   @override

@@ -4,21 +4,15 @@ import 'package:pawlytics/views/admin/controllers/manage-user-controller.dart';
 import 'package:pawlytics/views/admin/model/manage-usermodel.dart';
 
 class ManageUserPage extends StatelessWidget {
-  const ManageUserPage({
-    super.key,
-    this.currentAdminId,
-    this.startInMock = true,
-  });
+  const ManageUserPage({super.key, this.currentAdminId});
+
   final String? currentAdminId;
-  final bool startInMock; // default true so it runs without backend immediately
 
   @override
   Widget build(BuildContext context) {
     return ChangeNotifierProvider(
-      create: (_) => ManageUserController(
-        currentAdminId: currentAdminId,
-        useMocks: startInMock,
-      )..load(),
+      create: (_) =>
+          ManageUserController(currentAdminId: currentAdminId)..load(),
       child: const _ManageUserBody(),
     );
   }
@@ -91,6 +85,7 @@ class _ManageUserBody extends StatelessWidget {
     final label =
         roleToString(target)[0].toUpperCase() +
         roleToString(target).substring(1);
+
     return ListTile(
       leading: Icon(icon),
       title: Text(label),
@@ -133,7 +128,7 @@ class _ManageUserBody extends StatelessWidget {
           body: SafeArea(
             child: Column(
               children: [
-                // Search
+                // Search bar
                 Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
                   child: TextField(
@@ -158,7 +153,7 @@ class _ManageUserBody extends StatelessWidget {
                   ),
                 ),
 
-                // Role chips
+                // Role filter chips
                 SingleChildScrollView(
                   scrollDirection: Axis.horizontal,
                   padding: const EdgeInsets.symmetric(horizontal: 12),
@@ -193,6 +188,7 @@ class _ManageUserBody extends StatelessWidget {
 
                 const SizedBox(height: 8),
 
+                // User list
                 Expanded(
                   child: ctrl.loading
                       ? const Center(child: CircularProgressIndicator())
@@ -266,14 +262,8 @@ class _ManageUserBody extends StatelessWidget {
             ),
           ),
 
-          // Only show “Add Demo User” in mock mode
-          floatingActionButton: ctrl.useMocks
-              ? FloatingActionButton.extended(
-                  icon: const Icon(Icons.person_add),
-                  label: const Text('Add Demo User'),
-                  onPressed: ctrl.addMockUser,
-                )
-              : null,
+          // No mock/demo FAB
+          floatingActionButton: null,
         );
       },
     );
