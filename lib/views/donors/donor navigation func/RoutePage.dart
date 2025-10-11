@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pawlytics/views/donors/Menu%20bar%20user/MyDonationPage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/ShelterUpdatesPage.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/FavoritePage.dart';
 import 'package:pawlytics/views/donors/donors%20navigation%20bar/HomePage.dart';
@@ -25,7 +26,7 @@ class _RoutePageState extends State<RoutePage> {
 
   final List<Widget> _pages = const [
     HomePage(),
-    TransactionsPage(),
+    DonationHistoryPage(),
     ShelterUpdatesPage(),
     ProfilePage(),
   ];
@@ -57,7 +58,7 @@ class _RoutePageState extends State<RoutePage> {
             BottomNavigationBarItem(icon: Icon(Icons.home), label: "Home"),
             BottomNavigationBarItem(
               icon: Icon(Icons.swap_horiz),
-              label: "Transactions",
+              label: "History",
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.notifications),

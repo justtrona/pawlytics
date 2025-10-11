@@ -84,14 +84,14 @@ class _ProfileSettingsState extends State<ProfileSettings> {
       // Registrations table
       try {
         Map<String, dynamic>? reg = await _sb
-            .from('registrations')
+            .from('registration')
             .select('fullName, email, phone_number')
             .eq('auth_user_id', user.id)
             .maybeSingle();
 
         if (reg == null && (user.email ?? '').isNotEmpty) {
           reg = await _sb
-              .from('registrations')
+              .from('registration')
               .select('fullName, email, phone_number')
               .eq('email', user.email!)
               .maybeSingle();
@@ -156,7 +156,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
     });
 
     try {
-      // Use Anonymous name if toggle is ON
+      // Anonymous display name if toggle is ON
       final displayName = _donateAnonymously
           ? 'Anonymous Donor'
           : _nameCtrl.text.trim();
@@ -177,18 +177,20 @@ class _ProfileSettingsState extends State<ProfileSettings> {
         await _sb.auth.updateUser(UserAttributes(data: meta));
       }
 
-      // ---------------- 2) registrations ----------------
+      // ---------------- 2) Update registration table ----------------
       try {
-        await _sb.from('registrations').upsert({
+        await _sb.from('registration').upsert({
           'auth_user_id': user.id,
           'fullName': displayName,
           'email': _emailCtrl.text.trim(),
           'phone_number': _phoneCtrl.text.trim(),
           'updated_at': DateTime.now().toIso8601String(),
         }, onConflict: 'auth_user_id');
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Registration update failed: $e');
+      }
 
-      // ---------------- 3) profiles ----------------
+      // ---------------- 3) Update profiles table ----------------
       try {
         await _sb.from('profiles').upsert({
           'id': user.id,
@@ -198,15 +200,19 @@ class _ProfileSettingsState extends State<ProfileSettings> {
           'avatar_url': _avatarUrl,
           'updated_at': DateTime.now().toIso8601String(),
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Profiles update failed: $e');
+      }
 
-      // ---------------- 4) Update past donations ----------------
+      // ---------------- 4) Update donations table ----------------
       try {
         await _sb
             .from('donations')
             .update({'donor_name': displayName})
             .eq('user_id', user.id);
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Donations update failed: $e');
+      }
 
       if (!mounted) return;
 
@@ -214,8 +220,8 @@ class _ProfileSettingsState extends State<ProfileSettings> {
         SnackBar(
           content: Text(
             _donateAnonymously
-                ? 'Your donations will now appear as Anonymous.'
-                : 'Your name will now appear on your donations.',
+                ? 'Your name will now appear as Anonymous Donor.'
+                : 'Your name will now appear on donations.',
           ),
         ),
       );
@@ -316,7 +322,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
                   ),
                   const SizedBox(height: 25),
 
-                  // Disable name field if anonymous toggle is ON
+                  // Disable name field if anonymous
                   TextField(
                     controller: _nameCtrl,
                     textCapitalization: TextCapitalization.words,
@@ -377,7 +383,7 @@ class _ProfileSettingsState extends State<ProfileSettings> {
                               ),
                               SizedBox(height: 4),
                               Text(
-                                "Your name will appear as 'Anonymous Donor' in public donations and records.",
+                                "Your name will appear as 'Anonymous Donor' across all public donations and records.",
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Color(0xFF23344E),

@@ -1,11 +1,8 @@
-// lib/views/admin/model/pet-profiles.dart
 import 'package:flutter/foundation.dart';
 
 class PetProfile {
-  /// Some databases have both `id` and `uuid`. We'll capture both and
-  /// use whichever is present via [dbId].
+  /// Your Supabase table uses a single UUID column named `id`
   final String? id;
-  final String? uuid;
 
   final String name;
   final String species;
@@ -27,12 +24,11 @@ class PetProfile {
   /// Optional: total funds raised from `pet_profiles.funds`
   final double? funds;
 
-  /// Prefer this for queries: falls back to `uuid` if `id` is null.
-  String? get dbId => id ?? uuid;
+  /// For database operations
+  String? get dbId => id;
 
   PetProfile({
     this.id,
-    this.uuid,
     required this.name,
     required this.species,
     required this.ageGroup,
@@ -50,6 +46,7 @@ class PetProfile {
     this.funds,
   });
 
+  /// Create a PetProfile object from a Supabase map
   factory PetProfile.fromMap(Map<String, dynamic> map) {
     bool _toBool(dynamic v) => v == 1 || v == '1' || v == true || v == 'true';
     double? _toDouble(dynamic v) {
@@ -59,9 +56,7 @@ class PetProfile {
     }
 
     return PetProfile(
-      // accept either column name
-      id: (map['id'] ?? map['uuid'])?.toString(),
-      uuid: map['uuid']?.toString(),
+      id: map['id']?.toString(),
       name: (map['name'] ?? '').toString(),
       species: (map['species'] ?? '').toString(),
       ageGroup: (map['age_group'] ?? '').toString(),
@@ -82,6 +77,7 @@ class PetProfile {
     );
   }
 
+  /// Prepare a clean insert/update payload for Supabase
   Map<String, dynamic> toMapInsert() {
     return {
       'name': name,
@@ -97,21 +93,21 @@ class PetProfile {
       'spay_neuter': spayNeuter ? 1 : 0,
       'image': imageUrl,
       'story': story,
-      // Usually you don't insert `funds` manually; omit unless you need to.
+      // `funds` is auto-managed by Supabase; skip on insert.
     };
   }
 
+  /// Add non-insert-only fields (like `createdAt`) if needed
   Map<String, dynamic> toMap() {
     final m = toMapInsert();
     if (id != null) m['id'] = id;
     if (createdAt != null) m['created_at'] = createdAt!.toIso8601String();
-    // Do not write `uuid` by default; your DB should manage this.
     return m;
   }
 
+  /// Copy with new values
   PetProfile copyWith({
     String? id,
-    String? uuid,
     String? name,
     String? species,
     String? ageGroup,
@@ -130,7 +126,6 @@ class PetProfile {
   }) {
     return PetProfile(
       id: id ?? this.id,
-      uuid: uuid ?? this.uuid,
       name: name ?? this.name,
       species: species ?? this.species,
       ageGroup: ageGroup ?? this.ageGroup,

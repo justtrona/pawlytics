@@ -1,26 +1,19 @@
-// lib/views/admin/pet-profiles/pet-profiles.dart
 import 'package:flutter/material.dart';
 import 'package:pawlytics/views/admin/model/pet-profiles-model.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:pawlytics/route/route.dart' as route;
-
-// Adjust this path if your PetDetailPage lives elsewhere
 import 'package:pawlytics/views/admin/pet-profiles/pet-detail-page.dart';
 
+// 🎨 Theme Colors
 const _brand = Color(0xFF27374D);
 const _brandDark = Color(0xFF1C2A3A);
 const _accent = Color(0xFF4F8EDC);
-const _softGrey = Color(0xFFEFF3F7);
+const _softGrey = Color(0xFFF4F6F9);
 const _line = Color(0xFFE5EDF4);
 const _cardGrey = Color(0xFFF8FAFD);
-const _chipGrey = Color(0xFFF1F4F7);
 const _danger = Color(0xFFE74C3C);
 const _success = Color(0xFF10B981);
 const _warn = Color(0xFFF59E0B);
-
-const _hPad = 12.0;
-const _vGap = 12.0;
-const _tileRadius = 16.0;
 
 class PetProfiles extends StatefulWidget {
   const PetProfiles({super.key});
@@ -39,7 +32,6 @@ class _PetProfilesState extends State<PetProfiles> {
 
   String? _selectedType;
   bool _sortNewest = true;
-
   RealtimeChannel? _petChannel;
 
   @override
@@ -51,7 +43,6 @@ class _PetProfilesState extends State<PetProfiles> {
 
   Future<void> _loadPets() async {
     setState(() => _loading = true);
-
     try {
       final client = Supabase.instance.client;
 
@@ -66,9 +57,7 @@ class _PetProfilesState extends State<PetProfiles> {
                 .select()
                 .order('created_at', ascending: !_sortNewest);
 
-      final data = rawResponse as List<dynamic>;
-
-      final pets = data
+      final pets = (rawResponse as List<dynamic>)
           .map((row) => PetProfile.fromMap(row as Map<String, dynamic>))
           .toList();
 
@@ -89,22 +78,8 @@ class _PetProfilesState extends State<PetProfiles> {
     medicalCount = _pets.where((p) => p.status == 'Needs Medical Care').length;
   }
 
-  bool _matchesFilter(PetProfile p) {
-    if (_selectedType == null || _selectedType!.isEmpty) return true;
-    return p.species == _selectedType;
-  }
-
-  void _sortLocal() {
-    _pets.sort((a, b) {
-      final ad = a.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final bd = b.createdAt ?? DateTime.fromMillisecondsSinceEpoch(0);
-      return _sortNewest ? bd.compareTo(ad) : ad.compareTo(bd);
-    });
-  }
-
   void _subscribeToPets() {
     final client = Supabase.instance.client;
-
     _petChannel = client
         .channel('public:pet_profiles')
         .onPostgresChanges(
@@ -112,51 +87,7 @@ class _PetProfilesState extends State<PetProfiles> {
           schema: 'public',
           table: 'pet_profiles',
           callback: (payload) {
-            final newRecord = payload.newRecord;
-            final oldRecord = payload.oldRecord;
-
-            setState(() {
-              switch (payload.eventType) {
-                case PostgresChangeEvent.insert:
-                  if (newRecord != null) {
-                    final p = PetProfile.fromMap(newRecord);
-                    if (_matchesFilter(p)) {
-                      _pets = [p, ..._pets];
-                      _sortLocal();
-                    }
-                  }
-                  break;
-                case PostgresChangeEvent.update:
-                  if (newRecord != null && oldRecord != null) {
-                    final updated = PetProfile.fromMap(newRecord);
-                    final idx = _pets.indexWhere(
-                      (p) => p.id == oldRecord['id'],
-                    );
-                    final matches = _matchesFilter(updated);
-
-                    if (idx != -1 && matches) {
-                      _pets[idx] = updated;
-                    } else if (idx != -1 && !matches) {
-                      _pets.removeAt(idx);
-                    } else if (idx == -1 && matches) {
-                      _pets = [updated, ..._pets];
-                    }
-                    _sortLocal();
-                  }
-                  break;
-                case PostgresChangeEvent.delete:
-                  if (oldRecord != null) {
-                    _pets = _pets
-                        .where((p) => p.id != oldRecord['id'])
-                        .toList();
-                  }
-                  break;
-                default:
-                  break;
-              }
-
-              _recalcStats();
-            });
+            setState(() => _loadPets());
           },
         )
         .subscribe();
@@ -216,17 +147,12 @@ class _PetProfilesState extends State<PetProfiles> {
       context,
       MaterialPageRoute(builder: (_) => PetDetailPage(pet: pet)),
     );
-    if (changed == true) {
-      // pet was saved or deleted
-      await _loadPets();
-    }
+    if (changed == true) await _loadPets();
   }
 
   Future<void> _openAdd() async {
     final res = await Navigator.pushNamed(context, route.addPetProfile);
-    if (res == true) {
-      await _loadPets();
-    }
+    if (res == true) await _loadPets();
   }
 
   int _gridCols(double width) => width > 900 ? 4 : (width > 600 ? 3 : 2);
@@ -234,7 +160,7 @@ class _PetProfilesState extends State<PetProfiles> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: _softGrey,
       appBar: AppBar(
         elevation: 0,
         backgroundColor: Colors.white,
@@ -257,88 +183,51 @@ class _PetProfilesState extends State<PetProfiles> {
       body: SafeArea(
         child: _loading
             ? const Center(child: CircularProgressIndicator())
-            : ListView(
-                padding: const EdgeInsets.fromLTRB(_hPad, 10, _hPad, 24),
-                children: [
-                  // Header row
-                  Row(
-                    children: [
-                      Container(
-                        width: 36,
-                        height: 36,
-                        decoration: BoxDecoration(
-                          color: _brand.withOpacity(.08),
-                          borderRadius: BorderRadius.circular(10),
+            : SingleChildScrollView(
+                physics: const AlwaysScrollableScrollPhysics(),
+                padding: const EdgeInsets.fromLTRB(16, 10, 16, 30),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // ✅ Stats Section
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _StatCard(
+                            value: '$totalPets',
+                            label: 'Total Pets',
+                            icon: Icons.pets_rounded,
+                            color: _accent,
+                          ),
                         ),
-                        child: const Icon(
-                          Icons.admin_panel_settings_rounded,
-                          color: _brand,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _StatCard(
+                            value: '$adoptionCount',
+                            label: 'For Adoption',
+                            icon: Icons.home_rounded,
+                            color: _success,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      const Text(
-                        'Super Admin',
-                        style: TextStyle(
-                          color: Color(0xFF6A7886),
-                          fontWeight: FontWeight.w700,
-                          fontSize: 16,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _StatCard(
+                            value: '$medicalCount',
+                            label: 'Needs\nMedical Care',
+                            icon: Icons.healing_rounded,
+                            color: _warn,
+                          ),
                         ),
-                      ),
-                      const Spacer(),
-                      const Icon(Icons.pets_rounded, color: _brand, size: 26),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Stats cards
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _StatCard(
-                          value: '$totalPets',
-                          label: 'Total Pets',
-                          icon: Icons.inventory_2_rounded,
-                          bubbleColor: _accent,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _StatCard(
-                          value: '$adoptionCount',
-                          label: 'For Adoption',
-                          icon: Icons.home_rounded,
-                          bubbleColor: _success,
-                        ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _StatCard(
-                          value: '$medicalCount',
-                          label: 'Needs\nMedical Care',
-                          icon: Icons.healing_rounded,
-                          bubbleColor: _warn,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: _vGap),
-
-                  // Call-to-action row
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      border: Border.all(color: _line),
-                      borderRadius: BorderRadius.circular(14),
+                      ],
                     ),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 10,
-                    ),
-                    child: Row(
+                    const SizedBox(height: 20),
+
+                    // ✅ Action Buttons
+                    Row(
                       children: [
                         Expanded(
                           child: ElevatedButton.icon(
-                            icon: const Icon(Icons.add_rounded),
+                            icon: const Icon(Icons.add_rounded, size: 18),
                             label: const Text('Add Pet'),
                             onPressed: _openAdd,
                             style: ElevatedButton.styleFrom(
@@ -356,7 +245,7 @@ class _PetProfilesState extends State<PetProfiles> {
                         Expanded(
                           child: OutlinedButton.icon(
                             icon: const Icon(Icons.checklist_rounded),
-                            label: const Text('All Statuses'),
+                            label: const Text('Statuses'),
                             onPressed: () {},
                             style: OutlinedButton.styleFrom(
                               foregroundColor: _brandDark,
@@ -370,108 +259,118 @@ class _PetProfilesState extends State<PetProfiles> {
                         ),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: _vGap),
+                    const SizedBox(height: 20),
 
-                  // Filters
-                  Row(
-                    children: [
-                      Expanded(
-                        child: _PillButton(
-                          icon: Icons.filter_list_rounded,
-                          label: _selectedType == null
-                              ? 'Filter by Type'
-                              : 'Type: $_selectedType',
-                          onTap: _showFilterDialog,
+                    // ✅ Filter & Sort
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _FilterButton(
+                            icon: Icons.filter_alt_rounded,
+                            label: _selectedType == null
+                                ? 'Filter by Type'
+                                : 'Type: $_selectedType',
+                            onTap: _showFilterDialog,
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: _PillButton(
-                          icon: Icons.sort_rounded,
-                          label: _sortNewest
-                              ? 'Sort by Newest'
-                              : 'Sort by Oldest',
-                          onTap: _toggleSort,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: _FilterButton(
+                            icon: Icons.sort_rounded,
+                            label: _sortNewest
+                                ? 'Newest First'
+                                : 'Oldest First',
+                            onTap: _toggleSort,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: _vGap),
+                      ],
+                    ),
+                    const SizedBox(height: 20),
 
-                  // Grid
-                  LayoutBuilder(
-                    builder: (context, c) {
-                      final cols = _gridCols(c.maxWidth);
-                      return GridView.builder(
-                        shrinkWrap: true,
-                        physics: const NeverScrollableScrollPhysics(),
-                        itemCount: _pets.length,
-                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                          crossAxisCount: cols,
-                          mainAxisSpacing: 14,
-                          crossAxisSpacing: 14,
-                          mainAxisExtent: 280,
-                        ),
-                        itemBuilder: (_, i) => _PetGridCard(
-                          pet: _pets[i],
-                          onTap: () => _openDetails(_pets[i]),
-                        ),
-                      );
-                    },
-                  ),
-                ],
+                    // ✅ Pet Grid
+                    LayoutBuilder(
+                      builder: (context, c) {
+                        final cols = _gridCols(c.maxWidth);
+                        return GridView.builder(
+                          shrinkWrap: true,
+                          physics: const NeverScrollableScrollPhysics(),
+                          itemCount: _pets.length,
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
+                                crossAxisCount: cols,
+                                mainAxisSpacing: 16,
+                                crossAxisSpacing: 16,
+                                mainAxisExtent: 280,
+                              ),
+                          itemBuilder: (_, i) => _PetCard(
+                            pet: _pets[i],
+                            onTap: () => _openDetails(_pets[i]),
+                          ),
+                        );
+                      },
+                    ),
+
+                    const SizedBox(height: 40), // ✅ bottom safe padding
+                  ],
+                ),
               ),
       ),
     );
   }
 }
 
-/* ================= UI widgets ================= */
+/* ------------------- Widgets ------------------- */
 
 class _StatCard extends StatelessWidget {
   final String value;
   final String label;
   final IconData icon;
-  final Color bubbleColor;
-
+  final Color color;
   const _StatCard({
     required this.value,
     required this.label,
     required this.icon,
-    required this.bubbleColor,
+    required this.color,
   });
 
   @override
   Widget build(BuildContext context) {
     return Container(
+      // ✅ allow the card to grow; only enforce a small minimum
       constraints: const BoxConstraints(minHeight: 88),
       decoration: BoxDecoration(
-        color: _cardGrey,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _line),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(.05),
+            blurRadius: 8,
+            offset: const Offset(0, 3),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.all(14),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start, // ✅ avoid bottom overflow
         children: [
           Container(
-            width: 42,
+            width: 42, // a bit smaller
             height: 42,
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [bubbleColor.withOpacity(.18), bubbleColor],
+                colors: [color.withOpacity(0.25), color],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Icon(icon, color: Colors.white),
+            child: Icon(icon, color: Colors.white, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
+              mainAxisSize: MainAxisSize.min, // ✅ size to content
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
                   value,
@@ -481,14 +380,17 @@ class _StatCard extends StatelessWidget {
                     color: _brandDark,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 4),
                 Text(
-                  label,
-                  maxLines: 2,
+                  label, // can include \n
+                  maxLines: 2, // ✅ wrap onto two lines
+                  softWrap: true,
+                  overflow: TextOverflow.visible,
                   style: const TextStyle(
-                    fontSize: 12,
+                    fontSize: 13,
                     color: Color(0xFF6A7886),
-                    height: 1.2,
+                    fontWeight: FontWeight.w600,
+                    height: 1.15, // a touch tighter
                   ),
                 ),
               ],
@@ -500,162 +402,122 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-class _PetGridCard extends StatelessWidget {
+class _PetCard extends StatelessWidget {
   final PetProfile pet;
   final VoidCallback onTap;
-  const _PetGridCard({required this.pet, required this.onTap});
-
-  Color _statusBg(String s) {
-    switch (s) {
-      case 'For Adoption':
-        return _success.withOpacity(.15);
-      case 'Adopted':
-        return _accent.withOpacity(.15);
-      default:
-        return _danger.withOpacity(.12);
-    }
-  }
-
-  Color _statusFg(String s) {
-    switch (s) {
-      case 'For Adoption':
-        return _success;
-      case 'Adopted':
-        return _accent;
-      default:
-        return _danger;
-    }
-  }
-
-  IconData _statusIcon(String s) {
-    switch (s) {
-      case 'For Adoption':
-        return Icons.home_rounded;
-      case 'Adopted':
-        return Icons.verified_rounded;
-      default:
-        return Icons.healing_rounded;
-    }
-  }
+  const _PetCard({required this.pet, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
-    final statusBg = _statusBg(pet.status);
-    final statusFg = _statusFg(pet.status);
-    final statusIc = _statusIcon(pet.status);
+    Color statusColor;
+    Color bgColor;
 
-    return Material(
-      color: Colors.white,
-      elevation: 0,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(_tileRadius),
-        side: const BorderSide(color: _line),
-      ),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(_tileRadius),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // Image (no overlay now)
-              ClipRRect(
-                borderRadius: BorderRadius.circular(14),
-                child: Container(
-                  decoration: BoxDecoration(
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(.06),
-                        blurRadius: 12,
-                        offset: const Offset(0, 6),
-                      ),
-                    ],
-                  ),
-                  child: AspectRatio(
-                    aspectRatio: 4 / 3,
-                    child: Image.network(
-                      pet.imageUrl?.isNotEmpty == true
-                          ? pet.imageUrl!
-                          : 'https://placehold.co/600x450?text=${pet.species}',
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, __, ___) => Container(
-                        color: _softGrey,
-                        alignment: Alignment.center,
-                        child: const Icon(Icons.pets, size: 42),
-                      ),
+    switch (pet.status) {
+      case 'For Adoption':
+        statusColor = _success;
+        bgColor = _success.withOpacity(.1);
+        break;
+      case 'Adopted':
+        statusColor = _accent;
+        bgColor = _accent.withOpacity(.1);
+        break;
+      default:
+        statusColor = _danger;
+        bgColor = _danger.withOpacity(.1);
+        break;
+    }
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(16),
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(.05),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Pet image
+            ClipRRect(
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(16),
+              ),
+              child: Image.network(
+                pet.imageUrl?.isNotEmpty == true
+                    ? pet.imageUrl!
+                    : 'https://placehold.co/600x450?text=${pet.species}',
+                height: 150,
+                width: double.infinity,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) =>
+                    Container(height: 150, color: _softGrey),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    pet.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.w800,
+                      color: _brandDark,
                     ),
                   ),
-                ),
-              ),
-              const SizedBox(height: 10),
-
-              // Name
-              Text(
-                pet.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 16,
-                  color: _brandDark,
-                ),
-              ),
-              const SizedBox(height: 4),
-
-              // Species · Age
-              Text(
-                '${pet.species} · ${pet.ageGroup}',
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: const TextStyle(
-                  color: Color(0xFF6A7886),
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // ✅ Status chip BELOW species/age
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: statusBg,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(color: statusFg.withOpacity(.4)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(statusIc, size: 14, color: statusFg),
-                    const SizedBox(width: 6),
-                    Text(
+                  const SizedBox(height: 4),
+                  Text(
+                    '${pet.species} • ${pet.ageGroup}',
+                    style: const TextStyle(
+                      color: Color(0xFF6A7886),
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 6,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
                       pet.status,
                       style: TextStyle(
-                        color: statusFg,
+                        color: statusColor,
                         fontSize: 11,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
 
-class _PillButton extends StatelessWidget {
+class _FilterButton extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
-
-  const _PillButton({
+  const _FilterButton({
     required this.icon,
     required this.label,
     required this.onTap,
@@ -673,83 +535,9 @@ class _PillButton extends StatelessWidget {
       ),
       style: OutlinedButton.styleFrom(
         side: const BorderSide(color: _line),
-        backgroundColor: _softGrey,
+        backgroundColor: Colors.white,
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-      ),
-    );
-  }
-}
-
-class _ChipOutlined extends StatelessWidget {
-  final String text;
-  const _ChipOutlined({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _chipGrey,
-        border: Border.all(color: _brand, width: 1.5),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: _brand,
-          fontWeight: FontWeight.w800,
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
-}
-
-class _ChipFilled extends StatelessWidget {
-  final String text;
-  const _ChipFilled({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: _brand,
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: Colors.white,
-          fontWeight: FontWeight.w800,
-          fontSize: 11,
-        ),
-      ),
-    );
-  }
-}
-
-class _ChipDanger extends StatelessWidget {
-  final String text;
-  const _ChipDanger({required this.text});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: _danger, width: 1.5),
-        borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        text,
-        style: const TextStyle(
-          color: _danger,
-          fontWeight: FontWeight.w800,
-          fontSize: 11,
-        ),
       ),
     );
   }

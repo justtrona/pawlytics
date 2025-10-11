@@ -1,6 +1,11 @@
+import 'dart:io' as io;
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:pawlytics/views/admin/controllers/add-pet-controller.dart';
 import 'package:pawlytics/views/admin/pet-profiles/pet-widgets/pill.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class AddPetProfile extends StatefulWidget {
   const AddPetProfile({super.key});
@@ -14,6 +19,11 @@ class _AddPetProfileState extends State<AddPetProfile> {
   static const softGrey = Color(0xFFE9EEF3);
 
   final controller = PetProfileController();
+  final ImagePicker _picker = ImagePicker();
+
+  io.File? _selectedImage;
+  Uint8List? _webImageBytes;
+  bool _uploading = false;
 
   @override
   void dispose() {
@@ -34,6 +44,67 @@ class _AddPetProfileState extends State<AddPetProfile> {
     enabledBorder: _border(Colors.blueGrey.shade200),
     focusedBorder: _border(brand),
   );
+
+  /// 🧩 Pick and upload image (web + mobile compatible)
+  Future<void> _pickImage() async {
+    final XFile? pickedFile = await _picker.pickImage(
+      source: ImageSource.gallery,
+      imageQuality: 85,
+    );
+
+    if (pickedFile == null) return;
+
+    setState(() => _uploading = true);
+
+    try {
+      final client = Supabase.instance.client;
+      final fileName =
+          'pets/${DateTime.now().millisecondsSinceEpoch}_${pickedFile.name}';
+      String? publicUrl;
+
+      if (kIsWeb) {
+        // 🕸️ Web: Upload as bytes
+        final bytes = await pickedFile.readAsBytes();
+        await client.storage.from('pet_images').uploadBinary(fileName, bytes);
+        publicUrl = client.storage.from('pet_images').getPublicUrl(fileName);
+        setState(() => _webImageBytes = bytes);
+      } else {
+        // 📱 Mobile: Upload file directly
+        final file = io.File(pickedFile.path);
+        await client.storage.from('pet_images').upload(fileName, file);
+        publicUrl = client.storage.from('pet_images').getPublicUrl(fileName);
+        setState(() => _selectedImage = file);
+      }
+
+      if (publicUrl != null) {
+        controller.updateImagePath(publicUrl);
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Image uploaded successfully!')),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Failed to get image URL.')),
+        );
+      }
+    } catch (e) {
+      debugPrint('Upload error: $e');
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Failed to upload image: $e')));
+    } finally {
+      setState(() => _uploading = false);
+    }
+  }
+
+  /// Helper to display correct image (web or mobile)
+  ImageProvider? _getPetImage() {
+    if (kIsWeb) {
+      return _webImageBytes != null ? MemoryImage(_webImageBytes!) : null;
+    } else if (_selectedImage != null) {
+      return Image.file(_selectedImage!).image;
+    }
+    return null;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -66,20 +137,37 @@ class _AddPetProfileState extends State<AddPetProfile> {
                     borderRadius: BorderRadius.circular(18),
                   ),
                 ),
-                onPressed: () async {
-                  final success = await controller.savePet();
-                  if (success) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Pet saved successfully!')),
-                    );
-                    Navigator.of(context).pop();
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Failed to save pet.')),
-                    );
-                  }
-                },
-                child: const Text('Save Pet'),
+                onPressed: _uploading
+                    ? null
+                    : () async {
+                        final success = await controller.savePet();
+                        if (success) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text('Pet saved successfully!'),
+                            ),
+                          );
+                          Navigator.of(context).pop();
+                        } else {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(
+                              content: Text(
+                                'Failed to save pet. Please try again.',
+                              ),
+                            ),
+                          );
+                        }
+                      },
+                child: _uploading
+                    ? const SizedBox(
+                        height: 24,
+                        width: 24,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2.5,
+                        ),
+                      )
+                    : const Text('Save Pet'),
               ),
             ),
           ),
@@ -88,26 +176,41 @@ class _AddPetProfileState extends State<AddPetProfile> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
             children: [
-              // Profile Picture Placeholder
+              // 🐾 Pet Image Uploader
               Center(
-                child: Container(
-                  width: 100,
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: softGrey,
-                    shape: BoxShape.circle,
-                  ),
-                  child: IconButton(
-                    onPressed: () {},
-                    icon: const Icon(
-                      Icons.photo_camera_outlined,
-                      size: 36,
-                      color: brand,
+                child: Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 60,
+                      backgroundColor: softGrey,
+                      backgroundImage: _getPetImage(),
+                      child: (_selectedImage == null && _webImageBytes == null)
+                          ? const Icon(Icons.pets, size: 48, color: brand)
+                          : null,
                     ),
-                  ),
+                    Positioned(
+                      bottom: 0,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: _pickImage,
+                        child: Container(
+                          decoration: const BoxDecoration(
+                            color: brand,
+                            shape: BoxShape.circle,
+                          ),
+                          padding: const EdgeInsets.all(8),
+                          child: const Icon(
+                            Icons.camera_alt,
+                            color: Colors.white,
+                            size: 20,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 20),
 
               const Text(
                 'Pet Name',
@@ -121,7 +224,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 14),
 
-              // Species or type
+              // 🐶 Species
               Row(
                 children: [
                   Expanded(
@@ -145,7 +248,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 10),
 
-              // Age Group
+              // 🐾 Age Group
               Row(
                 children: [
                   Expanded(
@@ -170,7 +273,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 16),
 
-              // Health & Care Needs
+              // 💊 Health & Care Needs
               const Text(
                 'Health & Care Needs',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
@@ -227,7 +330,7 @@ class _AddPetProfileState extends State<AddPetProfile> {
               ),
               const SizedBox(height: 16),
 
-              // Status
+              // 🩺 Status
               const Text(
                 'Status',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
@@ -252,10 +355,9 @@ class _AddPetProfileState extends State<AddPetProfile> {
                   () => controller.updateStatus(v ?? 'For Adoption'),
                 ),
               ),
-
               const SizedBox(height: 16),
 
-              // 👇 NEW: Pet Story (multiline)
+              // ✍️ Story
               const Text(
                 'Story',
                 style: TextStyle(color: brand, fontWeight: FontWeight.w700),
@@ -271,7 +373,6 @@ class _AddPetProfileState extends State<AddPetProfile> {
                 maxLines: 8,
                 textInputAction: TextInputAction.newline,
               ),
-
               const SizedBox(height: 80),
             ],
           ),
