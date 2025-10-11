@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:pawlytics/auth/auth_service.dart'; // your existing service
 
 class AdminProfile extends StatefulWidget {
   const AdminProfile({super.key});
@@ -8,21 +10,95 @@ class AdminProfile extends StatefulWidget {
 }
 
 class _AdminProfileState extends State<AdminProfile> {
-  // Palette (consistent with your app)
   static const navy = Color(0xFF0F2D50);
-  static const subtitle = Color(0xFF6E7B8A);
   static const bg = Color(0xFFF6F7F9);
 
-  // Form controllers
-  final nameCtrl = TextEditingController(text: 'Jane Admin');
-  final emailCtrl = TextEditingController(text: 'admin@pawlytics.org');
-  final phoneCtrl = TextEditingController(text: '+63 912 345 6789');
-  final roleCtrl = TextEditingController(text: 'Administrator');
+  final nameCtrl = TextEditingController();
+  final emailCtrl = TextEditingController();
+  final phoneCtrl = TextEditingController();
+  final roleCtrl = TextEditingController();
   final bioCtrl = TextEditingController(
     text: 'Helping pets find loving homes.',
   );
 
   final _formKey = GlobalKey<FormState>();
+  final _authService = AuthService();
+
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  Future<void> _loadUserData() async {
+    try {
+      final user = _authService.currentUser;
+      if (user == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
+
+      final supabase = Supabase.instance.client;
+
+      final response = await supabase
+          .from('registration')
+          .select()
+          .eq('id', user.id)
+          .maybeSingle();
+
+      if (!mounted) return;
+
+      if (response != null) {
+        nameCtrl.text = (response['fullName'] ?? '').toString();
+        emailCtrl.text = (response['email'] ?? '').toString();
+        phoneCtrl.text = (response['phone_number'] ?? '').toString();
+        roleCtrl.text = (response['role'] ?? '').toString();
+      }
+      setState(() => _isLoading = false);
+    } catch (e) {
+      debugPrint('Error fetching profile: $e');
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _save() async {
+    if (!_formKey.currentState!.validate()) return;
+
+    final user = _authService.currentUser;
+    if (user == null) return;
+
+    final supabase = Supabase.instance.client;
+
+    try {
+      // Update registration table
+      await supabase
+          .from('registration')
+          .update({
+            'fullName': nameCtrl.text.trim(),
+            'phone_number': phoneCtrl.text.trim(),
+            // If you add a 'bio' column later, uncomment next line:
+            // 'bio': bioCtrl.text.trim(),
+          })
+          .eq('id', user.id);
+
+      // Optional: also mirror name in auth metadata
+      await supabase.auth.updateUser(
+        UserAttributes(data: {'fullName': nameCtrl.text.trim()}),
+      );
+
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Profile updated successfully')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('Error saving profile: $e')));
+    }
+  }
 
   @override
   void dispose() {
@@ -32,14 +108,6 @@ class _AdminProfileState extends State<AdminProfile> {
     roleCtrl.dispose();
     bioCtrl.dispose();
     super.dispose();
-  }
-
-  void _save() {
-    if (!_formKey.currentState!.validate()) return;
-    // TODO: Persist to backend/Firestore
-    ScaffoldMessenger.of(
-      context,
-    ).showSnackBar(const SnackBar(content: Text('Profile saved')));
   }
 
   @override
@@ -66,229 +134,124 @@ class _AdminProfileState extends State<AdminProfile> {
           ),
         ],
       ),
-      body: Form(
-        key: _formKey,
-        child: ListView(
-          padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
-          children: [
-            // Header card (avatar + name + email + quick actions)
-            _Card(
-              child: Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : Form(
+              key: _formKey,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                 children: [
-                  Stack(
-                    alignment: Alignment.bottomRight,
-                    children: [
-                      Container(
-                        width: 86,
-                        height: 86,
-                        decoration: BoxDecoration(
-                          color: navy.withOpacity(.08),
-                          borderRadius: BorderRadius.circular(24),
-                        ),
-                        child: const Icon(
-                          Icons.person_outline,
-                          color: navy,
-                          size: 48,
-                        ),
-                      ),
-                      Material(
-                        color: Colors.white,
-                        shape: const CircleBorder(),
-                        child: InkWell(
-                          customBorder: const CircleBorder(),
-                          onTap: () {
-                            // TODO: open picker to change photo
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.all(6),
-                            decoration: BoxDecoration(
-                              color: navy,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.edit,
-                              color: Colors.white,
-                              size: 16,
-                            ),
+                  _Card(
+                    child: Column(
+                      children: [
+                        Container(
+                          width: 86,
+                          height: 86,
+                          decoration: BoxDecoration(
+                            color: navy.withOpacity(.08),
+                            borderRadius: BorderRadius.circular(24),
+                          ),
+                          child: const Icon(
+                            Icons.person_outline,
+                            color: navy,
+                            size: 48,
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    nameCtrl.text,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.w800,
-                      fontSize: 18,
-                      color: navy,
+                        const SizedBox(height: 10),
+                        Text(
+                          nameCtrl.text,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w800,
+                            fontSize: 18,
+                            color: navy,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          emailCtrl.text,
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
+                        const SizedBox(height: 12),
+                        _ChipPill(
+                          icon: Icons.shield_outlined,
+                          label: roleCtrl.text,
+                        ),
+                      ],
                     ),
                   ),
-                  const SizedBox(height: 4),
-                  Text(
-                    emailCtrl.text,
-                    style: TextStyle(color: Colors.grey.shade700),
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      _ChipPill(
-                        icon: Icons.shield_outlined,
-                        label: roleCtrl.text,
-                      ),
-                      _ChipPill(
-                        icon: Icons.location_on_outlined,
-                        label: 'Philippines',
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      _HeaderButton(
-                        icon: Icons.mail_outline,
-                        label: 'Message',
-                        onTap: () {},
-                      ),
-                      const SizedBox(width: 10),
-                      _HeaderButton(
-                        icon: Icons.share_outlined,
-                        label: 'Share',
-                        onTap: () {},
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
 
-            // Quick stats
-            _Card(
-              padding: const EdgeInsets.symmetric(vertical: 14),
-              child: Row(
-                children: const [
-                  _KpiTile(title: 'Managed Campaigns', value: '12'),
-                  _DividerY(),
-                  _KpiTile(title: 'Resolved Reports', value: '43'),
-                  _DividerY(),
-                  _KpiTile(title: 'Team Members', value: '6'),
-                ],
-              ),
-            ),
+                  // KPIs
+                  _Card(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Row(
+                      children: const [
+                        _KpiTile(title: 'Managed Campaigns', value: '12'),
+                        _DividerY(),
+                        _KpiTile(title: 'Active Projects', value: '5'),
+                      ],
+                    ),
+                  ),
 
-            // About me / bio
-            _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _SectionTitle('About'),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: bioCtrl,
-                    maxLines: 3,
-                    decoration: _field(
-                      'Short bio',
-                      hint: 'Tell something about yourself',
+                  // About
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionTitle('About'),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: bioCtrl,
+                          maxLines: 3,
+                          decoration: _field(
+                            'Short bio',
+                            hint: 'Tell something about yourself',
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                ],
-              ),
-            ),
 
-            // Contact & account
-            _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _SectionTitle('Account'),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: nameCtrl,
-                    decoration: _field(
-                      'Full name',
-                      prefix: const Icon(Icons.badge_outlined),
-                    ),
-                    validator: (v) =>
-                        (v == null || v.trim().isEmpty) ? 'Required' : null,
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: emailCtrl,
-                    keyboardType: TextInputType.emailAddress,
-                    decoration: _field(
-                      'Email address',
-                      prefix: const Icon(Icons.alternate_email),
-                    ),
-                    validator: (v) {
-                      if (v == null || v.trim().isEmpty) return 'Required';
-                      final ok = RegExp(r'^\S+@\S+\.\S+$').hasMatch(v.trim());
-                      return ok ? null : 'Enter a valid email';
-                    },
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: phoneCtrl,
-                    keyboardType: TextInputType.phone,
-                    decoration: _field(
-                      'Phone number',
-                      prefix: const Icon(Icons.phone_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  TextFormField(
-                    controller: roleCtrl,
-                    readOnly: true,
-                    decoration: _field(
-                      'Role',
-                      prefix: const Icon(Icons.admin_panel_settings_outlined),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () {
-                        // TODO: navigate to roles screen
-                      },
-                      icon: const Icon(Icons.manage_accounts_outlined),
-                      label: const Text('Manage role'),
+                  // Account
+                  _Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const _SectionTitle('Account'),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: nameCtrl,
+                          decoration: _field(
+                            'Full name',
+                            prefix: const Icon(Icons.badge_outlined),
+                          ),
+                          validator: (v) => (v == null || v.trim().isEmpty)
+                              ? 'Required'
+                              : null,
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: emailCtrl,
+                          readOnly: true,
+                          decoration: _field(
+                            'Email address',
+                            prefix: const Icon(Icons.alternate_email),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextFormField(
+                          controller: phoneCtrl,
+                          keyboardType: TextInputType.phone,
+                          decoration: _field(
+                            'Phone number',
+                            prefix: const Icon(Icons.phone_outlined),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ],
               ),
             ),
-
-            // Recent activity (optional)
-            _Card(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const _SectionTitle('Recent activity'),
-                  const SizedBox(height: 4),
-                  _ActivityTile(
-                    icon: Icons.update,
-                    title: 'Updated payment configuration',
-                    subtitle: '2 hours ago',
-                  ),
-                  _ActivityTile(
-                    icon: Icons.pets_outlined,
-                    title: 'Approved new pet profile',
-                    subtitle: 'Yesterday • 4:13 PM',
-                  ),
-                  _ActivityTile(
-                    icon: Icons.campaign_outlined,
-                    title: 'Created campaign “Food Drive 2025”',
-                    subtitle: 'Aug 25, 2025 • 10:22 AM',
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _save,
         backgroundColor: navy,
@@ -299,9 +262,7 @@ class _AdminProfileState extends State<AdminProfile> {
     );
   }
 
-  // --- Small UI helpers
-
-  InputDecoration _field(String label, {String? hint, Widget? prefix}) {
+  static InputDecoration _field(String label, {String? hint, Widget? prefix}) {
     return InputDecoration(
       labelText: label,
       hintText: hint,
@@ -313,7 +274,7 @@ class _AdminProfileState extends State<AdminProfile> {
   }
 }
 
-// ============== Reusable widgets ==============
+// ---------- Reusable UI bits ----------
 
 class _Card extends StatelessWidget {
   final Widget child;
@@ -348,46 +309,29 @@ class _SectionTitle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const Text(
-      '',
-      // we’ll use a small colored bar + title row
+    const navy = Color(0xFF0F2D50);
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 16,
+          decoration: BoxDecoration(
+            color: navy,
+            borderRadius: BorderRadius.circular(2),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Text(
+          text,
+          style: const TextStyle(
+            color: navy,
+            fontSize: 16,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+      ],
     );
   }
-}
-
-// Slightly fancier section header without being heavy
-extension on _SectionTitle {
-  Widget get widget => Builder(
-    builder: (context) {
-      const navy = Color(0xFF0F2D50);
-      return Row(
-        children: [
-          Container(
-            width: 4,
-            height: 16,
-            decoration: BoxDecoration(
-              color: navy,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-          const SizedBox(width: 8),
-          Text(
-            (this).text,
-            style: const TextStyle(
-              color: navy,
-              fontSize: 16,
-              fontWeight: FontWeight.w800,
-            ),
-          ),
-        ],
-      );
-    },
-  );
-}
-
-// Replace _SectionTitle build to use the extension above
-extension _SectionTitleBuild on _SectionTitle {
-  Widget build(BuildContext context) => widget;
 }
 
 class _KpiTile extends StatelessWidget {
@@ -428,33 +372,6 @@ class _DividerY extends StatelessWidget {
   }
 }
 
-class _HeaderButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final VoidCallback onTap;
-  const _HeaderButton({
-    required this.icon,
-    required this.label,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const navy = Color(0xFF0F2D50);
-    return ElevatedButton.icon(
-      onPressed: onTap,
-      icon: Icon(icon, size: 18),
-      label: Text(label),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: navy,
-        foregroundColor: Colors.white,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-}
-
 class _ChipPill extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -480,41 +397,6 @@ class _ChipPill extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-class _ActivityTile extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  const _ActivityTile({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    const navy = Color(0xFF0F2D50);
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Container(
-        width: 42,
-        height: 42,
-        decoration: BoxDecoration(
-          color: navy.withOpacity(.08),
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Icon(icon, color: navy),
-      ),
-      title: Text(
-        title,
-        style: const TextStyle(fontWeight: FontWeight.w700, color: navy),
-      ),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
-      onTap: () {},
     );
   }
 }
