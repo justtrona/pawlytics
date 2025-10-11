@@ -250,7 +250,7 @@ class _OperationalExpenseState extends State<OperationalExpense>
 
                           Future<void> _deleteThis() async {
                             final ok = await _confirm(
-                              title: 'Delete category?',
+                              title: 'Are you sure you want to delete?',
                               message:
                                   'This will permanently remove “${expense.category}”.',
                             );
@@ -314,7 +314,7 @@ class _OperationalExpenseState extends State<OperationalExpense>
                                       showDialog(
                                         context: context,
                                         builder: (context) => AlertDialog(
-                                          title: const Text("Edit Category"),
+                                          title: const Text("Edit Expense"),
                                           content: Column(
                                             mainAxisSize: MainAxisSize.min,
                                             children: [
@@ -322,7 +322,8 @@ class _OperationalExpenseState extends State<OperationalExpense>
                                                 controller: categoryController,
                                                 decoration:
                                                     const InputDecoration(
-                                                      labelText: "Category",
+                                                      labelText:
+                                                          "Expense Title",
                                                     ),
                                               ),
                                               TextField(
@@ -419,7 +420,7 @@ class _OperationalExpenseState extends State<OperationalExpense>
       floatingActionButton: viewingCurrent
           ? FloatingActionButton.extended(
               icon: const Icon(Icons.add),
-              label: const Text("Add Category"),
+              label: const Text("Add Expense"),
               onPressed: () {
                 final opex = context.read<OperationalExpenseController>();
                 final categoryController = TextEditingController();
@@ -433,14 +434,14 @@ class _OperationalExpenseState extends State<OperationalExpense>
 
                     return StatefulBuilder(
                       builder: (context, setState) => AlertDialog(
-                        title: const Text("Add Category"),
+                        title: const Text("Add Expense"),
                         content: Column(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             TextField(
                               controller: categoryController,
                               decoration: const InputDecoration(
-                                labelText: "Category",
+                                labelText: "Expense Title",
                               ),
                             ),
                             TextField(

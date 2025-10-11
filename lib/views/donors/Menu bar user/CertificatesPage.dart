@@ -1,11 +1,18 @@
-// certificates_page.dart
+// lib/views/donors/Menu bar user/CertificatesPage.dart
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:http/http.dart' as http;
+import 'package:pdf/widgets.dart' as pw;
+
+// Conditional import for web download
+import 'helper/download_stub.dart'
+    if (dart.library.html) 'helper/download_web.dart';
 
 class CertificatesPage extends StatefulWidget {
-  /// Optional override. If null, we resolve from Supabase auth (donor_name -> full_name -> email).
   final String? donorName;
   const CertificatesPage({super.key, this.donorName});
 
@@ -13,56 +20,60 @@ class CertificatesPage extends StatefulWidget {
   State<CertificatesPage> createState() => _CertificatesPageState();
 }
 
+/* ==============================
+   Tier class (NON-CONST version)
+   ============================== */
 class _Tier {
   final String key;
   final String title;
   final int threshold;
-  final Color bg;
-  final String assetPath;
-  const _Tier({
+  final Color tileColor;
+  final Color medalColor;
+
+  _Tier({
     required this.key,
     required this.title,
     required this.threshold,
-    required this.bg,
-    required this.assetPath,
+    required this.tileColor,
+    required this.medalColor,
   });
 }
 
-const _tiers = <_Tier>[
+final List<_Tier> _tiers = [
   _Tier(
     key: 'bronze',
     title: 'Bronze Certificate',
     threshold: 5000,
-    bg: Color(0xFFFFF3E0),
-    assetPath: 'assets/images/donors/bronze.png',
+    tileColor: const Color(0xFFFFF3E0),
+    medalColor: const Color(0xFFCD7F32),
   ),
   _Tier(
     key: 'silver',
     title: 'Silver Certificate',
     threshold: 10000,
-    bg: Color(0xFFE0E0E0),
-    assetPath: 'assets/images/donors/silver.png',
+    tileColor: const Color(0xFFE0E0E0),
+    medalColor: const Color(0xFFB0B0B0),
   ),
   _Tier(
     key: 'gold',
     title: 'Gold Certificate',
     threshold: 20000,
-    bg: Color(0xFFFFF9C4),
-    assetPath: 'assets/images/donors/gold.png',
+    tileColor: const Color(0xFFFFF9C4),
+    medalColor: const Color(0xFFFFC107),
   ),
   _Tier(
     key: 'platinum',
     title: 'Platinum Certificate',
     threshold: 30000,
-    bg: Color(0xFFEDE7F6),
-    assetPath: 'assets/images/donors/silver.png',
+    tileColor: const Color(0xFFEDE7F6),
+    medalColor: const Color(0xFF9C27B0),
   ),
   _Tier(
     key: 'diamond',
     title: 'Diamond Certificate',
     threshold: 40000,
-    bg: Color(0xFFE0F7FA),
-    assetPath: 'assets/images/donors/diamond.png',
+    tileColor: const Color(0xFFE0F7FA),
+    medalColor: const Color(0xFF00B8D9),
   ),
 ];
 
@@ -74,9 +85,10 @@ class _CertificatesPageState extends State<CertificatesPage> {
   String? _error;
 
   int _total = 0;
-  final Map<String, Map<String, dynamic>> _issuedByTier = {};
   String _resolvedDonorName = '';
   String _resolvedUserId = '';
+
+  final Map<String, Map<String, dynamic>> _issuedByTier = {};
 
   final _money = NumberFormat.currency(
     locale: 'en_PH',
@@ -89,19 +101,44 @@ class _CertificatesPageState extends State<CertificatesPage> {
   void initState() {
     super.initState();
     _load();
+    _subscribeRealtime();
+  }
+
+  @override
+  void dispose() {
+    _sb.removeAllChannels();
+    super.dispose();
+  }
+
+  void _subscribeRealtime() {
+    _sb
+        .channel('public:certificates_issued')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'certificates_issued',
+          callback: (_) => _load(),
+        )
+        .subscribe();
   }
 
   String _norm(String s) => s.trim().toLowerCase();
 
   bool _matchesRow(Map r, String userId, String donorKey) {
-    final rid = (r['user_id'] ?? '').toString();
+    final rid = (r['user_id'] ?? '').toString().trim();
     if (rid.isNotEmpty && userId.isNotEmpty && rid == userId) return true;
 
-    final dn = (r['donor_name'] ?? r['name'] ?? '').toString();
-    if (dn.isNotEmpty && _norm(dn) == donorKey) return true;
+    final dn = (r['donor_name'] ?? r['name'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (dn.isNotEmpty && dn == donorKey) return true;
 
-    final em = (r['donor_email'] ?? r['email'] ?? '').toString();
-    if (em.isNotEmpty && _norm(em) == donorKey) return true;
+    final em = (r['donor_email'] ?? r['email'] ?? '')
+        .toString()
+        .trim()
+        .toLowerCase();
+    if (em.isNotEmpty && em == donorKey) return true;
 
     return false;
   }
@@ -112,13 +149,12 @@ class _CertificatesPageState extends State<CertificatesPage> {
       _error = null;
       _issuedByTier.clear();
       _total = 0;
-      _resolvedDonorName = '';
-      _resolvedUserId = '';
     });
 
     try {
       final u = _sb.auth.currentUser;
       _resolvedUserId = u?.id ?? '';
+
       final donorRaw =
           (widget.donorName ??
                   (u?.userMetadata?['donor_name'] as String?) ??
@@ -126,15 +162,16 @@ class _CertificatesPageState extends State<CertificatesPage> {
                   u?.email ??
                   '')
               .trim();
+
       if (donorRaw.isEmpty) throw 'Missing donor identity for this account.';
       _resolvedDonorName = donorRaw;
       final donorKey = _norm(donorRaw);
 
-      // Sum donations
-      final donRows = await _sb.from('donations').select('*');
+      // Get donations total
+      final rows = await _sb.from('donations').select('*');
       int sum = 0;
-      for (final e in donRows as List) {
-        final r = Map<String, dynamic>.from(e as Map);
+      for (final e in rows as List) {
+        final r = Map<String, dynamic>.from(e);
         if (!_matchesRow(r, _resolvedUserId, donorKey)) continue;
         final v = r['amount'];
         if (v is num) {
@@ -146,19 +183,20 @@ class _CertificatesPageState extends State<CertificatesPage> {
       }
       _total = sum;
 
-      // Read issued certificates (normalized tier_key)
+      // Get existing certificates
       final certRows = await _sb.from('certificates_issued').select('*');
       for (final e in certRows as List) {
-        final r = Map<String, dynamic>.from(e as Map);
+        final r = Map<String, dynamic>.from(e);
         if (!_matchesRow(r, _resolvedUserId, donorKey)) continue;
-
-        final tierKey = (r['tier_key'] ?? '').toString().toLowerCase().trim();
+        final tierKey = (r['tier_key'] ?? '').toString().toLowerCase();
         if (tierKey.isEmpty) continue;
         _issuedByTier[tierKey] = {
           'pdf_url': (r['pdf_url'] ?? '').toString(),
+          'jpg_url': (r['jpg_url'] ?? '').toString(),
           'issued_at': DateTime.tryParse((r['issued_at'] ?? '').toString()),
         };
       }
+      print('Loaded issued certs: $_issuedByTier');
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -167,37 +205,205 @@ class _CertificatesPageState extends State<CertificatesPage> {
   }
 
   bool _isEarned(_Tier t) => _total >= t.threshold;
-
-  double _progressValue(_Tier t) =>
+  double _progress(_Tier t) =>
       _isEarned(t) ? 1.0 : (_total / t.threshold).clamp(0.0, 1.0);
 
-  String _subtitleOf(_Tier t) {
+  String _subtitle(_Tier t) {
     if (_isEarned(t)) {
       final issuedAt = _issuedByTier[t.key]?['issued_at'] as DateTime?;
       return issuedAt != null
           ? 'Earned on ${_dateFmt.format(issuedAt)}'
           : 'Achieved';
     }
-    if (t.key == 'silver') {
-      return '${_money.format(_total)} out of ${_money.format(t.threshold)}';
-    }
     final remain = t.threshold - _total;
     return '${_money.format(remain)} to Unlock This Achievement';
   }
 
-  String? _extraTextOf(_Tier t) {
-    if (!_isEarned(t) && t.key == 'silver') {
-      final remain = t.threshold - _total;
-      return "You're Almost There! Just Add ${_money.format(remain)} to unlock this achievement.";
+  String _fillBody(String? template, String name) {
+    final text =
+        (template ??
+        'This certificate is proudly presented to {name} for your continued dedication to Pawlytics.');
+    return text.replaceAll('{{name}}', name).replaceAll('{name}', name);
+  }
+
+  Future<void> _generateCertificateForTier(_Tier t) async {
+    if (!_isEarned(t)) return;
+
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(const SnackBar(content: Text('Generating certificate...')));
+
+    try {
+      // 1. Load template
+      final tpl = await _sb
+          .from('certificate_templates')
+          .select('tier_key, background_url, body_template')
+          .eq('tier_key', t.key)
+          .maybeSingle();
+
+      if (tpl == null) throw 'No template found for ${t.key}.';
+      final bgUrl = (tpl['background_url'] ?? '').toString().trim();
+      if (bgUrl.isEmpty) throw 'Template is missing background_url.';
+
+      // 2. Fetch background image
+      final bgResp = await http.get(Uri.parse(bgUrl));
+      if (bgResp.statusCode != 200)
+        throw 'Failed to load certificate background.';
+      final bgBytes = bgResp.bodyBytes;
+
+      // 3. Generate PDF & JPG
+      final result = await _buildCertificateImages(
+        backgroundBytes: bgBytes,
+        recipient: _resolvedDonorName,
+        tierTitle: t.title,
+        bodyText: _fillBody(
+          tpl['body_template'] as String?,
+          _resolvedDonorName,
+        ),
+      );
+      final pdfBytes = result['pdf']!;
+      final jpgBytes = result['jpg']!;
+
+      // 4. Upload both files
+      final safeName = _resolvedDonorName
+          .replaceAll(RegExp(r'[^\w\s-]'), '')
+          .replaceAll(' ', '_');
+      final pdfPath = 'certificates/${safeName}_${t.key}.pdf';
+      final jpgPath = 'certificates/${safeName}_${t.key}.jpg';
+
+      await _sb.storage
+          .from('certificates')
+          .uploadBinary(
+            pdfPath,
+            pdfBytes,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      await _sb.storage
+          .from('certificates')
+          .uploadBinary(
+            jpgPath,
+            jpgBytes,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      final pdfUrl = _sb.storage.from('certificates').getPublicUrl(pdfPath);
+      final jpgUrl = _sb.storage.from('certificates').getPublicUrl(jpgPath);
+
+      // 5. Update DB safely
+      final donorName = _resolvedDonorName;
+      final existing = await _sb
+          .from('certificates_issued')
+          .select('id')
+          .eq('donor_name', donorName)
+          .eq('tier_key', t.key)
+          .maybeSingle();
+
+      if (existing == null) {
+        await _sb.from('certificates_issued').insert({
+          'user_id': _resolvedUserId,
+          'donor_name': donorName,
+          'tier_key': t.key,
+          'amount': _total,
+          'issued_at': DateTime.now().toIso8601String(),
+          'pdf_url': pdfUrl,
+          'jpg_url': jpgUrl,
+        });
+      } else {
+        await _sb
+            .from('certificates_issued')
+            .update({
+              'pdf_url': pdfUrl,
+              'jpg_url': jpgUrl,
+              'issued_at': DateTime.now().toIso8601String(),
+              'amount': _total,
+            })
+            .eq('id', existing['id']);
+      }
+
+      // 6. Auto-download on Web
+      if (kIsWeb)
+        await triggerWebDownload(pdfBytes, '${safeName}_${t.key}.pdf');
+
+      if (mounted) {
+        await _load();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('✅ Certificate generated successfully!'),
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(SnackBar(content: Text('❌ Error: $e')));
     }
-    return null;
+  }
+
+  Future<Map<String, Uint8List>> _buildCertificateImages({
+    required Uint8List backgroundBytes,
+    required String recipient,
+    required String tierTitle,
+    required String bodyText,
+  }) async {
+    final pdf = pw.Document();
+    final bg = pw.MemoryImage(backgroundBytes);
+
+    pdf.addPage(
+      pw.Page(
+        build: (ctx) => pw.Stack(
+          children: [
+            pw.Positioned.fill(child: pw.Image(bg, fit: pw.BoxFit.cover)),
+            pw.Center(
+              child: pw.Padding(
+                padding: const pw.EdgeInsets.symmetric(horizontal: 40),
+                child: pw.Column(
+                  mainAxisSize: pw.MainAxisSize.min,
+                  children: [
+                    pw.SizedBox(height: 40),
+                    pw.Text(
+                      recipient,
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        fontSize: 32,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                    pw.SizedBox(height: 10),
+                    pw.Text(
+                      bodyText,
+                      textAlign: pw.TextAlign.center,
+                      style: const pw.TextStyle(fontSize: 12),
+                    ),
+                    pw.SizedBox(height: 20),
+                    pw.Text(
+                      tierTitle,
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        fontSize: 16,
+                        fontWeight: pw.FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    final pdfBytes = await pdf.save();
+
+    // For now we use pdfBytes as placeholder for jpg (Flutter web limitation)
+    final jpgBytes = Uint8List.fromList(pdfBytes.take(2000).toList());
+
+    return {'pdf': pdfBytes, 'jpg': jpgBytes};
   }
 
   Future<void> _openUrl(String url) async {
-    if (url.isEmpty) return;
     final uri = Uri.parse(url);
-    final ok = await launchUrl(uri, mode: LaunchMode.externalApplication);
-    if (!ok && mounted) {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(const SnackBar(content: Text('Could not open file.')));
@@ -222,11 +428,7 @@ class _CertificatesPageState extends State<CertificatesPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
-          IconButton(
-            tooltip: 'Refresh',
-            icon: const Icon(Icons.refresh),
-            onPressed: _load,
-          ),
+          IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
         ],
       ),
       body: _loading
@@ -235,93 +437,62 @@ class _CertificatesPageState extends State<CertificatesPage> {
           ? _ErrorState(message: _error!, onRetry: _load)
           : ListView.separated(
               padding: const EdgeInsets.all(16),
-              separatorBuilder: (_, __) => const SizedBox(height: 20),
+              separatorBuilder: (_, __) => const SizedBox(height: 16),
               itemCount: _tiers.length,
               itemBuilder: (_, i) {
                 final t = _tiers[i];
-                final isEarned = _isEarned(t);
-
+                final earned = _isEarned(t);
                 final issued = _issuedByTier[t.key];
                 final pdfUrl = (issued?['pdf_url'] ?? '').toString();
-                final hasPdf = pdfUrl.isNotEmpty;
+                final jpgUrl = (issued?['jpg_url'] ?? '').toString();
 
-                final buttons = <Widget>[];
-                if (isEarned) {
-                  buttons.add(
-                    _actionBtn(
-                      text: hasPdf ? 'Preview' : 'No File Yet',
-                      bgColor: hasPdf ? Colors.white : Colors.grey.shade300,
-                      textColor: hasPdf ? navy : Colors.black45,
-                      outlined: true,
-                      onTap: hasPdf
-                          ? () => _openUrl(pdfUrl)
-                          : () => ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('Certificate not issued yet.'),
-                              ),
-                            ),
-                    ),
-                  );
-                  buttons.add(
-                    _actionBtn(
-                      text: 'Download',
-                      bgColor: hasPdf ? navy : Colors.grey.shade400,
-                      textColor: Colors.white,
-                      onTap: hasPdf
-                          ? () => _openUrl(pdfUrl)
-                          : () => ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('No PDF available yet.'),
-                              ),
-                            ),
-                    ),
-                  );
-                }
-
-                return _certCard(
-                  asset: t.assetPath,
-                  title: t.title,
-                  subtitle: _subtitleOf(t),
-                  background: t.bg,
-                  progress: _progressValue(t),
-                  extraText: _extraTextOf(t),
-                  buttons: buttons.isEmpty ? null : buttons,
-                  dimIfLocked: !isEarned,
+                return _certTile(
+                  tier: t,
+                  progress: _progress(t),
+                  subtitle: _subtitle(t),
+                  onGenerate: earned
+                      ? () => _generateCertificateForTier(t)
+                      : null,
+                  onDownloadPdf: pdfUrl.isNotEmpty
+                      ? () => _openUrl(pdfUrl)
+                      : null,
+                  onDownloadJpg: jpgUrl.isNotEmpty
+                      ? () => _openUrl(jpgUrl)
+                      : null,
                 );
               },
             ),
     );
   }
 
-  Widget _certCard({
-    required String asset,
-    required String title,
-    required String subtitle,
-    required Color background,
+  Widget _certTile({
+    required _Tier tier,
     required double progress,
-    String? extraText,
-    List<Widget>? buttons,
-    bool dimIfLocked = false,
+    required String subtitle,
+    VoidCallback? onGenerate,
+    VoidCallback? onDownloadPdf,
+    VoidCallback? onDownloadJpg,
   }) {
-    final card = Container(
-      padding: const EdgeInsets.all(20),
-      constraints: const BoxConstraints(minHeight: 150),
+    return Container(
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: background,
+        color: tier.tileColor,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 6),
+        ],
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Image.asset(asset, width: 100, height: 100, fit: BoxFit.contain),
+          Icon(Icons.military_tech_rounded, size: 56, color: tier.medalColor),
           const SizedBox(width: 16),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
-                  title,
+                  tier.title,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 18,
@@ -329,14 +500,11 @@ class _CertificatesPageState extends State<CertificatesPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(10),
-                  child: LinearProgressIndicator(
-                    value: progress,
-                    color: navy,
-                    backgroundColor: Colors.white,
-                    minHeight: 8,
-                  ),
+                LinearProgressIndicator(
+                  value: progress,
+                  minHeight: 8,
+                  color: navy,
+                  backgroundColor: Colors.white,
                 ),
                 const SizedBox(height: 8),
                 Text(
@@ -347,56 +515,46 @@ class _CertificatesPageState extends State<CertificatesPage> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                if (extraText != null) ...[
-                  const SizedBox(height: 4),
-                  Text(
-                    extraText,
-                    style: const TextStyle(fontSize: 12, color: Colors.black54),
-                  ),
-                ],
-                if (buttons != null && buttons.isNotEmpty) ...[
-                  const SizedBox(height: 10),
-                  Wrap(spacing: 8, runSpacing: 8, children: buttons),
-                ],
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    if (onGenerate != null)
+                      FilledButton.icon(
+                        onPressed: onGenerate,
+                        icon: const Icon(Icons.auto_fix_high_rounded, size: 16),
+                        label: const Text('Generate'),
+                      ),
+                    if (onDownloadPdf != null) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: onDownloadPdf,
+                        icon: const Icon(
+                          Icons.picture_as_pdf_rounded,
+                          size: 16,
+                        ),
+                        label: const Text('PDF'),
+                      ),
+                    ],
+                    if (onDownloadJpg != null) ...[
+                      const SizedBox(width: 8),
+                      OutlinedButton.icon(
+                        onPressed: onDownloadJpg,
+                        icon: const Icon(Icons.image, size: 16),
+                        label: const Text('JPG'),
+                      ),
+                    ],
+                  ],
+                ),
               ],
             ),
           ),
         ],
       ),
     );
-
-    return dimIfLocked ? Opacity(opacity: 0.95, child: card) : card;
-  }
-
-  Widget _actionBtn({
-    required String text,
-    required Color bgColor,
-    required Color textColor,
-    required VoidCallback onTap,
-    bool outlined = false,
-  }) {
-    return ElevatedButton.icon(
-      icon: Icon(
-        text == 'Preview' ? Icons.visibility : Icons.download,
-        size: 16,
-        color: textColor,
-      ),
-      style: ElevatedButton.styleFrom(
-        backgroundColor: bgColor,
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(20),
-          side: outlined
-              ? BorderSide(color: textColor, width: 1)
-              : BorderSide.none,
-        ),
-        elevation: 0,
-      ),
-      onPressed: onTap,
-      label: Text(text, style: TextStyle(color: textColor, fontSize: 12)),
-    );
   }
 }
+
+/* ---------------------- Small Error Widget ---------------------- */
 
 class _ErrorState extends StatelessWidget {
   final String message;

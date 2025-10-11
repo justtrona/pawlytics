@@ -2,12 +2,84 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 /// ============================================================================
-/// SUPABASE REPOSITORY – no server-side type filter, client-side "inkind" detect
+/// DATA MODELS & REPOSITORY (self-contained)
 /// ============================================================================
+
+enum DonationModule { opex, campaign, pet }
+
+enum InkindStatus { pending, forPickup, received }
+
+extension InkindStatusX on InkindStatus {
+  String get label => switch (this) {
+    InkindStatus.pending => 'Pending',
+    InkindStatus.forPickup => 'For Pickup',
+    InkindStatus.received => 'Received',
+  };
+
+  Color get color => switch (this) {
+    InkindStatus.pending => Colors.orange,
+    InkindStatus.forPickup => Colors.blue,
+    InkindStatus.received => Colors.green,
+  };
+}
+
+class Donation {
+  final int id;
+  final String donorName;
+  final DonationModule module;
+  final String moduleRefName; // OPEX category | Campaign title | Pet name
+  final String? item;
+  final int? quantity;
+  final String? notes;
+  final String? dropOffLocation;
+  final DateTime? scheduledAt;
+  final DateTime createdAt;
+  final InkindStatus inkindStatus;
+  final String? phone;
+
+  Donation({
+    required this.id,
+    required this.donorName,
+    required this.module,
+    required this.moduleRefName,
+    required this.createdAt,
+    required this.inkindStatus,
+    this.item,
+    this.quantity,
+    this.notes,
+    this.dropOffLocation,
+    this.scheduledAt,
+    this.phone,
+  });
+
+  Donation copyWith({InkindStatus? inkindStatus}) => Donation(
+    id: id,
+    donorName: donorName,
+    module: module,
+    moduleRefName: moduleRefName,
+    item: item,
+    quantity: quantity,
+    notes: notes,
+    dropOffLocation: dropOffLocation,
+    scheduledAt: scheduledAt,
+    createdAt: createdAt,
+    inkindStatus: inkindStatus ?? this.inkindStatus,
+    phone: phone,
+  );
+}
+
+abstract class DonationRepository {
+  Future<List<Donation>> fetchInkindOnly();
+  Future<Donation> updateInkindStatus({
+    required int donationId,
+    required InkindStatus status,
+    String? adminNote,
+  });
+}
+
 class SupabaseDonationRepository implements DonationRepository {
   final SupabaseClient _sb = Supabase.instance.client;
 
-  // ---- helpers -------------------------------------------------------------
   InkindStatus _parseStatus(dynamic v) {
     final s = (v ?? 'pending').toString().toLowerCase();
     if (s == 'for_pickup' || s == 'forpickup') return InkindStatus.forPickup;
@@ -15,7 +87,7 @@ class SupabaseDonationRepository implements DonationRepository {
     return InkindStatus.pending;
   }
 
-  // Heuristic to classify an in-kind row regardless of column names/values
+  // Heuristic to detect in-kind even if columns differ across rows
   bool _looksInkind(Map r) {
     final typeA = r['donation_type']?.toString().toLowerCase();
     final typeB = r['donation_typ']?.toString().toLowerCase();
@@ -100,7 +172,6 @@ class SupabaseDonationRepository implements DonationRepository {
     );
   }
 
-  // ---- queries -------------------------------------------------------------
   @override
   Future<List<Donation>> fetchInkindOnly() async {
     final data = await _sb
@@ -113,7 +184,6 @@ class SupabaseDonationRepository implements DonationRepository {
           campaigns!left(program, description),
           pet_profiles!left(name)
         ''')
-        // no server-side filter (avoids column-not-found errors)
         .order('created_at', ascending: false)
         .limit(1000);
 
@@ -144,7 +214,6 @@ class SupabaseDonationRepository implements DonationRepository {
         .from('donations')
         .update(payload)
         .eq('id', donationId)
-        // do not filter by donation_* here; avoids column mismatch
         .select(r'''
           *,
           alloc_by_allocation_fk:operational_expense_allocations!donations_allocation_fk(category),
@@ -160,85 +229,9 @@ class SupabaseDonationRepository implements DonationRepository {
 }
 
 /// ============================================================================
-/// DOMAIN MODELS (INKIND-ONLY)
+/// MAIN UI – polished and complete
 /// ============================================================================
-enum DonationModule { opex, campaign, pet }
 
-enum InkindStatus { pending, forPickup, received }
-
-extension InkindStatusX on InkindStatus {
-  String get label => switch (this) {
-    InkindStatus.pending => 'Pending',
-    InkindStatus.forPickup => 'For Pickup',
-    InkindStatus.received => 'Received',
-  };
-  Color get color => switch (this) {
-    InkindStatus.pending => Colors.orange,
-    InkindStatus.forPickup => Colors.blue,
-    InkindStatus.received => Colors.green,
-  };
-}
-
-class Donation {
-  final int id;
-  final String donorName;
-  final DonationModule module;
-  final String moduleRefName; // OPEX category | Campaign title | Pet name
-  final String? item;
-  final int? quantity;
-  final String? notes;
-  final String? dropOffLocation;
-  final DateTime? scheduledAt;
-  final DateTime createdAt;
-  final InkindStatus inkindStatus;
-  final String? phone;
-
-  Donation({
-    required this.id,
-    required this.donorName,
-    required this.module,
-    required this.moduleRefName,
-    required this.createdAt,
-    required this.inkindStatus,
-    this.item,
-    this.quantity,
-    this.notes,
-    this.dropOffLocation,
-    this.scheduledAt,
-    this.phone,
-  });
-
-  Donation copyWith({InkindStatus? inkindStatus}) => Donation(
-    id: id,
-    donorName: donorName,
-    module: module,
-    moduleRefName: moduleRefName,
-    item: item,
-    quantity: quantity,
-    notes: notes,
-    dropOffLocation: dropOffLocation,
-    scheduledAt: scheduledAt,
-    createdAt: createdAt,
-    inkindStatus: inkindStatus ?? this.inkindStatus,
-    phone: phone,
-  );
-}
-
-/// ============================================================================
-/// REPOSITORY CONTRACT
-/// ============================================================================
-abstract class DonationRepository {
-  Future<List<Donation>> fetchInkindOnly();
-  Future<Donation> updateInkindStatus({
-    required int donationId,
-    required InkindStatus status,
-    String? adminNote,
-  });
-}
-
-/// ============================================================================
-/// SCREEN (INKIND-ONLY)
-/// ============================================================================
 class InkindMain extends StatefulWidget {
   const InkindMain({super.key});
   @override
@@ -250,7 +243,7 @@ class _InkindMainState extends State<InkindMain>
   late final TabController _tab;
   late final DonationRepository repo;
 
-  InkindStatus? statusFilter; // null = all
+  InkindStatus? statusFilter;
   String query = '';
   List<Donation> all = [];
   bool loading = true;
@@ -259,25 +252,24 @@ class _InkindMainState extends State<InkindMain>
   void initState() {
     super.initState();
     _tab = TabController(length: 4, vsync: this);
-    repo = SupabaseDonationRepository(); // ✅ REAL DATA
+    repo = SupabaseDonationRepository();
     _load();
   }
 
   Future<void> _load() async {
+    final messenger = ScaffoldMessenger.of(context);
     setState(() => loading = true);
     try {
       final data = await repo.fetchInkindOnly();
+      if (!mounted) return;
       setState(() {
         all = data;
         loading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => loading = false);
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Load failed: $e')));
-      }
+      messenger.showSnackBar(SnackBar(content: Text('Load failed: $e')));
     }
   }
 
@@ -301,17 +293,21 @@ class _InkindMainState extends State<InkindMain>
           d.notes ?? '',
           d.dropOffLocation ?? '',
         ].join(' ').toLowerCase();
-        if (!hay.contains(q)) return false;
+        return hay.contains(q);
       }
       return true;
     }).toList()..sort((a, b) => b.createdAt.compareTo(a.createdAt));
   }
 
   Future<void> _changeStatus(BuildContext ctx, Donation d) async {
+    final messenger = ScaffoldMessenger.of(ctx);
     final next = await showModalBottomSheet<_StatusChangeResult>(
       context: ctx,
       showDragHandle: true,
       isScrollControlled: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
       builder: (_) => _StatusSheet(current: d.inkindStatus),
     );
     if (next == null) return;
@@ -321,27 +317,29 @@ class _InkindMainState extends State<InkindMain>
         status: next.status,
         adminNote: next.note,
       );
+      if (!mounted) return;
       final idx = all.indexWhere((x) => x.id == d.id);
       setState(() => all[idx] = updated);
-      if (!mounted) return;
-      ScaffoldMessenger.of(ctx).showSnackBar(
+      messenger.showSnackBar(
         SnackBar(content: Text('Status updated to ${next.status.label}')),
       );
     } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(
-        ctx,
-      ).showSnackBar(SnackBar(content: Text('Update failed: $e')));
+      messenger.showSnackBar(SnackBar(content: Text('Update failed: $e')));
     }
   }
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Scaffold(
+      backgroundColor: scheme.surfaceVariant.withOpacity(.2),
       appBar: AppBar(
-        title: const Text('In-Kind Donations (Admin)'),
+        centerTitle: true,
+        title: const Text('In-Kind Donations'),
         bottom: TabBar(
           controller: _tab,
+          labelColor: scheme.primary,
+          unselectedLabelColor: scheme.onSurfaceVariant,
           tabs: const [
             Tab(text: 'All'),
             Tab(text: 'OPEX'),
@@ -377,6 +375,7 @@ class _InkindMainState extends State<InkindMain>
 /// ============================================================================
 /// FILTERS
 /// ============================================================================
+
 class _Filters extends StatelessWidget {
   final InkindStatus? status;
   final ValueChanged<InkindStatus?> onStatusChanged;
@@ -392,31 +391,39 @@ class _Filters extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Material(
-      color: Theme.of(context).colorScheme.surface,
+      color: scheme.surface,
+      elevation: 1,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+        padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
         child: Wrap(
+          alignment: WrapAlignment.spaceBetween,
           crossAxisAlignment: WrapCrossAlignment.center,
-          spacing: 8,
           runSpacing: 8,
+          spacing: 12,
           children: [
             SizedBox(
               width: 260,
               child: TextField(
                 onChanged: onSearch,
-                decoration: const InputDecoration(
-                  prefixIcon: Icon(Icons.search),
-                  hintText: 'Search donor, item, module…',
+                decoration: InputDecoration(
+                  hintText: 'Search donor, item, or module…',
+                  prefixIcon: const Icon(Icons.search),
+                  filled: true,
+                  fillColor: scheme.surfaceVariant.withOpacity(.3),
                   isDense: true,
-                  border: OutlineInputBorder(),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none,
+                  ),
                 ),
               ),
             ),
             _StatusChips(value: status, onChanged: onStatusChanged),
             IconButton(
-              onPressed: onRefresh,
               tooltip: 'Refresh',
+              onPressed: onRefresh,
               icon: const Icon(Icons.refresh),
             ),
           ],
@@ -434,30 +441,46 @@ class _StatusChips extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final entries = <(String, InkindStatus?)>[
-      ('All', null),
-      ('Pending', InkindStatus.pending),
-      ('For Pickup', InkindStatus.forPickup),
-      ('Received', InkindStatus.received),
+    final scheme = Theme.of(context).colorScheme;
+
+    final entries = <_StatusEntry>[
+      _StatusEntry('All', null),
+      _StatusEntry('Pending', InkindStatus.pending),
+      _StatusEntry('For Pickup', InkindStatus.forPickup),
+      _StatusEntry('Received', InkindStatus.received),
     ];
 
     return Wrap(
       spacing: 6,
       children: entries.map((e) {
-        final selected = value == e.$2;
+        final selected = value == e.value;
         return ChoiceChip(
-          label: Text(e.$1),
+          label: Text(e.label),
           selected: selected,
-          onSelected: (_) => onChanged(e.$2),
+          selectedColor: scheme.primaryContainer,
+          labelStyle: TextStyle(
+            color: selected
+                ? scheme.onPrimaryContainer
+                : scheme.onSurfaceVariant,
+            fontWeight: FontWeight.w600,
+          ),
+          onSelected: (_) => onChanged(e.value),
         );
       }).toList(),
     );
   }
 }
 
+class _StatusEntry {
+  final String label;
+  final InkindStatus? value;
+  _StatusEntry(this.label, this.value);
+}
+
 /// ============================================================================
 /// LIST + CARD
 /// ============================================================================
+
 class _DonationList extends StatelessWidget {
   final List<Donation> items;
   final Future<void> Function(BuildContext, Donation) onChangeStatus;
@@ -467,10 +490,17 @@ class _DonationList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (items.isEmpty) {
-      return const Center(child: Text('No in-kind donations found.'));
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(24),
+          child: Text('No in-kind donations found.'),
+        ),
+      );
     }
     return ListView.separated(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
+      itemCount: items.length,
+      separatorBuilder: (_, __) => const SizedBox(height: 10),
       itemBuilder: (ctx, i) {
         final d = items[i];
         return _DonationCard(
@@ -478,8 +508,6 @@ class _DonationList extends StatelessWidget {
           onChangeStatus: () => onChangeStatus(ctx, d),
         );
       },
-      separatorBuilder: (_, __) => const SizedBox(height: 10),
-      itemCount: items.length,
     );
   }
 }
@@ -498,172 +526,107 @@ class _DonationCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     final status = donation.inkindStatus;
 
     return Card(
-      elevation: 1.5,
-      child: InkWell(
-        borderRadius: BorderRadius.circular(12),
-        onTap: () => _showDetails(context, donation),
-        child: Padding(
-          padding: const EdgeInsets.all(12),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const CircleAvatar(radius: 22, child: Icon(Icons.card_giftcard)),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [
-                        Text(
-                          donation.donorName,
-                          style: Theme.of(context).textTheme.titleMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                        _Pill(text: _moduleLabel),
-                        _Pill(text: donation.moduleRefName),
-                        const _Pill(text: 'In-Kind'),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Item: ${donation.item ?? '-'} • Qty: ${donation.quantity ?? 0}',
-                    ),
-                    const SizedBox(height: 6),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 6,
-                      children: [
-                        if (donation.dropOffLocation != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.place, size: 16),
-                              const SizedBox(width: 4),
-                              Text(donation.dropOffLocation!),
-                            ],
-                          ),
-                        if (donation.scheduledAt != null)
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              const Icon(Icons.event, size: 16),
-                              const SizedBox(width: 4),
-                              Text(_fmtDateTime(donation.scheduledAt!)),
-                            ],
-                          ),
-                        Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            const Icon(Icons.schedule, size: 16),
-                            const SizedBox(width: 4),
-                            Text('Created ${_relative(donation.createdAt)}'),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(width: 12),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  _StatusBadge(status),
-                  const SizedBox(height: 8),
-                  OutlinedButton.icon(
-                    onPressed: onChangeStatus,
-                    icon: const Icon(Icons.sync),
-                    label: const Text('Update'),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showDetails(BuildContext context, Donation d) {
-    showModalBottomSheet(
-      context: context,
-      showDragHandle: true,
-      isScrollControlled: true,
-      builder: (_) => _DetailsSheet(donation: d),
-    );
-  }
-}
-
-/// ============================================================================
-/// DETAILS & STATUS SHEET
-/// ============================================================================
-class _DetailsSheet extends StatelessWidget {
-  final Donation donation;
-  const _DetailsSheet({required this.donation});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: EdgeInsets.only(
-        left: 16,
-        right: 16,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 16,
-        top: 8,
-      ),
-      child: SingleChildScrollView(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 1,
+      color: scheme.surface,
+      child: Padding(
+        padding: const EdgeInsets.all(14),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Donation #${donation.id}',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
+            // Header line
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _Field('Donor', donation.donorName),
-                _Field('Module', switch (donation.module) {
-                  DonationModule.opex => 'Operating Expense',
-                  DonationModule.campaign => 'Campaign',
-                  DonationModule.pet => 'Pet Profile',
-                }),
-                _Field('Reference', donation.moduleRefName),
-                _Field('Item', donation.item ?? '-'),
-                _Field('Quantity', '${donation.quantity ?? 0}'),
-                if (donation.dropOffLocation != null)
-                  _Field('Drop-off', donation.dropOffLocation!),
-                if (donation.scheduledAt != null)
-                  _Field('Schedule', _fmtDateTime(donation.scheduledAt!)),
-                _Field('Created', _fmtDateTime(donation.createdAt)),
-                if (donation.phone != null) _Field('Phone', donation.phone!),
-                if (donation.notes != null) _Field('Notes', donation.notes!),
+                CircleAvatar(
+                  radius: 22,
+                  backgroundColor: scheme.primaryContainer,
+                  child: const Icon(Icons.card_giftcard),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        donation.donorName,
+                        style: Theme.of(context).textTheme.titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700),
+                      ),
+                      const SizedBox(height: 4),
+                      Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: [
+                          _Pill(text: _moduleLabel),
+                          _Pill(text: donation.moduleRefName),
+                          const _Pill(text: 'In-Kind'),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: [
+                    _StatusBadge(status),
+                    const SizedBox(height: 6),
+                    OutlinedButton.icon(
+                      onPressed: onChangeStatus,
+                      icon: const Icon(Icons.sync, size: 16),
+                      label: const Text('Update'),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 6,
+                        ),
+                        textStyle: const TextStyle(fontSize: 13),
+                      ),
+                    ),
+                  ],
+                ),
               ],
             ),
-            const SizedBox(height: 16),
-            _StatusBadge(donation.inkindStatus),
-            const SizedBox(height: 12),
+            const SizedBox(height: 10),
             Text(
-              'Status Timeline',
-              style: Theme.of(context).textTheme.titleMedium,
+              'Item: ${donation.item ?? '-'} • Qty: ${donation.quantity ?? 0}',
+              style: Theme.of(context).textTheme.bodyMedium,
             ),
-            const SizedBox(height: 6),
-            const Text('• Pending → For Pickup → Received'),
-            const SizedBox(height: 16),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 12,
+              runSpacing: 6,
+              children: [
+                if (donation.dropOffLocation != null)
+                  _iconText(Icons.place, donation.dropOffLocation!),
+                if (donation.scheduledAt != null)
+                  _iconText(Icons.event, _fmtDateTime(donation.scheduledAt!)),
+                _iconText(
+                  Icons.schedule,
+                  'Created ${_relative(donation.createdAt)}',
+                ),
+              ],
+            ),
           ],
         ),
       ),
     );
   }
+
+  Widget _iconText(IconData i, String t) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [Icon(i, size: 15), const SizedBox(width: 4), Text(t)],
+  );
 }
+
+/// ============================================================================
+/// STATUS SHEET
+/// ============================================================================
 
 class _StatusChangeResult {
   final InkindStatus status;
@@ -702,7 +665,7 @@ class _StatusSheetState extends State<_StatusSheet> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Text('Update Status', style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           DropdownButtonFormField<InkindStatus>(
             value: _value,
             items: InkindStatus.values
@@ -725,7 +688,7 @@ class _StatusSheetState extends State<_StatusSheet> {
               isDense: true,
             ),
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 14),
           Row(
             children: [
               Expanded(
@@ -759,16 +722,18 @@ class _StatusSheetState extends State<_StatusSheet> {
 /// ============================================================================
 /// SMALL UI HELPERS
 /// ============================================================================
+
 class _Pill extends StatelessWidget {
   final String text;
   const _Pill({required this.text});
   @override
   Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceVariant,
-        borderRadius: BorderRadius.circular(20),
+        color: scheme.surfaceVariant,
+        borderRadius: BorderRadius.circular(16),
       ),
       child: Text(text, style: const TextStyle(fontSize: 12)),
     );
@@ -781,52 +746,27 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
         color: status.color.withOpacity(.15),
-        border: Border.all(color: status.color),
         borderRadius: BorderRadius.circular(20),
+        border: Border.all(color: status.color),
       ),
       child: Text(
         status.label,
-        style: TextStyle(color: status.color, fontWeight: FontWeight.w600),
+        style: TextStyle(
+          color: status.color,
+          fontWeight: FontWeight.w700,
+          fontSize: 13,
+        ),
       ),
     );
   }
 }
 
-class _Field extends StatelessWidget {
-  final String label;
-  final String value;
-  const _Field(this.label, this.value);
-
-  @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: 280,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: Theme.of(
-              context,
-            ).textTheme.labelMedium?.copyWith(color: Colors.grey[700]),
-          ),
-          Text(value, style: Theme.of(context).textTheme.bodyMedium),
-        ],
-      ),
-    );
-  }
-}
-
-String _fmtDateTime(DateTime dt) {
-  final d =
-      '${dt.year.toString().padLeft(4, '0')}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')}';
-  final t =
-      '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
-  return '$d $t';
-}
+String _fmtDateTime(DateTime dt) =>
+    '${dt.year}-${dt.month.toString().padLeft(2, '0')}-${dt.day.toString().padLeft(2, '0')} '
+    '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
 
 String _relative(DateTime dt) {
   final diff = DateTime.now().difference(dt);

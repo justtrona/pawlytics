@@ -2,8 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/FavoritePage.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-
-// routes & screens
 import 'package:pawlytics/route/route.dart' as route;
 import 'package:pawlytics/views/donors/Menu%20bar%20user/myimpact.dart';
 import 'package:pawlytics/views/donors/Menu%20bar%20user/CampaignOutcomesPage.dart';
@@ -27,35 +25,93 @@ class ProfilePage extends StatefulWidget {
 class _ProfilePageState extends State<ProfilePage> {
   static const brand = Color(0xFF1F2C47);
   static const ink = Color(0xFF0F2D50);
+
   bool _signingOut = false;
+  bool _loading = true;
+  String? _fullName;
 
   User? get _user => Supabase.instance.client.auth.currentUser;
   String get _email => _user?.email ?? '';
 
-  String get _rawName {
-    final md = _user?.userMetadata ?? {};
-    return (md['full_name'] ??
-            md['name'] ??
-            md['display_name'] ??
-            md['given_name'] ??
-            '')
-        .toString();
+  @override
+  void initState() {
+    super.initState();
+    _loadFullName();
   }
 
-  String get displayName {
-    if (_rawName.trim().isNotEmpty) return _rawName.trim();
-    if (_email.isNotEmpty) return _email.split('@').first;
-    return 'Your Account';
+  Future<void> _loadFullName() async {
+    final sb = Supabase.instance.client;
+    final user = _user;
+
+    if (user == null) {
+      setState(() => _loading = false);
+      return;
+    }
+
+    String? fullName;
+
+    try {
+      // 1️⃣ Check user metadata
+      final md = user.userMetadata ?? {};
+      fullName =
+          (md['fullName'] as String?) ??
+          (md['full_name'] as String?) ??
+          (md['name'] as String?) ??
+          (md['display_name'] as String?);
+
+      // 2️⃣ Check registrations table
+      if (fullName == null || fullName.isEmpty) {
+        Map<String, dynamic>? reg = await sb
+            .from('registrations')
+            .select('fullName')
+            .eq('auth_user_id', user.id)
+            .maybeSingle();
+
+        if (reg == null && (user.email ?? '').isNotEmpty) {
+          reg = await sb
+              .from('registrations')
+              .select('fullName')
+              .eq('email', user.email!)
+              .maybeSingle();
+        }
+
+        if (reg != null && reg['fullName'] != null) {
+          fullName = reg['fullName'] as String;
+        }
+      }
+
+      // 3️⃣ Check profiles table
+      if (fullName == null || fullName.isEmpty) {
+        final Map<String, dynamic>? profile = await sb
+            .from('profiles')
+            .select('full_name')
+            .eq('id', user.id)
+            .maybeSingle();
+
+        if (profile != null && profile['full_name'] != null) {
+          fullName = profile['full_name'] as String;
+        }
+      }
+    } catch (e) {
+      debugPrint('Error fetching full name: $e');
+    }
+
+    setState(() {
+      _fullName = fullName?.trim().isNotEmpty == true
+          ? fullName!.trim()
+          : _email.split('@').first;
+      _loading = false;
+    });
   }
 
-  String get subLine => _email.isNotEmpty ? _email : ' ';
   String get initials {
-    final parts = displayName.trim().split(RegExp(r'\s+'));
+    final parts = (_fullName ?? _email).trim().split(RegExp(r'\s+'));
     if (parts.isEmpty) return 'U';
-    if (parts.length == 1)
+    if (parts.length == 1) {
       return parts.first.isEmpty
           ? 'U'
           : parts.first.characters.first.toUpperCase();
+    }
     return '${parts.first.characters.first.toUpperCase()}${parts.last.characters.first.toUpperCase()}';
   }
 
@@ -103,13 +159,19 @@ class _ProfilePageState extends State<ProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+    if (_loading) {
+      return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    }
+
+    final displayName = _fullName ?? _email.split('@').first;
+    final subLine = _email.isNotEmpty ? _email : '';
+
     return Scaffold(
       body: CustomScrollView(
         slivers: [
-          // ————— Polished header —————
+          // ————— Header —————
           SliverAppBar(
             automaticallyImplyLeading: false,
-
             pinned: true,
             backgroundColor: ink,
             expandedHeight: 136,
@@ -225,7 +287,7 @@ class _ProfilePageState extends State<ProfilePage> {
             ),
           ),
 
-          // ————— Menu content —————
+          // ————— Menu Section —————
           SliverList(
             delegate: SliverChildListDelegate([
               const SizedBox(height: 10),
@@ -263,42 +325,9 @@ class _ProfilePageState extends State<ProfilePage> {
                 title: 'Certificates',
                 onTap: () => Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => const CertificatesPage()),
+                  MaterialPageRoute(builder: (_) => CertificatesPage()),
                 ),
               ),
-              // _MenuTile(
-              //   icon: Icons.workspace_premium,
-              //   title: 'Certificates',
-              //   onTap: () {
-              //     final user = Supabase.instance.client.auth.currentUser;
-
-              //     // pick the best identifier your DB uses for donor_name
-              //     final donorName =
-              //         (user?.userMetadata?['donor_name'] as String? ??
-              //                 user?.userMetadata?['full_name'] as String? ??
-              //                 user?.email)
-              //             ?.trim() ??
-              //         '';
-
-              //     if (donorName.isEmpty) {
-              //       ScaffoldMessenger.of(context).showSnackBar(
-              //         const SnackBar(
-              //           content: Text(
-              //             'Missing donor identity. Please complete your profile.',
-              //           ),
-              //         ),
-              //       );
-              //       return;
-              //     }
-
-              //     Navigator.push(
-              //       context,
-              //       MaterialPageRoute(
-              //         builder: (_) => CertificatesPage(donorName: donorName),
-              //       ),
-              //     );
-              //   },
-              // ),
               const _SectionHeader('Tracking'),
               _MenuTile(
                 icon: Icons.show_chart,
@@ -316,12 +345,6 @@ class _ProfilePageState extends State<ProfilePage> {
                   MaterialPageRoute(builder: (_) => const FavoritesPage()),
                 ),
               ),
-
-              // _MenuTile(
-              //   icon: Icons.bar_chart,
-              //   title: 'Campaign Outcomes',
-              //   onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CampaignOutcomesPage())),
-              // ),
               const _SectionHeader('Settings'),
               _MenuTile(
                 icon: Icons.lock,
@@ -335,7 +358,7 @@ class _ProfilePageState extends State<ProfilePage> {
               ),
               _MenuTile(
                 icon: Icons.description,
-                title: 'Terms and Condition',
+                title: 'Terms and Conditions',
                 onTap: () => Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -376,12 +399,11 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-/* ================== Reusable pieces ================== */
+/* ================== Reusable Widgets (unchanged) ================== */
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader(this.text);
   final String text;
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -394,7 +416,6 @@ class _SectionHeader extends StatelessWidget {
               color: Color(0xFF1F2C47),
               fontWeight: FontWeight.w900,
               fontSize: 15,
-              letterSpacing: .2,
             ),
           ),
           const Spacer(),
@@ -423,12 +444,10 @@ class _MenuTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final brand = _ProfilePageState.brand;
-
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Material(
         color: Colors.white,
-        elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(14),
           side: BorderSide(color: Colors.grey.shade300),
@@ -440,7 +459,6 @@ class _MenuTile extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             child: Row(
               children: [
-                // Icon badge
                 Container(
                   width: 36,
                   height: 36,
@@ -463,40 +481,19 @@ class _MenuTile extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Labels
                 Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        title,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w800,
-                          color: danger
-                              ? const Color(0xFFCC3A2B)
-                              : Colors.black87,
-                          fontSize: 15,
-                        ),
-                      ),
-                      if (subtitle != null) ...[
-                        const SizedBox(height: 2),
-                        Text(
-                          subtitle!,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 12,
-                            color: Colors.black54,
-                          ),
-                        ),
-                      ],
-                    ],
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: danger ? const Color(0xFFCC3A2B) : Colors.black87,
+                      fontSize: 15,
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Icon(Icons.chevron_right, color: Colors.black38),
+                const Icon(Icons.chevron_right, color: Colors.black38),
               ],
             ),
           ),
@@ -518,7 +515,6 @@ class _RingAvatar extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // ring
           Container(
             width: 46,
             height: 46,
@@ -531,7 +527,6 @@ class _RingAvatar extends StatelessWidget {
               ),
             ),
           ),
-          // inner
           Container(
             width: 40,
             height: 40,

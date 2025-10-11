@@ -23,10 +23,6 @@ class ProfileEdit extends StatelessWidget {
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/*                               Body (dynamic)                               */
-/* -------------------------------------------------------------------------- */
-
 class _ProfileBody extends StatelessWidget {
   const _ProfileBody({Key? key}) : super(key: key);
 
@@ -35,14 +31,14 @@ class _ProfileBody extends StatelessWidget {
     final user = sb.auth.currentUser;
 
     // Defaults
-    String name = 'there';
+    String fullName = 'User';
     String? email = user?.email;
     String? avatar;
 
-    // 1) From auth metadata
     if (user != null) {
       final md = user.userMetadata ?? {};
       final metaName =
+          (md['fullName'] as String?) ??
           (md['full_name'] as String?) ??
           (md['name'] as String?) ??
           (md['username'] as String?) ??
@@ -53,47 +49,68 @@ class _ProfileBody extends StatelessWidget {
           (md['photo_url'] as String?);
 
       if (metaName != null && metaName.trim().isNotEmpty) {
-        name = metaName.trim();
+        fullName = metaName.trim();
       } else if ((email ?? '').contains('@')) {
-        name = email!.split('@').first;
+        fullName = email!.split('@').first;
       }
 
       if (metaAvatar != null && metaAvatar.trim().isNotEmpty) {
         avatar = metaAvatar.trim();
       }
-    }
 
-    // 2) From profiles table (optional)
-    try {
-      if (user != null) {
+      // ---------------- Check registrations table ----------------
+      try {
+        Map<String, dynamic>? reg = await sb
+            .from('registrations')
+            .select('fullName, email')
+            .eq('auth_user_id', user.id)
+            .maybeSingle();
+
+        if (reg == null && (user.email ?? '').isNotEmpty) {
+          reg = await sb
+              .from('registrations')
+              .select('fullName, email')
+              .eq('email', user.email!)
+              .maybeSingle();
+        }
+
+        if (reg != null) {
+          final rName = (reg['fullName'] as String?);
+          if (rName != null && rName.trim().isNotEmpty) {
+            fullName = rName.trim();
+          }
+        }
+      } catch (_) {
+        // ignore if table or RLS missing
+      }
+
+      // ---------------- Check profiles table ----------------
+      try {
         final Map<String, dynamic>? res = await sb
             .from('profiles')
-            .select('full_name, name, username, avatar_url, photo_url')
+            .select('full_name, avatar_url')
             .eq('id', user.id)
             .maybeSingle();
 
         if (res != null) {
-          final pName =
-              (res['full_name'] as String?) ??
-              (res['name'] as String?) ??
-              (res['username'] as String?);
-          final pAvatar =
-              (res['avatar_url'] as String?) ?? (res['photo_url'] as String?);
+          final pName = (res['full_name'] as String?);
+          final pAvatar = (res['avatar_url'] as String?);
 
-          if (pName != null && pName.trim().isNotEmpty) name = pName.trim();
+          if (pName != null && pName.trim().isNotEmpty) {
+            fullName = pName.trim();
+          }
           if (pAvatar != null && pAvatar.trim().isNotEmpty) {
             avatar = pAvatar.trim();
           }
         }
+      } catch (_) {
+        // ignore if missing
       }
-    } catch (_) {
-      // profiles table might not exist; ignore
     }
 
-    // Sanitize avatar: allow http(s) only; otherwise treat as asset path
     bool isNetwork = avatar != null && avatar!.startsWith('http');
     return _UserView(
-      name: name,
+      name: fullName,
       email: email ?? '',
       avatarUrl: avatar,
       isNetworkAvatar: isNetwork,
@@ -108,6 +125,7 @@ class _ProfileBody extends StatelessWidget {
         if (!snap.hasData) {
           return const Center(child: CircularProgressIndicator());
         }
+
         final user = snap.data!;
 
         return SingleChildScrollView(
@@ -115,7 +133,7 @@ class _ProfileBody extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Header with cover + avatar
+              /* ----------------------- Cover + Avatar ----------------------- */
               Stack(
                 clipBehavior: Clip.none,
                 alignment: Alignment.center,
@@ -145,21 +163,22 @@ class _ProfileBody extends StatelessWidget {
 
               const SizedBox(height: 70),
 
-              // Name + email + Edit Profile
+              /* ----------------------- Full Name Display ----------------------- */
               Text(
                 user.name,
                 style: const TextStyle(
-                  fontSize: 18,
+                  fontSize: 20,
                   fontWeight: FontWeight.bold,
                 ),
               ),
-              if (user.email.isNotEmpty) ...[
-                const SizedBox(height: 2),
+
+              const SizedBox(height: 4),
+              if (user.email.isNotEmpty)
                 Text(
                   user.email,
-                  style: const TextStyle(color: Colors.black54, fontSize: 13),
+                  style: const TextStyle(fontSize: 14, color: Colors.black54),
                 ),
-              ],
+
               TextButton.icon(
                 onPressed: () {
                   Navigator.push(
@@ -175,280 +194,135 @@ class _ProfileBody extends StatelessWidget {
 
               const SizedBox(height: 30),
 
-              // Impact section (kept from your design)
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Center(
-                    child: Text(
-                      "Here is your impact so far...",
-                      style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.w500,
-                      ),
+              /* ----------------------- Donor Section ----------------------- */
+              const Center(
+                child: Text(
+                  "Here is your impact so far...",
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.w500),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: Colors.orange.shade50,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  children: [
+                    Image.asset(
+                      "assets/images/donors/bronze.png",
+                      height: 80,
+                      width: 80,
                     ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Donor level card (static demo — wire to your levels later)
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(16),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Image.asset(
-                          "assets/images/donors/bronze.png",
-                          height: 80,
-                          width: 80,
-                          fit: BoxFit.contain,
-                        ),
-                        const SizedBox(height: 8),
-                        RichText(
-                          text: TextSpan(
-                            style: TextStyle(fontSize: 16, color: Colors.black),
-                            children: [
-                              TextSpan(
-                                text: "Donor Level: ",
-                                style: TextStyle(fontWeight: FontWeight.bold),
-                              ),
-                              TextSpan(
-                                text: "Bronze Supporter",
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Colors.orange,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  const SizedBox(height: 16),
-
-                  // Progress to next tier
-                  Container(
-                    decoration: BoxDecoration(
-                      color: Colors.grey.shade200,
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Colors.black12,
-                          blurRadius: 6,
-                          offset: Offset(0, 3),
-                        ),
-                      ],
-                    ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: const LinearProgressIndicator(
-                        value: 0.3,
-                        color: Color(0xFF23344E),
-                        backgroundColor: Colors.transparent,
-                        minHeight: 16,
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 8),
-
-                  const Center(
-                    child: Text(
-                      "Support Php 9,100 more campaigns to reach Silver!",
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF23344E),
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-
-                  const SizedBox(height: 12),
-
-                  const Divider(
-                    thickness: 1,
-                    color: Colors.black26,
-                    indent: 8,
-                    endIndent: 8,
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Time filter chip (UI only for now)
-                  Align(
-                    alignment: Alignment.center,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      decoration: BoxDecoration(
-                        color: Colors.grey.shade200,
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: TextButton(
-                        onPressed: () {},
-                        style: TextButton.styleFrom(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 12,
-                            vertical: 8,
-                          ),
-                          foregroundColor: Colors.black,
-                          backgroundColor: Colors.transparent,
-                        ),
-                        child: const Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              "Filter Last 30 Days",
-                              style: TextStyle(
-                                fontSize: 15,
-                                fontWeight: FontWeight.w500,
-                                letterSpacing: 0.3,
-                              ),
-                            ),
-                            SizedBox(width: 8),
-                            Icon(Icons.arrow_drop_down, size: 18),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ),
-
-                  const SizedBox(height: 20),
-
-                  // Stat cards (your existing demo numbers)
-                  Column(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.emoji_events, size: 50),
-                            SizedBox(height: 6, width: 500),
-                            Text(
-                              "Campaigns Supported",
-                              style: TextStyle(fontSize: 20),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              "10",
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Row(
+                    const SizedBox(height: 8),
+                    RichText(
+                      text: TextSpan(
+                        style: TextStyle(fontSize: 16, color: Colors.black),
                         children: [
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                children: const [
-                                  Icon(Icons.volunteer_activism, size: 50),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    "Total Donations",
-                                    style: TextStyle(fontSize: 20),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    "Php 150",
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
+                          TextSpan(
+                            text: "Donor Level: ",
+                            style: TextStyle(fontWeight: FontWeight.bold),
                           ),
-                          const SizedBox(width: 12),
-                          Expanded(
-                            child: Container(
-                              padding: const EdgeInsets.all(16),
-                              decoration: BoxDecoration(
-                                color: Colors.grey.shade200,
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Column(
-                                children: const [
-                                  Icon(Icons.pets, size: 50),
-                                  SizedBox(height: 6),
-                                  Text(
-                                    "Adoptions",
-                                    style: TextStyle(fontSize: 20),
-                                  ),
-                                  SizedBox(height: 4),
-                                  Text(
-                                    "69",
-                                    style: TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ],
-                              ),
+                          TextSpan(
+                            text: "Bronze Supporter",
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.orange,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.grey.shade200,
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          children: const [
-                            Icon(Icons.home, size: 50),
-                            SizedBox(height: 6),
-                            Text(
-                              "Animals You Helped",
-                              style: TextStyle(fontSize: 20),
-                            ),
-                            SizedBox(height: 4, width: 500),
-                            Text(
-                              "4",
-                              style: TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              /* ----------------------- Progress Bar ----------------------- */
+              Container(
+                decoration: BoxDecoration(
+                  color: Colors.grey.shade200,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const ClipRRect(
+                  borderRadius: BorderRadius.all(Radius.circular(20)),
+                  child: LinearProgressIndicator(
+                    value: 0.3,
+                    color: Color(0xFF23344E),
+                    backgroundColor: Colors.transparent,
+                    minHeight: 16,
                   ),
+                ),
+              ),
+
+              const SizedBox(height: 8),
+              const Text(
+                "Support Php 9,100 more campaigns to reach Silver!",
+                style: TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w600,
+                  color: Color(0xFF23344E),
+                ),
+                textAlign: TextAlign.center,
+              ),
+
+              const SizedBox(height: 30),
+              const Divider(thickness: 1, color: Colors.black26),
+
+              /* ----------------------- Stats ----------------------- */
+              const SizedBox(height: 20),
+              _statCard(Icons.emoji_events, "Campaigns Supported", "10"),
+              const SizedBox(height: 12),
+              Row(
+                children: [
+                  Expanded(
+                    child: _statCard(
+                      Icons.volunteer_activism,
+                      "Total Donations",
+                      "Php 150",
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(child: _statCard(Icons.pets, "Adoptions", "69")),
                 ],
               ),
+              const SizedBox(height: 12),
+              _statCard(Icons.home, "Animals You Helped", "4"),
             ],
           ),
         );
       },
     );
   }
+
+  Widget _statCard(IconData icon, String label, String value) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade200,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        children: [
+          Icon(icon, size: 50),
+          const SizedBox(height: 6),
+          Text(label, style: const TextStyle(fontSize: 20)),
+          const SizedBox(height: 4),
+          Text(
+            value,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 /* ------------------------------- DTO/View -------------------------------- */
-
 class _UserView {
   final String name;
   final String email;

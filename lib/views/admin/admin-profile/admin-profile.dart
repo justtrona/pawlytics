@@ -41,7 +41,6 @@ class _AdminProfileState extends State<AdminProfile> {
       }
 
       final supabase = Supabase.instance.client;
-
       final response = await supabase
           .from('registration')
           .select()
@@ -72,18 +71,15 @@ class _AdminProfileState extends State<AdminProfile> {
     final supabase = Supabase.instance.client;
 
     try {
-      // Update registration table
       await supabase
           .from('registration')
           .update({
             'fullName': nameCtrl.text.trim(),
             'phone_number': phoneCtrl.text.trim(),
-            // If you add a 'bio' column later, uncomment next line:
-            // 'bio': bioCtrl.text.trim(),
+            // 'bio': bioCtrl.text.trim(), // add when column exists
           })
           .eq('id', user.id);
 
-      // Optional: also mirror name in auth metadata
       await supabase.auth.updateUser(
         UserAttributes(data: {'fullName': nameCtrl.text.trim()}),
       );
@@ -117,6 +113,7 @@ class _AdminProfileState extends State<AdminProfile> {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0,
+        centerTitle: true,
         leading: IconButton(
           icon: const Icon(Icons.chevron_left),
           onPressed: () => Navigator.maybePop(context),
@@ -141,6 +138,7 @@ class _AdminProfileState extends State<AdminProfile> {
               child: ListView(
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 100),
                 children: [
+                  // Header Card
                   _Card(
                     child: Column(
                       children: [
@@ -176,18 +174,6 @@ class _AdminProfileState extends State<AdminProfile> {
                           icon: Icons.shield_outlined,
                           label: roleCtrl.text,
                         ),
-                      ],
-                    ),
-                  ),
-
-                  // KPIs
-                  _Card(
-                    padding: const EdgeInsets.symmetric(vertical: 14),
-                    child: Row(
-                      children: const [
-                        _KpiTile(title: 'Managed Campaigns', value: '12'),
-                        _DividerY(),
-                        _KpiTile(title: 'Active Projects', value: '5'),
                       ],
                     ),
                   ),
@@ -330,44 +316,6 @@ class _SectionTitle extends StatelessWidget {
           ),
         ),
       ],
-    );
-  }
-}
-
-class _KpiTile extends StatelessWidget {
-  final String title;
-  final String value;
-  const _KpiTile({required this.title, required this.value});
-
-  @override
-  Widget build(BuildContext context) {
-    const navy = Color(0xFF0F2D50);
-    final subtle = Colors.grey.shade600;
-    return Expanded(
-      child: Column(
-        children: [
-          Text(title, style: TextStyle(color: subtle, fontSize: 12)),
-          const SizedBox(height: 6),
-          Text(
-            value,
-            style: const TextStyle(fontWeight: FontWeight.w800, color: navy),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DividerY extends StatelessWidget {
-  const _DividerY();
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 1,
-      height: 52,
-      margin: const EdgeInsets.symmetric(horizontal: 10),
-      color: Colors.grey.shade200,
     );
   }
 }
