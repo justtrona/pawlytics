@@ -745,12 +745,14 @@ class _RecommendedCard extends StatelessWidget {
         imageUrl!,
         height: 140,
         width: 180,
-        fit: BoxFit.cover,
+        fit: BoxFit.contain, // ✅ shows entire image
+        alignment: Alignment.center,
         errorBuilder: (_, __, ___) => Image.asset(
           "assets/images/donors/peter.png",
           height: 140,
           width: 180,
-          fit: BoxFit.cover,
+          fit: BoxFit.contain, // ✅ same behavior
+          alignment: Alignment.center,
         ),
       );
     } else {

@@ -454,7 +454,9 @@ class _PetCard extends StatelessWidget {
                       ? _placeholderImg()
                       : Image.network(
                           imageUrl!,
-                          fit: BoxFit.cover,
+                          fit: BoxFit
+                              .contain, // 👈 show entire image, no cropping
+                          alignment: Alignment.center,
                           errorBuilder: (_, __, ___) => _placeholderImg(),
                         ),
                 ),

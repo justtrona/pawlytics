@@ -346,7 +346,9 @@ class _PetDetailPageState extends State<PetDetailPage> {
                               widget.image,
                               height: 280,
                               width: double.infinity,
-                              fit: BoxFit.cover,
+                              fit: BoxFit
+                                  .contain, // ✅ show entire image, no cropping
+                              alignment: Alignment.center,
                               errorBuilder: (_, __, ___) =>
                                   _placeholderHeader(),
                             )
@@ -354,7 +356,8 @@ class _PetDetailPageState extends State<PetDetailPage> {
                               widget.image,
                               height: 280,
                               width: double.infinity,
-                              fit: BoxFit.cover,
+                              fit: BoxFit.contain, // ✅ same behavior for assets
+                              alignment: Alignment.center,
                               errorBuilder: (_, __, ___) =>
                                   _placeholderHeader(),
                             ),

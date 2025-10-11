@@ -550,27 +550,31 @@ class _PetDetailPageState extends State<PetDetailPage> {
                       ),
                       ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: AspectRatio(
-                          aspectRatio: 16 / 9,
-                          child: img.isEmpty
-                              ? Container(
+                        child: img.isEmpty
+                            ? Container(
+                                height: 240,
+                                color: Colors.grey.shade200,
+                                child: const Center(
+                                  child: Icon(Icons.pets, size: 48),
+                                ),
+                              )
+                            : Image.network(
+                                img,
+                                fit: BoxFit
+                                    .contain, // 👈 shows full image without cropping
+                                height:
+                                    240, // fixed height for consistent layout
+                                width: double.infinity,
+                                errorBuilder: (_, __, ___) => Container(
+                                  height: 240,
                                   color: Colors.grey.shade200,
                                   child: const Center(
                                     child: Icon(Icons.pets, size: 48),
                                   ),
-                                )
-                              : Image.network(
-                                  img,
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (_, __, ___) => Container(
-                                    color: Colors.grey.shade200,
-                                    child: const Center(
-                                      child: Icon(Icons.pets, size: 48),
-                                    ),
-                                  ),
                                 ),
-                        ),
+                              ),
                       ),
+
                       const SizedBox(height: 10),
                       Row(
                         children: [
