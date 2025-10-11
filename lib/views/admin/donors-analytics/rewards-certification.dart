@@ -1,10 +1,17 @@
+import 'dart:io';
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:pdf/widgets.dart' as pw;
+import 'package:http/http.dart' as http;
 
 class RewardsCertification extends StatefulWidget {
   const RewardsCertification({super.key});
-
   @override
   State<RewardsCertification> createState() => _RewardsCertificationState();
 }
@@ -16,7 +23,6 @@ class _Tier {
   final String key;
   final int threshold;
   final Color badgeColor;
-
   const _Tier({
     required this.name,
     required this.key,
@@ -31,7 +37,6 @@ class _TierProgress {
   final _Tier? current;
   final _Tier? next;
   final String currentOutOf;
-
   const _TierProgress({
     required this.label,
     required this.value,
@@ -46,7 +51,6 @@ class _DonorGroup {
   String label;
   double total = 0.0;
   final Map<String, DateTime?> earnedDates;
-
   _DonorGroup({
     required this.key,
     required this.label,
@@ -56,10 +60,36 @@ class _DonorGroup {
 
 class _CertificateRecord {
   final String recipient;
-  final String title;
+  final String title; // e.g., Gold Certificate
+  final String tierKey; // gold/silver/...
   final DateTime createdAt;
+  final String pdfUrl; // direct link to PDF
+  _CertificateRecord({
+    required this.recipient,
+    required this.title,
+    required this.tierKey,
+    required this.createdAt,
+    required this.pdfUrl,
+  });
+}
 
-  _CertificateRecord(this.recipient, this.title, this.createdAt);
+class _CertTemplate {
+  final int id;
+  final String name;
+  final String? tierKey;
+  final String? backgroundUrl;
+  final String? title;
+  final String? bodyTemplate;
+  final String? signatureName;
+  const _CertTemplate({
+    required this.id,
+    required this.name,
+    this.tierKey,
+    this.backgroundUrl,
+    this.title,
+    this.bodyTemplate,
+    this.signatureName,
+  });
 }
 
 /* ====================== Page ====================== */
@@ -71,6 +101,7 @@ class _RewardsCertificationState extends State<RewardsCertification> {
 
   final _sb = Supabase.instance.client;
 
+  // Tiers (MATCH donor page: 5k / 10k / 20k / 30k / 40k)
   final _tiers = const [
     _Tier(
       name: 'Bronze Certificate',
@@ -81,14 +112,26 @@ class _RewardsCertificationState extends State<RewardsCertification> {
     _Tier(
       name: 'Silver Certificate',
       key: 'silver',
-      threshold: 10500,
+      threshold: 10000,
       badgeColor: Colors.grey,
     ),
     _Tier(
       name: 'Gold Certificate',
       key: 'gold',
-      threshold: 25000,
+      threshold: 20000,
       badgeColor: Colors.amber,
+    ),
+    _Tier(
+      name: 'Platinum Certificate',
+      key: 'platinum',
+      threshold: 30000,
+      badgeColor: Color(0xFF9C27B0),
+    ),
+    _Tier(
+      name: 'Diamond Certificate',
+      key: 'diamond',
+      threshold: 40000,
+      badgeColor: Color(0xFF00B8D9),
     ),
   ];
 
@@ -108,6 +151,16 @@ class _RewardsCertificationState extends State<RewardsCertification> {
   _TierProgress? _progress;
   final List<_CertificateRecord> _certs = [];
 
+  // Templates (optional)
+  final List<_CertTemplate> _templates = [];
+
+  // Org summary
+  final Map<String, int> _tierCounts = {};
+  final Map<String, List<String>> _tierRecipients = {};
+  DateTimeRange? _summaryRange;
+  bool _summaryLoading = false;
+  String? _summaryError;
+
   final _money = NumberFormat.currency(
     locale: 'en_PH',
     symbol: '₱',
@@ -118,62 +171,17 @@ class _RewardsCertificationState extends State<RewardsCertification> {
   @override
   void initState() {
     super.initState();
-    _loadAndGroup();
+    _boot();
   }
 
-  /* ====================== Data Loading ====================== */
-
-  Future<void> _loadAndGroup() async {
-    setState(() {
-      _loading = true;
-      _error = null;
-      _groups.clear();
-      _keys.clear();
-      _certs.clear();
-    });
-
+  Future<void> _boot() async {
+    setState(() => _loading = true);
     try {
-      final rows = await _sb
-          .from('donations')
-          .select('donor_name, donation_date, amount')
-          .order('donation_date', ascending: true);
-
-      for (final r in rows as List) {
-        final rawName = (r['donor_name'] ?? '').toString().trim();
-        if (rawName.isEmpty) continue;
-
-        final key = rawName.toLowerCase();
-        final dt = _parseDt(r['donation_date']);
-        final amt = _toDouble(r['amount']);
-
-        _groups.putIfAbsent(
-          key,
-          () => _DonorGroup(key: key, label: rawName, tiers: _tiers),
-        );
-        final g = _groups[key]!;
-
-        if (amt > 0) {
-          g.total += amt;
-          for (final t in _tiers) {
-            if (g.earnedDates[t.key] == null && g.total >= t.threshold) {
-              g.earnedDates[t.key] = dt;
-            }
-          }
-        }
-      }
-
-      final list = _groups.values.toList()
-        ..sort(
-          (a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()),
-        );
-      _keys = list.map((g) => g.key).toList();
-
-      if (_keys.isNotEmpty) {
-        _selectedKey = _keys.first;
-        _applySelection(_selectedKey!);
-      }
-    } on PostgrestException catch (e) {
-      _error = e.message;
+      await _loadTemplates(); // 1) templates (optional)
+      await _loadAndGroup(); // 2) compute donor totals
+      await _autoIssueForAll(); // 3) ISSUE missing certs (will insert even if PDF upload fails)
+      await _loadCertificatesForSelected(); // 4) refresh visible donor certs
+      await _loadSummary(); // 5) summary
     } catch (e) {
       _error = e.toString();
     } finally {
@@ -181,12 +189,134 @@ class _RewardsCertificationState extends State<RewardsCertification> {
     }
   }
 
+  /* ====================== Data Loading ====================== */
+
+  Future<void> _loadAndGroup() async {
+    _groups.clear();
+    _keys.clear();
+    _certs.clear();
+
+    final rows = await _sb
+        .from('donations')
+        .select('donor_name, donation_date, amount')
+        .order('donation_date', ascending: true);
+
+    for (final r in rows as List) {
+      final rawName = (r['donor_name'] ?? '').toString().trim();
+      if (rawName.isEmpty) continue;
+
+      final key = rawName.toLowerCase();
+      final dt = _parseDt(r['donation_date']);
+      final amt = _toDouble(r['amount']);
+
+      _groups.putIfAbsent(
+        key,
+        () => _DonorGroup(key: key, label: rawName, tiers: _tiers),
+      );
+      final g = _groups[key]!;
+
+      if (amt > 0) {
+        g.total += amt;
+        for (final t in _tiers) {
+          if (g.earnedDates[t.key] == null && g.total >= t.threshold) {
+            g.earnedDates[t.key] = dt;
+          }
+        }
+      }
+    }
+
+    final list = _groups.values.toList()
+      ..sort((a, b) => a.label.toLowerCase().compareTo(b.label.toLowerCase()));
+    _keys = list.map((g) => g.key).toList();
+
+    if (_keys.isNotEmpty) {
+      _selectedKey = _keys.first;
+      _applySelection(_selectedKey!);
+    }
+  }
+
+  Future<void> _loadTemplates() async {
+    try {
+      final rows = await _sb
+          .from('certificate_templates')
+          .select(
+            'id,name,tier_key,background_url,title,body_template,signature_name',
+          )
+          .order('id');
+
+      _templates
+        ..clear()
+        ..addAll(
+          (rows as List).map(
+            (r) => _CertTemplate(
+              id: r['id'] as int,
+              name: (r['name'] ?? '').toString(),
+              tierKey: ((r['tier_key'] ?? '').toString().isEmpty)
+                  ? null
+                  : (r['tier_key'] as String),
+              backgroundUrl: ((r['background_url'] ?? '').toString().isEmpty)
+                  ? null
+                  : (r['background_url'] as String),
+              title: ((r['title'] ?? '').toString().isEmpty)
+                  ? null
+                  : (r['title'] as String),
+              bodyTemplate: ((r['body_template'] ?? '').toString().isEmpty)
+                  ? null
+                  : (r['body_template'] as String),
+              signatureName: ((r['signature_name'] ?? '').toString().isEmpty)
+                  ? null
+                  : (r['signature_name'] as String),
+            ),
+          ),
+        );
+    } catch (_) {
+      // optional table; ignore errors
+    }
+  }
+
+  Future<void> _loadCertificatesForSelected() async {
+    if (_selectedKey == null) return;
+    final donor = _groups[_selectedKey!]!.label;
+
+    final rows = await _sb
+        .from('certificates_issued')
+        .select('donor_name,tier_key,issued_at,pdf_url')
+        .eq('donor_name', donor)
+        .order('issued_at', ascending: false);
+
+    _certs
+      ..clear()
+      ..addAll(
+        (rows as List).map(
+          (r) => _CertificateRecord(
+            recipient: r['donor_name'],
+            title: _tiers
+                .firstWhere(
+                  (t) => t.key == (r['tier_key'] ?? ''),
+                  orElse: () => const _Tier(
+                    name: 'Certificate',
+                    key: 'certificate',
+                    threshold: 0,
+                    badgeColor: Colors.blueGrey,
+                  ),
+                )
+                .name,
+            tierKey: (r['tier_key'] ?? '').toString(),
+            createdAt:
+                DateTime.tryParse((r['issued_at'] ?? '').toString()) ??
+                DateTime.now(),
+            pdfUrl: (r['pdf_url'] ?? '').toString(),
+          ),
+        ),
+      );
+    setState(() {});
+  }
+
   void _applySelection(String key) {
     final g = _groups[key]!;
     _total = g.total;
     _earnedDates = g.earnedDates;
     _progress = _computeProgress(_total);
-    _loadCertificatesForSelected();
     setState(() {});
   }
 
@@ -200,29 +330,54 @@ class _RewardsCertificationState extends State<RewardsCertification> {
     return earned;
   }
 
-  String? _selectedDonorLabel() =>
-      _selectedKey == null ? null : _groups[_selectedKey!]?.label;
+  /* ====================== AUTO Issue Certificates ====================== */
 
-  Future<void> _loadCertificatesForSelected() async {
-    if (_selectedKey == null) return;
-    final donor = _groups[_selectedKey!]!.label;
-
-    final rows = await _sb
+  Future<void> _autoIssueForAll() async {
+    // Fetch all existing cert rows once
+    final existingRows = await _sb
         .from('certificates_issued')
-        .select()
-        .eq('donor_name', donor);
-    _certs
-      ..clear()
-      ..addAll(
-        rows.map(
-          (r) => _CertificateRecord(
-            r['donor_name'],
-            r['tier_key'] ?? 'Certificate',
-            DateTime.tryParse(r['issued_at'] ?? '') ?? DateTime.now(),
-          ),
-        ),
-      );
-    setState(() {});
+        .select('donor_name,tier_key');
+
+    final existingSet = <String>{};
+    for (final r in existingRows as List) {
+      final name = (r['donor_name'] ?? '').toString();
+      final tier = (r['tier_key'] ?? '').toString();
+      if (name.isEmpty || tier.isEmpty) continue;
+      existingSet.add('${name.toLowerCase()}_$tier');
+    }
+
+    // For every donor, if they earned a tier but don't have a cert, create it
+    for (final g in _groups.values) {
+      for (final t in _tiers) {
+        if (g.total < t.threshold) break; // tiers are ascending
+        final key = '${g.label.toLowerCase()}_${t.key}';
+        if (existingSet.contains(key)) continue; // already issued
+
+        // Use a matching template if available
+        final tpl = _templates.firstWhere(
+          (tmp) => tmp.tierKey == t.key,
+          orElse: () => _templates.isNotEmpty
+              ? _templates.first
+              : _CertTemplate(id: -1, name: '—'),
+        );
+
+        await _createCertificatePdfAndStore(
+          recipient: g.label,
+          title: t.name,
+          body:
+              tpl.bodyTemplate ??
+              'In grateful recognition of your generous support to our organization.',
+          orgName: _orgName,
+          signName: tpl.signatureName ?? _signName,
+          signTitle: _signTitle,
+          donorKey: g.key,
+          template: tpl.id == -1 ? null : tpl,
+          silent: true, // run quietly on boot
+        );
+
+        existingSet.add(key);
+      }
+    }
   }
 
   /* ====================== Tier Progress ====================== */
@@ -265,114 +420,6 @@ class _RewardsCertificationState extends State<RewardsCertification> {
     );
   }
 
-  Future<void> _showCreateDialog({
-    String? initialTitle,
-    String? initialBody,
-    String? initialOrgName,
-    String? initialSignName,
-    String? initialSignTitle,
-  }) async {
-    final recipient = _selectedDonorLabel();
-    if (recipient == null || recipient.isEmpty) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Select a donor first.')));
-      return;
-    }
-
-    final titleCtl = TextEditingController(
-      text:
-          initialTitle ??
-          (_selectedKey != null
-              ? (_highestTierFor(_selectedKey!)?.name ??
-                    'Certificate of Appreciation')
-              : 'Certificate of Appreciation'),
-    );
-    final bodyCtl = TextEditingController(
-      text:
-          initialBody ??
-          'In grateful recognition of your generous support to our organization.',
-    );
-    final orgCtl = TextEditingController(text: initialOrgName ?? _orgName);
-    final signNameCtl = TextEditingController(
-      text: initialSignName ?? _signName,
-    );
-    final signTitleCtl = TextEditingController(
-      text: initialSignTitle ?? _signTitle,
-    );
-
-    await showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Create certificate'),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  'Recipient: $recipient',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: titleCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Certificate title',
-                ),
-              ),
-              const SizedBox(height: 8),
-              TextField(
-                controller: bodyCtl,
-                maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Body text'),
-              ),
-              const Divider(height: 18),
-              TextField(
-                controller: orgCtl,
-                decoration: const InputDecoration(
-                  labelText: 'Organization name',
-                ),
-              ),
-              TextField(
-                controller: signNameCtl,
-                decoration: const InputDecoration(labelText: 'Signatory name'),
-              ),
-              TextField(
-                controller: signTitleCtl,
-                decoration: const InputDecoration(labelText: 'Signatory title'),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          FilledButton(
-            onPressed: () async {
-              await _createCertificatePdfAndStore(
-                recipient: recipient,
-                title: titleCtl.text.trim(),
-                body: bodyCtl.text.trim(),
-                orgName: orgCtl.text.trim(),
-                signName: signNameCtl.text.trim(),
-                signTitle: signTitleCtl.text.trim(),
-                donorKey: _selectedKey,
-              );
-              if (mounted) Navigator.pop(ctx);
-              await _loadCertificatesForSelected();
-            },
-            child: const Text('Create'),
-          ),
-        ],
-      ),
-    );
-  }
-
   /* ====================== Certificate Logic ====================== */
 
   Future<void> _createCertificatePdfAndStore({
@@ -383,121 +430,421 @@ class _RewardsCertificationState extends State<RewardsCertification> {
     required String signName,
     required String signTitle,
     String? donorKey,
+    _CertTemplate? template,
+    bool silent = false,
   }) async {
     try {
-      final tierKey = _tiers
-          .firstWhere(
-            (t) => t.name == title,
-            orElse: () => const _Tier(
-              name: 'Appreciation',
-              key: 'appreciation',
-              threshold: 0,
-              badgeColor: Colors.blueGrey,
-            ),
-          )
-          .key;
+      // Resolve tier (fallback to "appreciation")
+      final tier = _tiers.firstWhere(
+        (t) => t.name.toLowerCase().trim() == title.toLowerCase().trim(),
+        orElse: () => const _Tier(
+          name: 'Appreciation',
+          key: 'appreciation',
+          threshold: 0,
+          badgeColor: Colors.blueGrey,
+        ),
+      );
+      final tierKey = template?.tierKey ?? tier.key;
 
-      // Prevent duplicates
+      // Prevent duplicate donor+tier
       final existing = await _sb
           .from('certificates_issued')
-          .select()
+          .select('id')
           .eq('donor_name', recipient)
           .eq('tier_key', tierKey)
           .maybeSingle();
-
       if (existing != null) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('⚠️ $recipient already has a $tierKey certificate.'),
-          ),
-        );
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '⚠️ $recipient already has a $tierKey certificate.',
+              ),
+            ),
+          );
+        }
         return;
       }
 
-      // Ensure donor reached the tier
+      // Ensure donor qualifies (except appreciation)
       final donor = _groups[donorKey];
       if (donor == null) throw 'Donor not found.';
-      final tier = _tiers.firstWhere((t) => t.key == tierKey);
-      if (donor.total < tier.threshold) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              '❌ $recipient has not yet reached ₱${tier.threshold} for $tierKey.',
+      final enforcedTier = _tiers.firstWhere(
+        (t) => t.key == tierKey,
+        orElse: () => const _Tier(
+          name: 'Appreciation',
+          key: 'appreciation',
+          threshold: 0,
+          badgeColor: Colors.blueGrey,
+        ),
+      );
+      if (enforcedTier.key != 'appreciation' &&
+          donor.total < enforcedTier.threshold) {
+        if (!silent) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                '❌ $recipient has not yet reached ₱${enforcedTier.threshold} for $tierKey.',
+              ),
             ),
-          ),
-        );
+          );
+        }
         return;
       }
 
-      final pdfUrl = 'https://example.com/certs/${recipient}_$tierKey.pdf';
+      // Build PDF
+      final now = DateTime.now();
+      final bgBytes = await _fetchBytesOrNull(template?.backgroundUrl);
+      final pdfBytes = await _buildCertificatePdfBytes(
+        orgName: orgName,
+        recipient: recipient,
+        title: title,
+        body: body,
+        signName: signName,
+        signTitle: signTitle,
+        issuedAt: now,
+        backgroundImage: bgBytes,
+      );
 
+      // Try to upload the PDF — but **do not block issuance** if it fails.
+      String pdfUrl = '';
+      try {
+        final safeRecipient = recipient
+            .replaceAll(RegExp(r'[^\w\s-]'), '')
+            .replaceAll(' ', '_');
+        final fileName =
+            '${safeRecipient}_${tierKey}_${now.millisecondsSinceEpoch}.pdf';
+        pdfUrl = await _uploadPdfToSupabase(
+          fileName: fileName,
+          bytes: pdfBytes,
+        );
+      } catch (_) {
+        // leave pdfUrl as empty -> the row will be inserted, UI will show "No file yet"
+      }
+
+      // Insert DB row **even if pdfUrl is empty**
       await _sb.from('certificates_issued').insert({
         'user_id': _sb.auth.currentUser?.id,
         'donor_name': recipient,
         'tier_key': tierKey,
         'amount': donor.total,
-        'issued_at': DateTime.now().toIso8601String(),
-        'pdf_url': pdfUrl,
+        'issued_at': now.toIso8601String(),
+        'pdf_url': pdfUrl, // '' when upload failed
       });
 
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('✅ Certificate created for $recipient ($tierKey).'),
-        ),
-      );
-      _certs.add(_CertificateRecord(recipient, title, DateTime.now()));
-      setState(() {});
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('✅ Certificate created for $recipient ($tierKey).'),
+          ),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Error creating certificate: $e')));
+      if (!silent) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error creating certificate: $e')),
+        );
+      }
     }
   }
 
-  Future<void> _bulkCreateForAll() async {
-    if (_groups.isEmpty) return;
-    final org = _orgName;
-    final sName = _signName;
-    final sTitle = _signTitle;
-    const body = 'In grateful recognition of your generous support.';
+  /* ====================== PDF + Storage Helpers ====================== */
 
-    final existingRows = await _sb
-        .from('certificates_issued')
-        .select('donor_name, tier_key');
-    final existingSet = {
-      for (final r in existingRows) '${r['donor_name']}_${r['tier_key']}',
-    };
-    int createdCount = 0;
+  Future<Uint8List> _buildCertificatePdfBytes({
+    required String orgName,
+    required String recipient,
+    required String title,
+    required String body,
+    required String signName,
+    required String signTitle,
+    required DateTime issuedAt,
+    Uint8List? backgroundImage,
+  }) async {
+    final pdf = pw.Document();
+    final header = pw.TextStyle(fontSize: 28, fontWeight: pw.FontWeight.bold);
+    final big = pw.TextStyle(fontSize: 22, fontWeight: pw.FontWeight.bold);
+    final normal = pw.TextStyle(fontSize: 14);
+    final small = pw.TextStyle(fontSize: 12);
 
-    for (final g in _groups.values) {
-      final tier = _highestTierFor(g.key);
-      if (tier == null) continue;
-      final comboKey = '${g.label}_${tier.key}';
-      if (existingSet.contains(comboKey)) continue;
-
-      await _createCertificatePdfAndStore(
-        recipient: g.label,
-        title: tier.name,
-        body: body,
-        orgName: org,
-        signName: sName,
-        signTitle: sTitle,
-        donorKey: g.key,
-      );
-      createdCount++;
-    }
-
-    await _loadCertificatesForSelected();
-
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            '✅ Bulk creation complete. $createdCount new certificates issued.',
+    pw.Widget pageContent() => pw.Stack(
+      children: [
+        if (backgroundImage != null)
+          pw.Positioned.fill(
+            child: pw.Opacity(
+              opacity: 0.15,
+              child: pw.Image(
+                pw.MemoryImage(backgroundImage),
+                fit: pw.BoxFit.cover,
+              ),
+            ),
           ),
+        pw.Padding(
+          padding: const pw.EdgeInsets.all(48),
+          child: pw.Column(
+            crossAxisAlignment: pw.CrossAxisAlignment.center,
+            children: [
+              pw.Text(orgName, style: header),
+              pw.SizedBox(height: 6),
+              pw.Text('Certificate', style: big),
+              pw.SizedBox(height: 20),
+              pw.Text(title, style: big),
+              pw.SizedBox(height: 14),
+              pw.Text('Awarded to', style: small),
+              pw.SizedBox(height: 4),
+              pw.Text(
+                recipient,
+                style: pw.TextStyle(
+                  fontSize: 24,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 16),
+              pw.Text(body, textAlign: pw.TextAlign.center, style: normal),
+              pw.Spacer(),
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                children: [
+                  pw.Column(
+                    children: [
+                      pw.Text(signName, style: normal),
+                      pw.Text(signTitle, style: small),
+                    ],
+                  ),
+                  pw.Text(
+                    DateFormat('MMMM d, yyyy').format(issuedAt),
+                    style: small,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+
+    pdf.addPage(pw.Page(build: (_) => pageContent()));
+    return await pdf.save();
+  }
+
+  Future<Uint8List?> _fetchBytesOrNull(String? url) async {
+    if (url == null || url.isEmpty) return null;
+    try {
+      final res = await http.get(Uri.parse(url));
+      if (res.statusCode == 200) return Uint8List.fromList(res.bodyBytes);
+    } catch (_) {}
+    return null;
+  }
+
+  Future<String> _uploadPdfToSupabase({
+    required String fileName,
+    required Uint8List bytes,
+  }) async {
+    // PUBLIC bucket 'certificates'
+    final path = 'certs/$fileName';
+    await _sb.storage
+        .from('certificates')
+        .uploadBinary(
+          path,
+          bytes,
+          fileOptions: const FileOptions(upsert: true),
+        );
+    return _sb.storage.from('certificates').getPublicUrl(path);
+  }
+
+  Future<void> _openUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      throw 'Could not launch $url';
+    }
+  }
+
+  /* ====================== Organization Summary (Admin) ====================== */
+
+  Future<void> _loadSummary() async {
+    _summaryLoading = true;
+    _summaryError = null;
+    _tierCounts.clear();
+    _tierRecipients.clear();
+    setState(() {});
+
+    try {
+      var query = _sb
+          .from('certificates_issued')
+          .select('donor_name,tier_key,issued_at');
+      if (_summaryRange != null) {
+        final since = _summaryRange!.start.toIso8601String();
+        final until = _summaryRange!.end.toIso8601String();
+        query = query.gte('issued_at', since).lte('issued_at', until);
+      }
+
+      final rows = await query.order('issued_at', ascending: false);
+
+      for (final r in rows as List) {
+        final tierKey = (r['tier_key'] ?? '').toString();
+        final name = (r['donor_name'] ?? '').toString();
+        if (tierKey.isEmpty || name.isEmpty) continue;
+
+        _tierCounts[tierKey] = (_tierCounts[tierKey] ?? 0) + 1;
+        _tierRecipients.putIfAbsent(tierKey, () => []);
+        if (!_tierRecipients[tierKey]!.contains(name)) {
+          _tierRecipients[tierKey]!.add(name);
+        }
+      }
+
+      for (final t in _tiers) {
+        _tierCounts.putIfAbsent(t.key, () => 0);
+        _tierRecipients.putIfAbsent(t.key, () => []);
+      }
+    } catch (e) {
+      _summaryError = e.toString();
+    } finally {
+      _summaryLoading = false;
+      if (mounted) setState(() {});
+    }
+  }
+
+  Future<void> _pickSummaryRange() async {
+    final now = DateTime.now();
+    final initial =
+        _summaryRange ??
+        DateTimeRange(start: DateTime(now.year, now.month, 1), end: now);
+    final picked = await showDateRangePicker(
+      context: context,
+      firstDate: DateTime(now.year - 5),
+      lastDate: DateTime(now.year + 1),
+      initialDateRange: initial,
+      helpText: 'Filter certificates by issue date',
+    );
+    if (picked != null) {
+      setState(() => _summaryRange = picked);
+      await _loadSummary();
+    }
+  }
+
+  String _buildSummaryCsv() {
+    final buffer = StringBuffer('tier_key,tier_name,count\n');
+    for (final t in _tiers) {
+      final count = _tierCounts[t.key] ?? 0;
+      buffer.writeln('${t.key},"${t.name}",$count');
+    }
+    return buffer.toString();
+  }
+
+  Widget _buildSummaryHeaderRow() {
+    final label = _summaryRange == null
+        ? 'All time'
+        : '${DateFormat('MMM d, yyyy').format(_summaryRange!.start)} – ${DateFormat('MMM d, yyyy').format(_summaryRange!.end)}';
+
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Certificates issued • $label',
+            style: const TextStyle(
+              color: subtitle,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+        IconButton(
+          icon: const Icon(Icons.date_range),
+          onPressed: _pickSummaryRange,
+          tooltip: 'Date filter',
+        ),
+        IconButton(
+          icon: const Icon(Icons.refresh),
+          onPressed: _loadSummary,
+          tooltip: 'Refresh',
+        ),
+        IconButton(
+          icon: const Icon(Icons.download_outlined),
+          tooltip: 'Export CSV',
+          onPressed: () async {
+            try {
+              final csv = _buildSummaryCsv();
+              final dir = await getTemporaryDirectory();
+              final file = File('${dir.path}/certificate_summary.csv');
+              await file.writeAsString(csv);
+              await Share.shareXFiles([
+                XFile(file.path),
+              ], text: 'Certificate Summary');
+            } catch (e) {
+              ScaffoldMessenger.of(
+                context,
+              ).showSnackBar(SnackBar(content: Text('Export failed: $e')));
+            }
+          },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSummaryGrid() {
+    if (_summaryLoading) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: CircularProgressIndicator(),
         ),
       );
     }
+    if (_summaryError != null) return _ErrorRow(_summaryError!);
+
+    final total = _tierCounts.values.fold<int>(0, (a, b) => a + b);
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: _tiers.map((t) {
+        final count = _tierCounts[t.key] ?? 0;
+        final pct = total == 0 ? 0.0 : (count / total);
+        return Container(
+          width: 180,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            boxShadow: [
+              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Icon(Icons.military_tech, color: t.badgeColor),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      t.name,
+                      style: const TextStyle(fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 8),
+              Text(
+                '$count issued',
+                style: const TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.w800,
+                  color: navy,
+                ),
+              ),
+              const SizedBox(height: 6),
+              LinearProgressIndicator(value: pct, minHeight: 8),
+              const SizedBox(height: 4),
+              Text(
+                total == 0
+                    ? '—'
+                    : '${(pct * 100).toStringAsFixed(0)}% of total',
+                style: const TextStyle(fontSize: 12, color: subtitle),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
   }
 
   /* ====================== UI ====================== */
@@ -549,8 +896,19 @@ class _RewardsCertificationState extends State<RewardsCertification> {
                 ),
                 const SizedBox(height: 12),
                 _buildAchievements(),
-                const SizedBox(height: 14),
-                _buildActionsRow(),
+                const SizedBox(height: 24),
+                const Text(
+                  'Organization Summary',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w800,
+                    fontSize: 16,
+                    color: navy,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildSummaryHeaderRow(),
+                const SizedBox(height: 10),
+                _buildSummaryGrid(),
                 const SizedBox(height: 18),
                 const Text(
                   'Certificates',
@@ -582,7 +940,7 @@ class _RewardsCertificationState extends State<RewardsCertification> {
           isExpanded: true,
           items: _keys
               .map(
-                (k) => DropdownMenuItem<String>(
+                (k) => DropdownMenuItem(
                   value: k,
                   child: Text(
                     _groups[k]!.label,
@@ -591,10 +949,11 @@ class _RewardsCertificationState extends State<RewardsCertification> {
                 ),
               )
               .toList(),
-          onChanged: (k) {
+          onChanged: (k) async {
             if (k == null) return;
             _selectedKey = k;
             _applySelection(k);
+            await _loadCertificatesForSelected(); // refresh cert list when switching donor
           },
         ),
       ),
@@ -660,53 +1019,11 @@ class _RewardsCertificationState extends State<RewardsCertification> {
               color: t.badgeColor,
               status: isEarned
                   ? 'earned'
-                  : _total >= t.threshold
-                  ? 'unlocked'
-                  : 'locked',
+                  : (_total >= t.threshold ? 'unlocked' : 'locked'),
             ),
           );
         }).toList(),
       ),
-    );
-  }
-
-  Widget _buildActionsRow() {
-    return Row(
-      children: [
-        Expanded(
-          child: OutlinedButton.icon(
-            icon: const Icon(Icons.picture_as_pdf_rounded),
-            label: const Text('Create certificate'),
-            onPressed: () {
-              if (_selectedKey == null) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Select a donor first.')),
-                );
-                return;
-              }
-              final tier = _highestTierFor(_selectedKey!);
-              final defaultTitle = tier?.name ?? 'Certificate of Appreciation';
-              final defaultBody =
-                  'In grateful recognition of your generous support to our organization.';
-              _showCreateDialog(
-                initialTitle: defaultTitle,
-                initialBody: defaultBody,
-                initialOrgName: _orgName,
-                initialSignName: _signName,
-                initialSignTitle: _signTitle,
-              );
-            },
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: FilledButton.icon(
-            icon: const Icon(Icons.add_to_photos_rounded),
-            label: const Text('Bulk create (all)'),
-            onPressed: _groups.isEmpty ? null : _bulkCreateForAll,
-          ),
-        ),
-      ],
     );
   }
 
@@ -723,55 +1040,63 @@ class _RewardsCertificationState extends State<RewardsCertification> {
       );
     }
     return Column(
-      children: _certs
-          .map(
-            (c) => Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.picture_as_pdf_rounded,
-                    color: Colors.redAccent,
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          c.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w700,
-                            fontSize: 14,
-                          ),
-                        ),
-                        Text(
-                          '${c.recipient} • ${_dateFmt.format(c.createdAt)}',
-                          style: const TextStyle(
-                            color: Colors.black54,
-                            fontSize: 12,
-                          ),
-                        ),
-                      ],
+      children: _certs.map((c) {
+        return Container(
+          margin: const EdgeInsets.only(bottom: 10),
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.picture_as_pdf_rounded, color: Colors.redAccent),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      c.title,
+                      style: const TextStyle(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 14,
+                      ),
                     ),
-                  ),
-                  IconButton(
-                    onPressed: () {},
-                    icon: const Icon(Icons.download_rounded),
-                  ),
-                ],
+                    Text(
+                      '${c.recipient} • ${_dateFmt.format(c.createdAt)}',
+                      style: const TextStyle(
+                        color: Colors.black54,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          )
-          .toList(),
+              IconButton(
+                tooltip: c.pdfUrl.isEmpty ? 'No file yet' : 'Open PDF',
+                onPressed: c.pdfUrl.isEmpty
+                    ? null
+                    : () async {
+                        try {
+                          await _openUrl(c.pdfUrl);
+                        } catch (e) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(content: Text('Open failed: $e')),
+                          );
+                        }
+                      },
+                icon: const Icon(Icons.download_rounded),
+              ),
+            ],
+          ),
+        );
+      }).toList(),
     );
   }
+
+  /* ====================== Utils ====================== */
 
   double _toDouble(dynamic v) => v == null
       ? 0.0
@@ -787,7 +1112,6 @@ class _RewardsCertificationState extends State<RewardsCertification> {
 class _ErrorRow extends StatelessWidget {
   final String message;
   const _ErrorRow(this.message);
-
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -819,7 +1143,6 @@ class _AchievementCard extends StatelessWidget {
     required this.color,
     required this.status,
   });
-
   @override
   Widget build(BuildContext context) {
     final isUnlocked = status == 'unlocked' || status == 'earned';

@@ -266,7 +266,39 @@ class _ProfilePageState extends State<ProfilePage> {
                   MaterialPageRoute(builder: (_) => const CertificatesPage()),
                 ),
               ),
+              // _MenuTile(
+              //   icon: Icons.workspace_premium,
+              //   title: 'Certificates',
+              //   onTap: () {
+              //     final user = Supabase.instance.client.auth.currentUser;
 
+              //     // pick the best identifier your DB uses for donor_name
+              //     final donorName =
+              //         (user?.userMetadata?['donor_name'] as String? ??
+              //                 user?.userMetadata?['full_name'] as String? ??
+              //                 user?.email)
+              //             ?.trim() ??
+              //         '';
+
+              //     if (donorName.isEmpty) {
+              //       ScaffoldMessenger.of(context).showSnackBar(
+              //         const SnackBar(
+              //           content: Text(
+              //             'Missing donor identity. Please complete your profile.',
+              //           ),
+              //         ),
+              //       );
+              //       return;
+              //     }
+
+              //     Navigator.push(
+              //       context,
+              //       MaterialPageRoute(
+              //         builder: (_) => CertificatesPage(donorName: donorName),
+              //       ),
+              //     );
+              //   },
+              // ),
               const _SectionHeader('Tracking'),
               _MenuTile(
                 icon: Icons.show_chart,
